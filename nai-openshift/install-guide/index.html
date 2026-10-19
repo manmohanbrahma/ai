@@ -1,0 +1,2241 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style><title>Install Guide: Nutanix Enterprise AI on Red Hat OpenShift</title><meta name="description" content="Step-by-step install procedure for Nutanix Enterprise AI on Red Hat OpenShift."></head><body>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;600;700&family=Source+Sans+3:ital,wght@0,400;0,600;1,400&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: single reading column (~72ch) with a sticky step index on wide screens; code and logs scroll inside their own boxes */
+:root {
+  --bg: #f6f7f8; --surface: #ffffff; --fg: #1b2228; --muted: #5a6670; --line: #d9dee2;
+  --accent: #0b7a75; --accent-soft: #e2f2f0; --warn: #9a5b00; --warn-soft: #fbf0dc; --bad: #a1262c;
+  --code-bg: #0f1a20; --code-fg: #d7e3e8; --code-dim: #7f939c; --code-ok: #6fd1a4; --code-warn: #f0c36a; --code-err: #ff8f8f;
+  --f-display: "Barlow Semi Condensed", "Arial Narrow", Arial, sans-serif;
+  --f-body: "Source Sans 3", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --f-mono: "JetBrains Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0e1418; --surface: #151d22; --fg: #e3e9ec; --muted: #9aa8b0; --line: #2a353c;
+  --accent: #4fc1b8; --accent-soft: #15302e; --warn: #f0b85a; --warn-soft: #33270f; --bad: #ff8a8f;
+  --code-bg: #091014; --code-fg: #d7e3e8; --code-dim: #7f939c; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #0e1418; --surface: #151d22; --fg: #e3e9ec; --muted: #9aa8b0; --line: #2a353c;
+  --accent: #4fc1b8; --accent-soft: #15302e; --warn: #f0b85a; --warn-soft: #33270f; --bad: #ff8a8f;
+  --code-bg: #091014; --code-fg: #d7e3e8; --code-dim: #7f939c; color-scheme: dark }
+* { box-sizing: border-box }
+body { background: var(--bg); color: var(--fg); font: 17px/1.6 var(--f-body); margin: 0; padding-inline: 16px; padding-block: 0 64px }
+.wrap { max-width: 1120px; margin: 0 auto; display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 48px }
+@media (max-width: 900px) { .wrap { grid-template-columns: minmax(0, 1fr) } nav.toc { display: none } }
+nav.toc { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 24px); align-self: start; padding-top: 40px; font-size: 14px }
+nav.toc ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; counter-reset: s }
+nav.toc a { color: var(--muted); text-decoration: none; display: block; padding: 2px 0 2px 10px; border-left: 2px solid var(--line) }
+nav.toc a:hover, nav.toc a:focus-visible { color: var(--accent); border-left-color: var(--accent); outline: none }
+main { min-width: 0; padding-top: 40px }
+header.doc { border-bottom: 1px solid var(--line); padding-bottom: 24px; margin-bottom: 8px }
+.eyebrow { font: 600 13px/1 var(--f-body); letter-spacing: .12em; text-transform: uppercase; color: var(--accent) }
+h1, h2, h3 { font-family: var(--f-display); text-wrap: balance; line-height: 1.15; margin: 0 }
+h1 { font-size: clamp(32px, 5vw, 46px); font-weight: 700; margin-top: 10px }
+h2 { font-size: 28px; font-weight: 600; margin: 56px 0 12px; scroll-margin-top: 20px }
+h2 .n { color: var(--accent); margin-right: 10px; font-variant-numeric: tabular-nums }
+h3 { font-size: 20px; font-weight: 600; margin: 28px 0 8px }
+p, li { max-width: 72ch }
+p { margin: 10px 0 }
+.meta { display: flex; flex-wrap: wrap; gap: 8px 24px; color: var(--muted); font-size: 15px; margin-top: 14px }
+.meta b { color: var(--fg); font-weight: 600 }
+.lede { font-size: 19px; color: var(--fg); margin-top: 14px }
+a { color: var(--accent) }
+code { font: 0.86em var(--f-mono); background: var(--accent-soft); padding: 1px 5px; border-radius: 4px; overflow-wrap: anywhere }
+.cmd, pre.log { position: relative; background: var(--code-bg); color: var(--code-fg); border-radius: 8px; margin: 12px 0; font: 13.5px/1.55 var(--f-mono) }
+.cmd pre, pre.log { margin: 0; padding: 14px 16px; overflow-x: auto; white-space: pre }
+pre.log { max-height: 460px; overflow: auto }
+.cmd .c { color: var(--code-dim) }
+.copy { position: absolute; top: 8px; right: 8px; font: 600 12px var(--f-body); color: var(--code-fg); background: transparent; border: 1px solid #3a4a52; border-radius: 6px; padding: 3px 9px; cursor: pointer }
+.copy:hover, .copy:focus-visible { border-color: var(--accent); color: #fff; outline: none }
+.log .ok { color: var(--code-ok) } .log .w { color: var(--code-warn) } .log .e { color: var(--code-err) } .log .s { color: #9cc7ff; font-weight: 600 }
+.table { overflow-x: auto; margin: 12px 0; border: 1px solid var(--line); border-radius: 8px; background: var(--surface) }
+table { border-collapse: collapse; width: 100%; font-size: 15px }
+th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); vertical-align: top }
+th { font: 600 13px var(--f-body); letter-spacing: .04em; text-transform: uppercase; color: var(--muted); background: var(--bg) }
+tr:last-child td { border-bottom: 0 }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap }
+.facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin: 18px 0 }
+.fact { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; min-width: 0 }
+.fact .k { font-size: 13px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em }
+.fact .v { font: 600 22px/1.2 var(--f-display); margin-top: 4px; font-variant-numeric: tabular-nums }
+.note { background: var(--warn-soft); border-radius: 8px; padding: 12px 16px; margin: 14px 0; max-width: 78ch }
+.note b { color: var(--warn) }
+.qa { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 0.8fr); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: var(--surface); margin: 12px 0 }
+.qa > div { padding: 8px 12px; border-bottom: 1px solid var(--line); min-width: 0; overflow-wrap: anywhere }
+.qa > div:nth-child(odd) { color: var(--muted) }
+.qa > div:nth-child(even) { font-family: var(--f-mono); font-size: 14px }
+.qa > div:nth-last-child(-n+2) { border-bottom: 0 }
+@media (max-width: 560px) { .qa { grid-template-columns: minmax(0, 1fr) } .qa > div:nth-child(odd) { border-bottom: 0; padding-bottom: 0 } }
+details { border: 1px solid var(--line); border-radius: 8px; background: var(--surface); margin: 12px 0 }
+details > summary { cursor: pointer; padding: 10px 14px; font-weight: 600 }
+details[open] > summary { border-bottom: 1px solid var(--line) }
+details .inner { padding: 4px 14px 14px; min-width: 0 }
+ol.steps li { margin: 6px 0 }
+@media (prefers-reduced-motion: no-preference) { nav.toc a { transition: color .15s, border-color .15s } }
+</style>
+
+<div class="wrap">
+<nav class="toc" aria-label="Contents">
+  <ol>
+    <li><a href="#overview">Overview</a></li>
+    <li><a href="#prereq">Before you start</a></li>
+    <li><a href="#script">Get the script</a></li>
+    <li><a href="#run">Run it: VM example</a></li>
+    <li><a href="#stages">What it does</a></li>
+    <li><a href="#track">Track progress</a></li>
+    <li><a href="#logins">Logins</a></li>
+    <li><a href="#logs">Logs from the run</a></li>
+    <li><a href="#trouble">Problems we hit</a></li>
+    <li><a href="#uninstall">Uninstall</a></li>
+    <li><a href="#source">Script source</a></li>
+  </ol>
+</nav>
+<main>
+<header class="doc">
+  <div class="eyebrow">Install Guide</div>
+  <h1>Nutanix Enterprise AI on Red Hat OpenShift</h1>
+  <p class="lede">One script installs single-node OpenShift and Nutanix Enterprise AI (NAI) in a VM, on a remote server, or on bare metal. This runbook walks through a real VM install on the lab host, with the answers given, the logs it produced, and how to log in.</p>
+  <div class="meta"><span>Author <b>Manmohan Brahma</b></span><span>Run on <b>15 October 2026</b></span><span>Script <b>nai-on-openshift.sh</b></span><span><a href="../planning-guide/">Planning Guide</a></span><span><a href="../../">All guides</a></span><span>OpenShift <b>4.22.17</b></span><span>NAI <b>2.8.1</b></span></div>
+</header>
+
+<h2 id="overview"><span class="n">1</span>Overview</h2>
+<p>The script runs on a Linux host and asks every question first. After you confirm, it downloads the NAI files, prepares the host, installs OpenShift, adds the operators NAI needs, loads the NAI images into a local registry and installs NAI. It records every change it makes so <code>--uninstall</code> can reverse exactly those changes.</p>
+<div class="facts">
+  <div class="fact"><div class="k">Example target</div><div class="v">VM on this host</div></div>
+  <div class="fact"><div class="k">VM size</div><div class="v">48 vCPU · 128 GB</div></div>
+  <div class="fact"><div class="k">GPU</div><div class="v">RTX A6000 (passthrough)</div></div>
+  <div class="fact"><div class="k">Hands-on time</div><div class="v">~10 min</div></div>
+  <div class="fact"><div class="k">Elapsed, end to end</div><div class="v">~2 h 05 min</div></div>
+</div>
+<div class="table"><table>
+  <thead><tr><th>Target</th><th>Choose when</th><th>What the script needs</th></tr></thead>
+  <tbody>
+    <tr><td><b>1 vm</b></td><td>The host running the script has spare CPU, memory and, optionally, an NVIDIA GPU</td><td>vCPUs, memory, disk sizes, GPU choice (or CPU-only)</td></tr>
+    <tr><td><b>2 remote</b></td><td>The VM should run on another Linux server</td><td>Server IP and root password (used once to install an SSH key); then the same VM questions, asked on that server</td></tr>
+    <tr><td><b>3 baremetal</b></td><td>OpenShift should own a whole server</td><td>IPMI address, user and password; node NIC, IP, gateway, DNS; install and data disks. <b>Erases those disks.</b></td></tr>
+  </tbody>
+</table></div>
+<p>NAI runs model endpoints on NVIDIA GPUs or on CPU. Choosing no GPU gives a CPU-only install with no reboot.</p>
+
+<h2 id="prereq"><span class="n">2</span>Before you start</h2>
+<div class="table"><table>
+  <thead><tr><th>Item</th><th>Requirement</th><th>In the example</th></tr></thead>
+  <tbody>
+    <tr><td>Host OS</td><td>Ubuntu 22.04+, Debian 12+, RHEL / Rocky / Alma / CentOS Stream 8+, Fedora 38+, with root (sudo)</td><td>Ubuntu 26.04.1, kernel 7.0</td></tr>
+    <tr><td>CPU</td><td>Virtualization on in the BIOS (AMD SVM / Intel VT-x). NAI's platform reserves about 19 cores, so give the VM 48 vCPU or more</td><td>AMD EPYC 9684X, 192 threads</td></tr>
+    <tr><td>Memory</td><td>128 GB for the VM with a GPU, 192 GB CPU-only, plus room for the host</td><td>751 GB</td></tr>
+    <tr><td>Disk</td><td>About 1 TB free on one filesystem: VM disks, the 65 GB NAI image bundle, the image registry and the NFS model share</td><td>11 TB free on <code>/shared_storage</code></td></tr>
+    <tr><td>GPU (optional)</td><td>An NVIDIA GPU the host can give up. It is reserved for the VM after one reboot, which the script asks before doing</td><td>RTX A6000, 48 GB</td></tr>
+    <tr><td>Internet</td><td>The host reaches quay.io, registry.redhat.io, mirror.openshift.com, download.nutanix.com and the Ubuntu or RHEL package mirrors</td><td>Direct</td></tr>
+    <tr><td>Red Hat credential</td><td>Either the <b>pull secret</b> (<a href="https://console.redhat.com/openshift/install/pull-secret">console.redhat.com/openshift/install/pull-secret</a>, Copy pull secret) for a local agent-based install, or the <b>OpenShift API token</b> (<a href="https://console.redhat.com/openshift/token">console.redhat.com/openshift/token</a>) to install through the Red Hat console's Assisted Installer</td><td>Pull secret</td></tr>
+    <tr><td>NAI files</td><td>Download links (or local paths) for the NAI air-gapped image bundle and the NAI Helm charts, from the Nutanix portal (Downloads › Nutanix Enterprise AI)</td><td><code>nai-v2.8.1.tar</code>, <code>nai-helm-charts-2.8.1.tar</code></td></tr>
+  </tbody>
+</table></div>
+<div class="note"><b>Keep credentials private.</b> The script reads the pull secret, token and passwords with hidden input and stores them only under <code>/var/lib/nai-ocp</code> (root only). Nutanix download links are signed and valid for about a year; treat them like passwords too.</div>
+
+<h2 id="script"><span class="n">3</span>Get the script</h2>
+<p>Copy <code>nai-on-openshift.sh</code> (full source in <a href="#source">section 11</a>) to the host and make it executable. On the lab host it is already in place:</p>
+<div class="cmd"><button class="copy" type="button">Copy</button><pre>cd /shared_storage/nutanix
+chmod +x nai-on-openshift.sh
+sudo ./nai-on-openshift.sh --check      <span class="c"># read-only: OS, CPU, memory, disks, NVIDIA GPUs</span>
+sudo ./nai-on-openshift.sh --help</pre></div>
+
+<h2 id="run"><span class="n">4</span>Run it: VM example</h2>
+<p>Start it inside <code>tmux</code> so a dropped SSH session does not matter, then answer the questions. Everything after the summary runs unattended except one reboot prompt when a GPU is passed through.</p>
+<div class="cmd"><button class="copy" type="button">Copy</button><pre>tmux new -s nai 'sudo /shared_storage/nutanix/nai-on-openshift.sh'
+<span class="c"># after a disconnect:</span>
+tmux attach -t nai</pre></div>
+<h3>Questions and the answers given</h3>
+<div class="qa">
+  <div>Red Hat credential (hidden input)</div><div>pull secret → agent-based install</div>
+  <div>Air-gapped image bundle: link or path</div><div>&lt;signed link to nai-v2.8.1.tar&gt; → checked: 65.3 GB</div>
+  <div>Helm charts: link or path</div><div>&lt;signed link to nai-helm-charts-2.8.1.tar&gt; → checked: 2.2 MB</div>
+  <div>OpenShift release</div><div>4.22.17 (picked automatically: latest stable)</div>
+  <div>Deployment target</div><div>1 (vm)</div>
+  <div>GPUs for the VM</div><div>1 → 0000:82:00.0, RTX A6000</div>
+  <div>vCPUs</div><div>48</div>
+  <div>Memory (GB)</div><div>128</div>
+  <div>OS disk (GB)</div><div>250</div>
+  <div>Data disk (GB)</div><div>500</div>
+  <div>Folder for VM disks, bundle, registry, NFS</div><div>/shared_storage/nai-ocp-data (default: the filesystem with the most space)</div>
+  <div>Start the deployment with these settings?</div><div>y</div>
+  <div>Reboot now? (GPU reservation)</div><div>y</div>
+</div>
+<p>The script shows the host first so the answers can be checked against it:</p>
+<pre class="log">This host (lab-host)
+  CPU     : AMD EPYC 9684X 96-Core Processor, 96 cores / 192 threads, 4 NUMA node(s)
+  Memory  : 751 GB total, 743 GB available
+  Storage : most free space
+             11071G free  /shared_storage
+              1951G free  /shared_storage/nai-pool
+               209G free  /
+  NVIDIA GPUs:
+     1) 0000:82:00.0  NVIDIA Corporation GA102GL [RTX A6000] (rev a1)  49140 MiB,  NUMA 0  driver nvidia
+
+Summary
+   OpenShift 4.22.17 single node 'sno.nai.lab', installed with the agent-based installer; then NAI
+   VM ocp-sno on lab-host: 48 vCPU, 128 GB memory, disks 250 GB + 500 GB in /shared_storage/nai-ocp-data
+   Compute: NVIDIA GPU passthrough 0000:82:00.0 (one reboot, asked first)
+Start the deployment with these settings (y/n) [y]: y</pre>
+<p>After the GPU reboot the setup continues by itself (a one-shot boot service). Running the script again also continues from the last finished stage; it never asks the questions twice.</p>
+
+<h2 id="stages"><span class="n">5</span>What it does</h2>
+<p>Times are from the example run. The waits between some stages were operator pauses and the fixes described in <a href="#trouble">section 9</a>; the stage durations are what a clean run takes.</p>
+<div class="table"><table>
+  <thead><tr><th>Stage</th><th>What happens</th><th class="num">Took</th></tr></thead>
+  <tbody>
+    <tr><td>inputs</td><td>Questions; links and credential checked; OpenShift release picked</td><td class="num">~5 min (you)</td></tr>
+    <tr><td>download</td><td>NAI image bundle (70 GB) and Helm charts, resumable, with a progress bar</td><td class="num">67 min</td></tr>
+    <tr><td>host-check, host-packages</td><td>Host inventory; KVM, libvirt, OVMF, virt-install, skopeo, podman (54 packages, recorded)</td><td class="num">28 s</td></tr>
+    <tr><td>host-prep</td><td>GPU reserved for passthrough; asks, then reboots once; resumes by itself after the reboot</td><td class="num">2 min 20 s</td></tr>
+    <tr><td>tools, network</td><td><code>oc</code>, <code>openshift-install</code>, <code>helm</code>; private VM network 172.20.130.0/24 with DNS for the cluster names</td><td class="num">23 s</td></tr>
+    <tr><td>ocp-iso</td><td>Agent-based CoreOS ISO with the install and agent configuration</td><td class="num">53 s</td></tr>
+    <tr><td>vm</td><td>VM <code>ocp-sno</code>: 48 vCPU pinned on the GPU's NUMA node, 128 GB, 250 + 500 GB disks, A6000 passed through</td><td class="num">10 s</td></tr>
+    <tr><td>install</td><td>CoreOS written to disk, bootstrap, all cluster operators up</td><td class="num">32 min</td></tr>
+    <tr><td>operators</td><td>Node Feature Discovery, LVM Storage, cert-manager, CloudNativePG, NVIDIA GPU Operator; waits for the in-cluster driver build</td><td class="num">4 min</td></tr>
+    <tr><td>nai-bundle, registry, images</td><td>Unpack the bundle; local registry on 172.20.130.1:5001; push 41 NAI images</td><td class="num">4 min 20 s</td></tr>
+    <tr><td>ocp-prepare</td><td>docker.io mirrored to the local registry; Gateway API v1.5.1; security context constraints</td><td class="num">~3 min</td></tr>
+    <tr><td>rwx-storage</td><td>NFS export on the host and the <code>nai-nfs-storage</code> class for shared model storage</td><td class="num">16 s</td></tr>
+    <tr><td>nai</td><td>Envoy Gateway, KServe, LeaderWorkerSet, OpenTelemetry, NAI operators, NAI core; Route for the NAI URL</td><td class="num">6 min 45 s</td></tr>
+    <tr><td>verify</td><td>OpenShift available, node Ready, GPU allocatable, all NAI pods running, NAI login page answering</td><td class="num">2 s</td></tr>
+    <tr><td><b>Total</b></td><td>Machine time with a 70 GB download over ~17 MB/s; about 55 minutes when the NAI files are already local</td><td class="num"><b>~2 h 05 min</b></td></tr>
+  </tbody>
+</table></div>
+
+<h2 id="track"><span class="n">6</span>Track progress</h2>
+<p>Every stage writes to one log. Watching it does not affect the install; Ctrl+C only stops watching.</p>
+<div class="cmd"><button class="copy" type="button">Copy</button><pre>sudo tail -f /var/lib/nai-ocp/run.log            <span class="c"># live log of every stage</span>
+sudo /shared_storage/nutanix/nai-on-openshift.sh --status   <span class="c"># finished stages, recorded changes, VM state</span>
+sudo ls /var/lib/nai-ocp/done/nai &amp;&amp; echo "INSTALL COMPLETE"</pre></div>
+<p>Once OpenShift is up, check it directly. This host's <code>sudo</code> does not pass environment variables, so give the kubeconfig as a flag:</p>
+<div class="cmd"><button class="copy" type="button">Copy</button><pre>OC="sudo /shared_storage/nai-ocp-data/work/bin/oc --kubeconfig /shared_storage/nai-ocp-data/work/install/auth/kubeconfig"
+$OC get clusterversion        <span class="c"># "Cluster version is 4.22.17" when OpenShift is done</span>
+$OC get co                    <span class="c"># every cluster operator AVAILABLE=True</span>
+$OC get nodes
+$OC get pods -n nvidia-gpu-operator          <span class="c"># driver build for the CoreOS kernel</span>
+$OC get pods -n nai-system                   <span class="c"># NAI services</span></pre></div>
+<p>The install is finished when the log ends with the <code>ready</code> block (see <a href="#logs">section 8</a>). If a stage fails, the log ends with a red <code>ERROR</code> line naming the stage; fix the cause and run the script again to continue from there.</p>
+
+<h2 id="logins"><span class="n">7</span>Logins</h2>
+<p>The script never prints passwords. Read them on the host with the commands below.</p>
+<div class="table"><table>
+  <thead><tr><th>What</th><th>URL</th><th>User</th><th>Password</th></tr></thead>
+  <tbody>
+    <tr><td>NAI</td><td><code>https://nai.apps.sno.nai.lab/nai</code></td><td><code>admin</code></td><td>Initial password from the cluster secret (below). NAI asks for a new one at first login.</td></tr>
+    <tr><td>OpenShift web console</td><td><code>https://console-openshift-console.apps.sno.nai.lab</code></td><td><code>kubeadmin</code></td><td><code>sudo cat /shared_storage/nai-ocp-data/work/install/auth/kubeadmin-password</code></td></tr>
+    <tr><td>OpenShift API (oc)</td><td><code>https://api.sno.nai.lab:6443</code></td><td>system:admin</td><td>Kubeconfig <code>/shared_storage/nai-ocp-data/work/install/auth/kubeconfig</code></td></tr>
+    <tr><td>Node shell (CoreOS)</td><td><code>172.20.130.10</code></td><td><code>core</code></td><td>SSH key <code>/var/lib/nai-ocp/ssh_ed25519</code> (no password)</td></tr>
+  </tbody>
+</table></div>
+<div class="cmd"><button class="copy" type="button">Copy</button><pre><span class="c"># NAI initial admin password</span>
+sudo /shared_storage/nai-ocp-data/work/bin/oc --kubeconfig /shared_storage/nai-ocp-data/work/install/auth/kubeconfig \
+  -n nai-system get secret nai-default-user -o jsonpath='{.data.password}' | base64 -d; echo
+
+<span class="c"># CoreOS node shell</span>
+sudo ssh -i /var/lib/nai-ocp/ssh_ed25519 core@172.20.130.10</pre></div>
+<h3>Open the consoles from a workstation</h3>
+<p>The VM network (172.20.130.0/24) is private to the host, and the host resolves the cluster names. Tunnel through the host with SSH and point a separate browser profile at the tunnel:</p>
+<div class="cmd"><button class="copy" type="button">Copy</button><pre>ssh -D 1080 -N nutanix@&lt;host-ip&gt;
+<span class="c"># Windows, in a second terminal:</span>
+"C:\Program Files\Google\Chrome\Application\chrome.exe" --user-data-dir=%TEMP%\nai-chrome --proxy-server="socks5://127.0.0.1:1080" https://nai.apps.sno.nai.lab/nai</pre></div>
+<p>The certificates are self-signed; accept the browser warning. After the first NAI login, change the password and apply the NAI licence.</p>
+
+<h2 id="logs"><span class="n">8</span>Logs from the run</h2>
+<p>From <code>/var/lib/nai-ocp/run.log</code> on the lab host, with colour codes removed. Download links, the pull secret and passwords never appear in it.</p>
+<details open><summary>Questions, download and host preparation (09:14 – 12:56)</summary><div class="inner"><pre class="log">
+<span class="s">2026-10-15 09:14:10 == nai-on-openshift setup (state in /var/lib/nai-ocp)</span>
+<span class="s">2026-10-15 09:14:10 == stage: inputs</span>
+<span class="ok">  [ok] pull secret accepted (stored mode 600, never printed): OpenShift is installed with the agent-based installer</span>
+<span class="ok">  [ok] link works: nai-v2.8.1.tar, 65.3 GB</span>
+<span class="ok">  [ok] link works: nai-helm-charts-2.8.1.tar, 2.2 MB</span>
+<span class="ok">  [ok] OpenShift 4.22.17 (latest stable release)</span>
+<span class="ok">  [ok] GPU passthrough: 0000:82:00.0</span>
+<span class="ok">  [ok] answers saved; no more questions except the reboot</span>
+<span class="s">2026-10-15 09:18:48 == stage: download</span>
+  downloading nai-v2.8.1.tar (65.3 GB) to /shared_storage/nai-ocp-data/work/nai-images.tar
+<span class="ok">  [ok] nai-images.tar downloaded</span>
+  downloading nai-helm-charts-2.8.1.tar (2.2 MB) to /shared_storage/nai-ocp-data/work/nai-charts.tar
+<span class="ok">  [ok] nai-charts.tar downloaded</span>
+<span class="ok">  [ok] NAI bundle and charts ready</span>
+<span class="s">2026-10-15 10:26:15 == stage: host-check</span>
+<span class="s">2026-10-15 10:26:15 == host check</span>
+<span class="ok">  [ok] CPU virtualization flags</span>
+<span class="ok">  [ok] 11006 GB free in /shared_storage/nai-ocp-data</span>
+<span class="s">2026-10-15 10:26:15 == stage: host-packages</span>
+  host apt has no Ubuntu archive configured (offline repo only); using a private source
+<span class="ok">  [ok] installed 54 packages (recorded for uninstall)</span>
+<span class="s">2026-10-15 10:26:43 == stage: host-prep</span>
+<span class="ok">  [ok] KVM available</span>
+<span class="w">  [!] a reboot is needed to reserve GPU(s) 0000:82:00.0 for the VM (the host stops using them)</span>
+<span class="s">2026-10-15 12:53:15 == nai-on-openshift setup (state in /var/lib/nai-ocp)</span>
+<span class="s">2026-10-15 12:53:15 == stage: host-prep</span>
+<span class="ok">  [ok] KVM available</span>
+<span class="w">  [!] a reboot is needed to reserve GPU(s) 0000:82:00.0 for the VM (the host stops using them)</span>
+<span class="s">2026-10-15 12:55:35 == nai-on-openshift setup (state in /var/lib/nai-ocp)</span>
+<span class="s">2026-10-15 12:55:35 == stage: host-prep</span>
+<span class="ok">  [ok] KVM available</span>
+<span class="ok">  [ok] IOMMU active; GPU(s) 0000:82:00.0 reserved for the VM</span>
+<span class="s">2026-10-15 12:55:35 == stage: tools</span>
+   openshift-client-linux.tar.gz: 10% (4.2 MB / 43.6 MB, 5.0 MB/s)
+   openshift-client-linux.tar.gz: 58% (25.2 MB / 43.6 MB, 18.5 MB/s)
+   openshift-client-linux.tar.gz: 100% (43.6 MB / 43.6 MB, 24.1 MB/s)
+   openshift-install-linux.tar.gz: 1% (4.2 MB / 468.8 MB, 4.9 MB/s)
+   openshift-install-linux.tar.gz: 13% (58.7 MB / 468.8 MB, 22.1 MB/s)
+   openshift-install-linux.tar.gz: 21% (96.5 MB / 468.8 MB, 24.8 MB/s)
+   openshift-install-linux.tar.gz: 32% (151.0 MB / 468.8 MB, 26.5 MB/s)
+   openshift-install-linux.tar.gz: 40% (188.7 MB / 468.8 MB, 27.8 MB/s)
+   openshift-install-linux.tar.gz: 52% (243.3 MB / 468.8 MB, 27.9 MB/s)
+   openshift-install-linux.tar.gz: 63% (293.6 MB / 468.8 MB, 28.4 MB/s)
+   openshift-install-linux.tar.gz: 72% (335.5 MB / 468.8 MB, 28.9 MB/s)
+   openshift-install-linux.tar.gz: 81% (377.5 MB / 468.8 MB, 29.3 MB/s)
+   openshift-install-linux.tar.gz: 90% (423.6 MB / 468.8 MB, 30.0 MB/s)
+   openshift-install-linux.tar.gz: 100% (468.8 MB / 468.8 MB, 30.0 MB/s)
+   helm-v3.19.0-linux-amd64.tar.gz: 23% (4.2 MB / 18.0 MB, 61.4 MB/s)
+   helm-v3.19.0-linux-amd64.tar.gz: 100% (18.0 MB / 18.0 MB, 70.5 MB/s)
+<span class="ok">  [ok] oc 4.22.17; helm v3.19.0+g3d8990f</span>
+<span class="s">2026-10-15 12:55:57 == stage: network</span>
+<span class="ok">  [ok] VM network 172.20.130.0/24; cluster names resolve to 172.20.130.10</span>
+</pre></div></details>
+<details><summary>Network, agent ISO, VM and OpenShift install (12:56 – 14:08)</summary><div class="inner"><pre class="log">
+<span class="s">2026-10-15 12:55:57 == stage: network</span>
+<span class="ok">  [ok] VM network 172.20.130.0/24; cluster names resolve to 172.20.130.10</span>
+<span class="s">2026-10-15 12:55:58 == stage: ocp-iso</span>
+level=warning msg=Failed to extract base ISO from release payload - check registry configuration
+<span class="e">level=error msg=failed to write asset (Agent Installer ISO) to disk: cannot generate ISO image due to configuration errors</span>
+<span class="e">level=fatal msg=failed to fetch Agent Installer ISO: failed to fetch dependency of "Agent Installer ISO": failed to fetch dependency of "Agent Installer Artifacts": failed to generate asset "Base ISO Image": failed to get base ISO image: failed to download base ISO image https://rhcos.mirror.openshift.com/art/storage/prod/streams/rhel-9.8/builds/9.8.20260715-1/x86_64/rhcos-9.8.20260715-1-live-iso.x86_64.iso: neither $XDG_CACHE_HOME nor $HOME are defined</span>
+<span class="s">2026-10-15 13:32:46 == nai-on-openshift setup (state in /var/lib/nai-ocp)</span>
+<span class="s">2026-10-15 13:32:46 == stage: ocp-iso</span>
+<span class="ok">  [ok] CoreOS agent ISO built (1.3 GB)</span>
+<span class="s">2026-10-15 13:33:39 == stage: vm</span>
+<span class="s">2026-10-15 13:33:41 == creating VM ocp-sno: 48 vCPU, 128 GB, 250+500 GB disks, 0000:82:00.0</span>
+<span class="s">2026-10-15 13:36:31 == nai-on-openshift setup (state in /var/lib/nai-ocp)</span>
+<span class="s">2026-10-15 13:36:31 == stage: vm</span>
+<span class="s">2026-10-15 13:36:32 == creating VM ocp-sno: 48 vCPU, 128 GB, 250+500 GB disks, 0000:82:00.0</span>
+<span class="s">2026-10-15 13:36:41 == stage: install</span>
+<span class="s">2026-10-15 13:36:41 == installing Red Hat CoreOS + OpenShift on the node (agent-based, 45-75 min; progress in /var/lib/nai-ocp/run.log)</span>
+<span class="e">ERROR: another run of this script is active on lab-host</span>
+<span class="s">2026-10-15 13:49:40 == host check</span>
+<span class="ok">  [ok] CPU virtualization flags</span>
+<span class="ok">  [ok] 10996 GB free in /shared_storage/nai-ocp-data</span>
+level=info msg=Cluster is not ready for install. Check validations
+level=warning msg=Cluster validation: The cluster has hosts that are not ready to install.
+level=warning msg=Host sno validation: Host couldn't synchronize with any NTP server
+level=warning msg=Host sno: updated status from discovering to insufficient (Host cannot be installed due to following failing validation(s): Host couldn't synchronize with any NTP server)
+level=info msg=Host sno validation: Host NTP is synced
+level=info msg=Host sno: updated status from insufficient to known (Host is ready to be installed)
+level=info msg=Cluster is ready for install
+level=info msg=Cluster validation: All hosts in the cluster are ready to install.
+level=info msg=Preparing cluster for installation
+level=info msg=Host sno: updated status from known to preparing-for-installation (Host finished successfully to prepare for installation)
+level=info msg=Host sno: New image status quay.io/openshift-release-dev/ocp-v4.0-art-dev@sha256:de55277a0cbf78735bbbdceca2d69637a310870f697b384c79225570e28c29c0. result: success. time: 4.34 seconds; size: 298.10 Megabytes; download rate: 71.97 MBps
+level=info msg=Host sno: updated status from preparing-for-installation to preparing-successful (Host finished successfully to prepare for installation)
+level=info msg=Cluster installation in progress
+level=info msg=Host sno: updated status from preparing-successful to installing (Installation is in progress)
+level=info msg=Host: sno, reached installation stage Installing: bootstrap
+level=info msg=Host: sno, reached installation stage Waiting for bootkube
+level=info msg=Bootstrap Kube API Initialized
+level=info msg=Host: sno, reached installation stage Writing image to disk
+level=info msg=Host: sno, reached installation stage Writing image to disk: 19%
+level=info msg=Host: sno, reached installation stage Writing image to disk: 41%
+level=info msg=Host: sno, reached installation stage Writing image to disk: 53%
+level=info msg=Host: sno, reached installation stage Writing image to disk: 71%
+level=info msg=Host: sno, reached installation stage Writing image to disk: 95%
+level=info msg=Host: sno, reached installation stage Writing image to disk: 100%
+level=info msg=Bootstrap configMap status is complete
+level=info msg=Bootstrap is complete
+level=info msg=cluster bootstrap is complete
+level=info msg=Bootstrap Kube API Initialized
+level=info msg=Bootstrap configMap status is complete
+level=info msg=Bootstrap is complete
+level=info msg=cluster bootstrap is complete
+level=info msg=Waiting up to 40m0s (until 2:29PM IST) for the cluster at https://api.sno.nai.lab:6443 to initialize...
+level=info msg=Waiting up to 30m0s (until 2:38PM IST) to ensure each cluster operator has finished progressing...
+level=info msg=All cluster operators have completed progressing
+level=info msg=Checking to see if there is a route at openshift-console/console...
+level=info msg=Install complete!
+level=info msg=To access the cluster as the system:admin user when using 'oc', run
+level=info msg=    export KUBECONFIG=/shared_storage/nai-ocp-data/work/install/auth/kubeconfig
+level=info msg=Access the OpenShift web-console here: https://console-openshift-console.apps.sno.nai.lab
+NAME   STATUS   ROLES                         AGE   VERSION
+sno    Ready    control-plane,master,worker   18m   v1.35.8
+<span class="ok">  [ok] OpenShift installed; node capacity: 48 CPUs, 125 GiB memory</span>
+</pre></div></details>
+<details><summary>Operators, NVIDIA driver, NAI images (14:08 – 15:16)</summary><div class="inner"><pre class="log">
+<span class="s">2026-10-15 14:08:28 == stage: operators</span>
+<span class="ok">  [ok] nfd</span>
+<span class="ok">  [ok] lvms-operator</span>
+<span class="ok">  [ok] openshift-cert-manager-operator</span>
+<span class="ok">  [ok] cloudnative-pg</span>
+<span class="ok">  [ok] gpu-operator-certified</span>
+<span class="s">2026-10-15 15:07:59 == nai-on-openshift setup (state in /var/lib/nai-ocp)</span>
+<span class="s">2026-10-15 15:07:59 == stage: operators</span>
+<span class="ok">  [ok] nfd</span>
+<span class="ok">  [ok] lvms-operator</span>
+<span class="ok">  [ok] openshift-cert-manager-operator</span>
+<span class="ok">  [ok] cloudnative-pg</span>
+<span class="ok">  [ok] gpu-operator-certified</span>
+<span class="s">2026-10-15 15:08:06 == waiting for the NVIDIA driver (built in-cluster for the CoreOS kernel, 10-25 min)</span>
+<span class="ok">  [ok] nvidia.com/gpu: 1</span>
+<span class="s">2026-10-15 15:11:48 == stage: nai-bundle</span>
+<span class="ok">  [ok] NAI bundle: 41 images, all charts present</span>
+<span class="s">2026-10-15 15:13:47 == stage: registry</span>
+<span class="ok">  [ok] registry http://172.20.130.1:5001</span>
+<span class="s">2026-10-15 15:13:51 == stage: images</span>
+<span class="ok">  [ok] 41 images pushed</span>
+</pre></div></details>
+<details><summary>OpenShift preparation, storage, NAI and verification (15:16 – 16:02)</summary><div class="inner"><pre class="log">
+<span class="s">2026-10-15 15:16:09 == stage: ocp-prepare</span>
+<span class="ok">  [ok] docker.io mirrored through 172.20.130.1:5001</span>
+<span class="w">  [!] overriding OpenShift's Gateway API v1.4.1 with v1.5.1 (not supported by Red Hat)</span>
+Error from server (Forbidden): customresourcedefinitions.apiextensions.k8s.io "backendtlspolicies.gateway.networking.k8s.io" is forbidden: ValidatingAdmissionPolicy 'openshift-ingress-operator-gatewayapi-crd-admission' with binding 'openshift-ingress-operator-gatewayapi-crd-admission' denied request: Gateway API Custom Resource Definitions are managed by the Ingress Operator and may not be modified
+Error from server (Forbidden): customresourcedefinitions.apiextensions.k8s.io "gatewayclasses.gateway.networking.k8s.io" is forbidden: ValidatingAdmissionPolicy 'openshift-ingress-operator-gatewayapi-crd-admission' with binding 'openshift-ingress-operator-gatewayapi-crd-admission' denied request: Gateway API Custom Resource Definitions are managed by the Ingress Operator and may not be modified
+Error from server (Forbidden): customresourcedefinitions.apiextensions.k8s.io "gateways.gateway.networking.k8s.io" is forbidden: ValidatingAdmissionPolicy 'openshift-ingress-operator-gatewayapi-crd-admission' with binding 'openshift-ingress-operator-gatewayapi-crd-admission' denied request: Gateway API Custom Resource Definitions are managed by the Ingress Operator and may not be modified
+Error from server (Forbidden): customresourcedefinitions.apiextensions.k8s.io "grpcroutes.gateway.networking.k8s.io" is forbidden: ValidatingAdmissionPolicy 'openshift-ingress-operator-gatewayapi-crd-admission' with binding 'openshift-ingress-operator-gatewayapi-crd-admission' denied request: Gateway API Custom Resource Definitions are managed by the Ingress Operator and may not be modified
+Error from server (Forbidden): customresourcedefinitions.apiextensions.k8s.io "httproutes.gateway.networking.k8s.io" is forbidden: ValidatingAdmissionPolicy 'openshift-ingress-operator-gatewayapi-crd-admission' with binding 'openshift-ingress-operator-gatewayapi-crd-admission' denied request: Gateway API Custom Resource Definitions are managed by the Ingress Operator and may not be modified
+Error from server (Forbidden): customresourcedefinitions.apiextensions.k8s.io "listenersets.gateway.networking.k8s.io" is forbidden: ValidatingAdmissionPolicy 'openshift-ingress-operator-gatewayapi-crd-admission' with binding 'openshift-ingress-operator-gatewayapi-crd-admission' denied request: Gateway API Custom Resource Definitions are managed by the Ingress Operator and may not be modified
+Error from server (Forbidden): customresourcedefinitions.apiextensions.k8s.io "referencegrants.gateway.networking.k8s.io" is forbidden: ValidatingAdmissionPolicy 'openshift-ingress-operator-gatewayapi-crd-admission' with binding 'openshift-ingress-operator-gatewayapi-crd-admission' denied request: Gateway API Custom Resource Definitions are managed by the Ingress Operator and may not be modified
+Error from server (Forbidden): customresourcedefinitions.apiextensions.k8s.io "tlsroutes.gateway.networking.k8s.io" is forbidden: ValidatingAdmissionPolicy 'openshift-ingress-operator-gatewayapi-crd-admission' with binding 'openshift-ingress-operator-gatewayapi-crd-admission' denied request: Gateway API Custom Resource Definitions are managed by the Ingress Operator and may not be modified
+<span class="e">ERROR: unexpected failure (exit 1) at line 80: oc --kubeconfig "$KCFG" "$@" - re-run to continue from this stage</span>
+<span class="e">ERROR: unexpected failure (exit 1) at line 80: oc --kubeconfig "$KCFG" "$@" - re-run to continue from this stage</span>
+<span class="s">2026-10-15 15:40:36 == nai-on-openshift setup (state in /var/lib/nai-ocp)</span>
+<span class="s">2026-10-15 15:40:36 == stage: ocp-prepare</span>
+<span class="ok">  [ok] docker.io mirrored through 172.20.130.1:5001</span>
+<span class="ok">  [ok] Gateway API v1.5.1 + Envoy Gateway CRDs</span>
+<span class="ok">  [ok] security context constraints granted</span>
+<span class="s">2026-10-15 15:41:12 == stage: rwx-storage</span>
+<span class="ok">  [ok] RWX storage class nai-nfs-storage on 172.20.130.1:/shared_storage/nai-ocp-data/nfs</span>
+<span class="s">2026-10-15 15:41:28 == stage: nai</span>
+Error: failed pre-install: 1 error occurred:
+	* timed out waiting for the condition
+
+
+<span class="e">ERROR: unexpected failure (exit 1) at line 1442: "${H[@]}" upgrade --install eg "$C/gateway-helm" -n envoy-gateway-system -f "$V/envoy-gateway.yaml" --skip-crds --wait &gt; /dev/null - re-run to continue from this stage</span>
+<span class="s">2026-10-15 15:49:01 == nai-on-openshift setup (state in /var/lib/nai-ocp)</span>
+<span class="s">2026-10-15 15:49:01 == stage: nai</span>
+Error: UPGRADE FAILED: pre-upgrade hooks failed: 1 error occurred:
+	* timed out waiting for the condition
+
+
+<span class="e">ERROR: unexpected failure (exit 1) at line 1446: "${H[@]}" upgrade --install eg "$C/gateway-helm" -n envoy-gateway-system -f "$V/envoy-gateway.yaml" --skip-crds --wait &gt; /dev/null - re-run to continue from this stage</span>
+<span class="s">2026-10-15 15:55:23 == nai-on-openshift setup (state in /var/lib/nai-ocp)</span>
+<span class="s">2026-10-15 15:55:23 == stage: nai</span>
+<span class="ok">  [ok] Envoy Gateway</span>
+<span class="ok">  [ok] KServe CRDs</span>
+<span class="ok">  [ok] LeaderWorkerSet</span>
+<span class="ok">  [ok] OpenTelemetry</span>
+<span class="ok">  [ok] NAI operators</span>
+<span class="ok">  [ok] KServe</span>
+<span class="ok">  [ok] NAI core</span>
+<span class="ok">  [ok] Route https://nai.apps.sno.nai.lab/nai</span>
+
+======================================== ready ========================================
+Deployment        : vm on lab-host, NVIDIA GPU endpoints
+OpenShift console : https://console-openshift-console.apps.sno.nai.lab
+   user kubeadmin, password: sudo cat /shared_storage/nai-ocp-data/work/install/auth/kubeadmin-password
+NAI               : https://nai.apps.sno.nai.lab/nai
+   user admin, initial password: sudo /shared_storage/nai-ocp-data/work/bin/oc --kubeconfig /shared_storage/nai-ocp-data/work/install/auth/kubeconfig -n nai-system get secret nai-default-user -o jsonpath='{.data.password}' | base64 -d
+   (changed at first login; then apply the NAI licence)
+The VM network is private to this host. From your workstation:
+   ssh -D 1080 -N &lt;user&gt;@&lt;host-ip&gt;
+   chrome --user-data-dir=&lt;new dir&gt; --proxy-server="socks5://127.0.0.1:1080" https://nai.apps.sno.nai.lab/nai
+Remove everything: sudo /shared_storage/nutanix/nai-on-openshift.sh --uninstall
+<span class="s">2026-10-15 16:02:09 == nai-on-openshift setup (state in /var/lib/nai-ocp)</span>
+<span class="s">2026-10-15 16:02:09 == stage: verify</span>
+<span class="ok">  [ok] OpenShift 4.22.17 available</span>
+<span class="ok">  [ok] node Ready</span>
+<span class="ok">  [ok] GPUs allocatable for endpoints: 1</span>
+<span class="ok">  [ok] all NAI pods running (30 pods)</span>
+<span class="ok">  [ok] NAI login page answers at https://nai.apps.sno.nai.lab/nai (HTTP 302)</span>
+
+======================================== ready ========================================
+Deployment        : vm on lab-host, NVIDIA GPU endpoints
+OpenShift console : https://console-openshift-console.apps.sno.nai.lab
+   user kubeadmin, password: sudo cat /shared_storage/nai-ocp-data/work/install/auth/kubeadmin-password
+NAI               : https://nai.apps.sno.nai.lab/nai
+   user admin, initial password: sudo /shared_storage/nai-ocp-data/work/bin/oc --kubeconfig /shared_storage/nai-ocp-data/work/install/auth/kubeconfig -n nai-system get secret nai-default-user -o jsonpath='{.data.password}' | base64 -d
+   (changed at first login; then apply the NAI licence)
+The VM network is private to this host. From your workstation:
+   ssh -D 1080 -N &lt;user&gt;@&lt;host-ip&gt;
+   chrome --user-data-dir=&lt;new dir&gt; --proxy-server="socks5://127.0.0.1:1080" https://nai.apps.sno.nai.lab/nai
+Remove everything: sudo /shared_storage/nutanix/nai-on-openshift.sh --uninstall
+</pre></div></details>
+<p>Earlier attempts in the same log (08:45 – 08:49) are the credential questions answered with the wrong item; the later re-runs are the fixes in section 9. The final <code>ready</code> block:</p>
+<pre class="log">
+<span class="s">2026-10-15 16:02:09 == stage: verify</span>
+<span class="ok">  [ok] OpenShift 4.22.17 available</span>
+<span class="ok">  [ok] node Ready</span>
+<span class="ok">  [ok] GPUs allocatable for endpoints: 1</span>
+<span class="ok">  [ok] all NAI pods running (30 pods)</span>
+<span class="ok">  [ok] NAI login page answers at https://nai.apps.sno.nai.lab/nai (HTTP 302)</span>
+
+======================================== ready ========================================
+Deployment        : vm on lab-host, NVIDIA GPU endpoints
+OpenShift console : https://console-openshift-console.apps.sno.nai.lab
+   user kubeadmin, password: sudo cat /shared_storage/nai-ocp-data/work/install/auth/kubeadmin-password
+NAI               : https://nai.apps.sno.nai.lab/nai
+   user admin, initial password: sudo /shared_storage/nai-ocp-data/work/bin/oc --kubeconfig /shared_storage/nai-ocp-data/work/install/auth/kubeconfig -n nai-system get secret nai-default-user -o jsonpath='{.data.password}' | base64 -d
+   (changed at first login; then apply the NAI licence)
+The VM network is private to this host. From your workstation:
+   ssh -D 1080 -N &lt;user&gt;@&lt;host-ip&gt;
+   chrome --user-data-dir=&lt;new dir&gt; --proxy-server="socks5://127.0.0.1:1080" https://nai.apps.sno.nai.lab/nai
+Remove everything: sudo /shared_storage/nutanix/nai-on-openshift.sh --uninstall
+</pre>
+
+<h2 id="trouble"><span class="n">9</span>Problems we hit</h2>
+<p>Each of these happened on the lab host and is now handled by the script.</p>
+<div class="table"><table>
+  <thead><tr><th>Symptom</th><th>Cause</th><th>Now</th></tr></thead>
+  <tbody>
+    <tr><td><code>Unable to locate package qemu-system-x86</code></td><td>NKP had locked the host's apt to its offline repository</td><td>Packages come from a private Ubuntu source under <code>/var/lib/nai-ocp/apt</code>; <code>/etc/apt</code> is untouched</td></tr>
+    <tr><td>Host rebooted over and over, about 40 s per boot</td><td><code>vfio-pci</code> loaded before the GPU was tagged for it, so the GPU had no driver and the old script rebooted again</td><td>The udev rule re-probes the GPU; the script reboots at most once, only after asking, and stops with the driver details if the reservation still fails</td></tr>
+    <tr><td><code>Red Hat did not accept the token</code></td><td>A pull secret was pasted where only the API token was accepted</td><td>Either credential is accepted; the reason is shown when one is rejected</td></tr>
+    <tr><td><code>cannot load AppArmor profile</code> when creating the VM</td><td><code>virt-install</code> picked the AMD-SEV firmware, which Ubuntu's AppArmor helper refuses</td><td>Plain UEFI firmware without Secure Boot is named explicitly</td></tr>
+    <tr><td>Agent ISO build failed right after the reboot</td><td>Network not ready yet at boot</td><td>The ISO build retries five times, a minute apart</td></tr>
+    <tr><td>Script stopped silently after the GPU operator</td><td>CloudNativePG's operator record is copied into every namespace; the script read that copy instead of the GPU operator's</td><td>Copied records are ignored, and any unexpected failure prints the line and command that failed</td></tr>
+    <tr><td>Gateway API CRDs <code>forbidden: ValidatingAdmissionPolicy</code></td><td>On OpenShift 4.22 the ingress operator re-creates its admission binding within a second of removal</td><td>Remove and apply back to back, retried up to 10 times (unsupported override NAI 2.8.1 needs; <code>GATEWAY_API_OVERRIDE=no</code> stops instead)</td></tr>
+    <tr><td>Envoy Gateway <code>certgen</code> job: <code>unable to validate against any security context constraint</code></td><td><code>anyuid</code> does not allow the seccomp profile the job sets; <code>restricted-v2</code> rejects its UID 65532</td><td><code>nonroot-v2</code> is granted next to <code>anyuid</code> in the NAI namespaces</td></tr>
+    <tr><td>NAI pods in <code>ImagePullBackOff</code>; registry refuses connections</td><td>The registry container was up but its NAT port-forward rules had been wiped</td><td>The registry is checked (and restarted) before the NAI stages, and new installs run it on the host network; a failed NAI component now prints its unready pods and warning events</td></tr>
+    <tr><td><code>sudo -E oc ...</code> could not find the kubeconfig</td><td>This host's sudo does not keep the environment</td><td>Pass <code>--kubeconfig</code> explicitly (section 6)</td></tr>
+  </tbody>
+</table></div>
+
+<h2 id="uninstall"><span class="n">10</span>Uninstall</h2>
+<p>Removes only what the script recorded: the VM and its disks, OpenShift and NAI, the VM network, registry, NFS export, GPU reservation, every package it installed, the downloads and its state. It asks you to type <code>wipe</code>, and asks before the reboot that gives the GPU back to the host.</p>
+<div class="cmd"><button class="copy" type="button">Copy</button><pre>sudo /shared_storage/nutanix/nai-on-openshift.sh --status      <span class="c"># review what will be removed</span>
+sudo /shared_storage/nutanix/nai-on-openshift.sh --uninstall</pre></div>
+
+<h2 id="source"><span class="n">11</span>Script source</h2>
+<p><code>nai-on-openshift.sh</code>, 1,713 lines, as used for this run plus the fixes listed in section 9.</p>
+<details><summary>Show the full script</summary><div class="inner">
+<div class="cmd"><button class="copy" type="button">Copy</button><pre>#!/bin/bash
+# =====================================================================================================================
+# nai-on-openshift.sh - Nutanix Enterprise AI on single-node Red Hat OpenShift, on CPU or NVIDIA GPUs.
+# Author: Manmohan Brahma
+#
+#   sudo ./nai-on-openshift.sh               set up (asks its questions first, then runs unattended)
+#   sudo ./nai-on-openshift.sh --uninstall   wipe what this script installed (asks before any reboot)
+#   sudo ./nai-on-openshift.sh --status      progress and what is installed
+#   sudo ./nai-on-openshift.sh --check       read-only check of this host
+#
+# The machine running this script is the controller. Deployment targets:
+#   1 vm        OpenShift in a KVM VM on this machine (you size the VM and pick GPUs, or CPU-only).
+#   2 remote    OpenShift in a KVM VM on another Linux server: asks its IP and root password, validates the OS,
+#               installs the virtualization packages there and runs the same VM setup there (remote call over SSH).
+#   3 baremetal OpenShift directly on a server, provisioned through its IPMI/BMC (virtual CD + IPMI boot/power).
+#               ERASES that server's install and data disks. This machine serves it the ISO, registry, NFS, DNS.
+# Red Hat credential: the OpenShift API token (https://console.redhat.com/openshift/token) deploys OpenShift through the
+# Red Hat console (Assisted Installer; pull secret fetched with it), or the pull secret (Copy pull secret on
+# console.redhat.com) deploys it with the local agent-based installer. NAI then comes from its bundle and charts.
+# Download links are checked as you paste them and downloaded right after the final confirmation (progress bar,
+# resumable: re-running the script continues a broken download) - before anything on the host is changed.
+#
+# Reboots happen only with your consent (GPU passthrough needs one). Everything changed on a host is recorded in
+# /var/lib/nai-ocp/manifest there; --uninstall reverses exactly those changes and deletes the console cluster record.
+#
+# Built-in lessons: GPU reserved by PCI address at boot and re-probed; VM UEFI without Secure Boot (in-cluster NVIDIA
+# driver build); "preferred" NUMA memory policy; VM restarted after CoreOS is written; NAI SCCs via anyuid
+# (+privileged for hostPath); nai-admin namespace left to the chart; Route uses the gateway's real port name.
+# GATEWAY_API_OVERRIDE (default yes): OpenShift 4.19+ locks Gateway API; NAI 2.8.1 needs v1.5.1. The override is NOT
+# supported by Red Hat - set GATEWAY_API_OVERRIDE=no to stop instead.
+# =====================================================================================================================
+set -eEuo pipefail
+trap 'rc=$?; [ "$BASH_SUBSHELL" = 0 ] &amp;&amp; echo "${c_r:-}ERROR: unexpected failure (exit $rc) at line $LINENO: $BASH_COMMAND - re-run to continue from this stage${c_0:-}" | tee -a "${TLOG:-/dev/null}" &gt;&amp;2' ERR
+umask 022
+SELF=$(readlink -f "$0")
+
+STATE=${STATE:-/var/lib/nai-ocp}          # answers, manifest, logs, tokens and credentials (root only)
+CONF=$STATE/answers.conf
+MANIFEST=$STATE/manifest
+DONE=$STATE/done
+LOG=$STATE/run.log
+TLOG=$LOG                                  # where on-screen lines are copied (/dev/null when stdout is the log)
+RESUME_UNIT=/etc/systemd/system/nai-ocp-resume.service
+DNS_UNIT=/etc/systemd/system/nai-ocp-dns.service
+A=/api/assisted-install/v2                 # Red Hat console Assisted Installer API
+CHILD=${NAI_CONTROLLED:-0}                 # 1 = run on a remote server by a controller (reboots are re-driven from there)
+REMOTE_SCRIPT=/root/nai-on-openshift.sh
+
+CLUSTER_NAME=${CLUSTER_NAME:-sno}
+BASE_DOMAIN=${BASE_DOMAIN:-nai.lab}
+VM_NAME=${VM_NAME:-ocp-sno}
+NET_NAME=${NET_NAME:-ocp-sno}
+NET_BRIDGE=${NET_BRIDGE:-virbr-sno}
+VM_MAC=${VM_MAC:-52:54:00:13:00:10}
+GATEWAY_API_OVERRIDE=${GATEWAY_API_OVERRIDE:-yes}
+INTERACTIVE=1; [ -t 0 ] || INTERACTIVE=0
+
+# ---------------------------------------------------------------- helpers
+c_b=$'\e[1m'; c_g=$'\e[32m'; c_y=$'\e[33m'; c_r=$'\e[31m'; c_0=$'\e[0m'
+log()  { mkdir -p "$STATE"; echo "${c_b}$(date '+%F %T') == $*${c_0}" | tee -a "$TLOG"; }
+ok()   { echo "  ${c_g}[ok]${c_0} $*" | tee -a "$TLOG"; }
+warn() { echo "  ${c_y}[!]${c_0} $*" | tee -a "$TLOG"; }
+die()  { echo "${c_r}ERROR: $*${c_0}" | tee -a "$TLOG" &gt;&amp;2; exit 1; }
+ask()  { local v=""; [ $INTERACTIVE = 1 ] &amp;&amp; read -r -p "$1${2:+ [$2]}: " v &lt;/dev/tty; echo "${v:-${2:-}}"; }
+ask_secret() { local v; read -r -s -p "$1: " v &lt;/dev/tty; echo &gt;/dev/tty; printf '%s' "$v"; }
+yesno() { local a; a=$(ask "$1 (y/n)" "${2:-y}"); [[ $a =~ ^[Yy] ]]; }
+ask_int() {   # prompt default min max
+  local v; while :; do v=$(ask "$1" "$2")
+    [[ $v =~ ^[0-9]+$ ]] &amp;&amp; [ "$v" -ge "$3" ] &amp;&amp; [ "$v" -le "$4" ] &amp;&amp; { echo "$v"; return; }
+    echo "   enter a number from $3 to $4" &gt;/dev/tty; done; }
+valid_ip() { python3 -c "import ipaddress,sys;ipaddress.IPv4Address(sys.argv[1])" "$1" 2&gt;/dev/null; }
+save() { touch "$CONF"; grep -v "^$1=" "$CONF" &gt; "$CONF.tmp" || true; printf '%s=%q\n' "$1" "$2" &gt;&gt; "$CONF.tmp"; mv "$CONF.tmp" "$CONF"; chmod 600 "$CONF"; }
+rec()  { grep -qxF "$*" "$MANIFEST" 2&gt;/dev/null || echo "$*" &gt;&gt; "$MANIFEST"; }   # record a host change for --uninstall
+done_() { [ -f "$DONE/$1" ]; }
+stage() { local s=$1; shift; done_ "$s" &amp;&amp; return 0; log "stage: $s"; "$@"; touch "$DONE/$s"; }
+largest_fs() {   # filesystem with the most free space (for VM disks, NAI bundle, registry, NFS share)
+  local best; best=$(df -BG --output=avail,target -x tmpfs -x devtmpfs -x overlay -x squashfs -x efivarfs 2&gt;/dev/null | tail -n +2 | sort -n | tail -1 | awk '{print $2}')
+  [ "$best" = / ] &amp;&amp; echo /var/lib/nai-ocp-data || echo "${best%/}/nai-ocp-data"
+}
+free_gb() { local d=$1; while [ ! -d "$d" ]; do d=$(dirname "$d"); done; df -BG --output=avail "$d" | tail -1 | tr -dc 0-9; }
+oc_() { oc --kubeconfig "$KCFG" "$@"; }
+pkg_mgr() { command -v apt-get &gt;/dev/null &amp;&amp; echo apt || { command -v dnf &gt;/dev/null &amp;&amp; echo dnf; } || echo none; }
+pkg_list() { case $(pkg_mgr) in apt) dpkg-query -W -f='${Package}\n' | LC_ALL=C sort -u ;; dnf) rpm -qa --qf '%{NAME}\n' | LC_ALL=C sort -u ;; esac; }
+pkg_new()  { pkg_list | LC_ALL=C comm -13 "$1" -; }   # packages present now that were not in snapshot $1
+nvidia_gpus() { lspci -Dnn 2&gt;/dev/null | awk '/\[10de:/ &amp;&amp; /(VGA|3D controller)/ {print $1}'; }
+gpu_name() { lspci -s "$1" | cut -d' ' -f2- | sed 's/^[^:]*: //' | cut -c1-60; }
+gpu_functions() { local f; for f in /sys/bus/pci/devices/${1%.*}.*; do basename "$f"; done; }   # all functions of the card
+drv() { basename "$(readlink /sys/bus/pci/devices/$1/driver 2&gt;/dev/null)" 2&gt;/dev/null || true; }
+iommu_on() { [ -n "$(ls /sys/kernel/iommu_groups 2&gt;/dev/null)" ]; }
+host_ip() { ip -4 route get "${1:-1.1.1.1}" 2&gt;/dev/null | awk '{for(i=1;i&lt;=NF;i++) if($i=="src"){print $(i+1); exit}}'; }
+port_free() { ! ss -ltnH "sport = :$1" 2&gt;/dev/null | grep -q .; }
+set_work() { WORK=${DATA:-$STATE}/work; KCFG=$WORK/install/auth/kubeconfig; export PATH="$WORK/bin:$PATH"; }
+use_gpu() { [ -n "${GPU_BDFS:-}" ] || [ "${BM_GPU:-no}" = yes ]; }
+jget() { python3 -c '
+import json, sys
+d = json.load(sys.stdin)
+for k in sys.argv[1].split("/"):
+    if isinstance(d, list): d = d[int(k)] if int(k) &lt; len(d) else ""
+    elif isinstance(d, dict): d = d.get(k, "")
+    else: d = ""
+print(json.dumps(d) if isinstance(d, (dict, list)) else d)' "$1" 2&gt;/dev/null || true; }
+jobj() { python3 -c '
+import json, sys
+d = {}
+for a in sys.argv[1:]:
+    k, v = a.split(":=", 1) if ":=" in a else a.split("=", 1)
+    d[k] = json.loads(v) if ":=" in a else v
+print(json.dumps(d))' "$@"; }
+human() { python3 -c "import sys;b=float(sys.argv[1]);print(next(f'{b/1024**i:.1f} {u}' for i,u in reversed(list(enumerate(['B','KB','MB','GB','TB']))) if b&gt;=1024**i or i==0))" "${1:-0}"; }
+
+# --- Red Hat console API (api.openshift.com): offline token in $STATE/ocm-token, short-lived access token cached
+ocm() {   # METHOD PATH [JSON body] -&gt; response body; exits non-zero with the API's message on errors
+  python3 - "$STATE/ocm-token" "$STATE/ocm-access.json" "$@" &lt;&lt;'PY'
+import json, os, sys, time, urllib.request, urllib.error, urllib.parse
+tokf, cache, method, path = sys.argv[1:5]; body = sys.argv[5] if len(sys.argv) &gt; 5 else None
+def access():
+    try:
+        c = json.load(open(cache))
+        if c["exp"] &gt; time.time() + 60: return c["tok"]
+    except Exception: pass
+    data = urllib.parse.urlencode({"grant_type": "refresh_token", "client_id": "cloud-services",
+                                   "refresh_token": open(tokf).read().strip()}).encode()
+    try:
+        r = json.load(urllib.request.urlopen("https://sso.redhat.com/auth/realms/redhat-external/protocol/openid-connect/token", data, timeout=30))
+    except urllib.error.HTTPError as e:
+        sys.exit(f"Red Hat refused the OpenShift token (HTTP {e.code}): get a fresh one at https://console.redhat.com/openshift/token")
+    fd = os.open(cache, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    os.write(fd, json.dumps({"tok": r["access_token"], "exp": time.time() + r.get("expires_in", 300)}).encode()); os.close(fd)
+    return r["access_token"]
+url = path if path.startswith("http") else "https://api.openshift.com" + path
+for attempt in range(5):
+    req = urllib.request.Request(url, data=body.encode() if body is not None else (b"" if method == "POST" else None), method=method,
+          headers={"Authorization": "Bearer " + access(), "Content-Type": "application/json", "Accept": "application/json"})
+    try:
+        print(urllib.request.urlopen(req, timeout=120).read().decode()); sys.exit(0)
+    except urllib.error.HTTPError as e:
+        msg = e.read().decode(errors="replace")[:600]
+        if e.code &gt;= 500 and attempt &lt; 4: time.sleep(10); continue
+        sys.exit(f"Red Hat console API {method} {path.split('?')[0]}: HTTP {e.code} {msg}")
+    except (urllib.error.URLError, TimeoutError, OSError) as e:
+        if attempt &lt; 4: time.sleep(10); continue
+        sys.exit(f"Red Hat console API unreachable: {e}")
+PY
+}
+
+# --- BMC: Redfish over HTTPS (python, no curl needed) and IPMI over LAN (ipmitool); credentials in $STATE/bmc.json
+rf_call() {   # METHOD PATH [BODY] -&gt; first line HTTP code (0 = unreachable), then the body
+  python3 - "$STATE/bmc.json" "$BMC_HOST" "$@" &lt;&lt;'PY'
+import base64, json, ssl, sys, urllib.request, urllib.error
+cred, host, method, path = sys.argv[1:5]; body = sys.argv[5] if len(sys.argv) &gt; 5 else None
+c = json.load(open(cred)); auth = base64.b64encode(f'{c["u"]}:{c["p"]}'.encode()).decode()
+req = urllib.request.Request(f"https://{host}{path}", data=body.encode() if body is not None else None, method=method,
+      headers={"Authorization": "Basic " + auth, "Content-Type": "application/json"})
+try:
+    r = urllib.request.urlopen(req, context=ssl._create_unverified_context(), timeout=60)
+    print(r.status); print(r.read().decode(errors="replace"))
+except urllib.error.HTTPError as e: print(e.code); print(e.read().decode(errors="replace"))
+except Exception as e: print(0); print(e)
+PY
+}
+rf() { rf_call GET "$1" | tail -n +2; }
+rf_code() { local b='{}'; [ $# -ge 3 ] &amp;&amp; b=$3; rf_call "$1" "$2" "$b" | head -1; }
+members() { python3 -c 'import json,sys;[print(m["@odata.id"]) for m in json.load(sys.stdin).get("Members",[])]' 2&gt;/dev/null || true; }
+bmc_field() { python3 -c 'import json,sys;print(json.load(open(sys.argv[1]))[sys.argv[2]])' "$STATE/bmc.json" "$1"; }
+ipmi() { IPMI_PASSWORD=$(bmc_field p) ipmitool -I lanplus -H "${BMC_HOST%%:*}" -U "$(bmc_field u)" -E "$@"; }
+
+# --- remote server over SSH (root, key installed once with the password)
+SSHO=()
+ssh_opts() { SSHO=(-i "$STATE/remote_ed25519" -o UserKnownHostsFile="$STATE/known_hosts" -o StrictHostKeyChecking=accept-new
+                   -o ServerAliveInterval=15 -o ServerAliveCountMax=4 -o ConnectTimeout=10); }
+rs()  { ssh "${SSHO[@]}" -o BatchMode=yes "root@$RHOST" "$@"; }
+rcp() { scp -q "${SSHO[@]}" -o BatchMode=yes "$1" "root@$RHOST:$2"; }
+
+install_resume_unit() {
+  cat &gt; "$RESUME_UNIT" &lt;&lt;EOF
+[Unit]
+Description=Resume nai-on-openshift setup after reboot
+After=network-online.target libvirtd.service
+Wants=network-online.target
+[Service]
+Type=oneshot
+ExecStart=$SELF --resume
+StandardOutput=journal+console
+TimeoutStartSec=0
+[Install]
+WantedBy=multi-user.target
+EOF
+  systemctl daemon-reload; systemctl enable nai-ocp-resume.service &gt;/dev/null 2&gt;&amp;1; rec "FILE $RESUME_UNIT"
+}
+
+reboot_ask() {   # never reboots without consent
+  warn "a reboot is needed to $1"
+  if [ "$CHILD" = 1 ]; then                       # run by a controller: it reconnects after the reboot and continues
+    if [ $INTERACTIVE = 1 ] &amp;&amp; yesno "Reboot $(hostname) now? The controller reconnects and continues" y; then
+      rm -f "$STATE/need-reboot"; sync; systemctl reboot; exit 0; fi
+    touch "$STATE/need-reboot"; echo "  Not rebooting. Reboot $(hostname) when convenient, then run the script on the controller again."; exit 0
+  fi
+  install_resume_unit
+  if [ $INTERACTIVE = 1 ] &amp;&amp; yesno "Reboot now? The setup continues automatically after the reboot" y; then
+    echo "  follow it after the reboot with: journalctl -fu nai-ocp-resume"; sync; systemctl reboot; exit 0
+  fi
+  echo "  Not rebooting. Reboot when convenient (sudo reboot); the setup then continues on its own"
+  echo "  (journalctl -fu nai-ocp-resume), or run this script again after the reboot."
+  exit 0
+}
+
+# ---------------------------------------------------------------- downloads
+url_size() {   # bytes behind a download link (1-byte ranged GET: signed links often refuse HEAD); exit 1 = unusable
+  python3 - "$1" &lt;&lt;'PY'
+import sys, urllib.request, urllib.error
+try:
+    r = urllib.request.urlopen(urllib.request.Request(sys.argv[1], headers={"Range": "bytes=0-0"}), timeout=30)
+    cr, cl = r.headers.get("Content-Range", ""), r.headers.get("Content-Length", "")
+    print(cr.rsplit("/", 1)[1] if "/" in cr else (cl if r.status == 200 else "0"))
+except urllib.error.HTTPError as e:
+    print(f"HTTP {e.code}" + (" - link expired or not authorised" if e.code in (401, 403) else ""), file=sys.stderr); sys.exit(1)
+except Exception as e:
+    print(f"unreachable: {e}", file=sys.stderr); sys.exit(1)
+PY
+}
+
+download() {   # url dst: resumable download with a progress bar (python: works before curl is installed)
+  python3 - "$1" "$2" &lt;&lt;'PY'
+import os, sys, time, urllib.request
+url, dst = sys.argv[1], sys.argv[2]
+part, name = dst + ".part", os.path.basename(url.split("?")[0])
+tty = sys.stderr.isatty()
+def fmt(b): return f"{b/1e9:.2f} GB" if b &gt;= 1e9 else f"{b/1e6:.1f} MB"
+for attempt in range(1, 8):
+    have = os.path.getsize(part) if os.path.exists(part) else 0
+    try:
+        r = urllib.request.urlopen(urllib.request.Request(url, headers={"Range": f"bytes={have}-"} if have else {}), timeout=60)
+        if have and r.status != 206: have = 0                       # server ignored the range: start over
+        cr = r.headers.get("Content-Range", "")
+        total = int(cr.rsplit("/", 1)[1]) if "/" in cr else have + int(r.headers.get("Content-Length") or 0)
+        done, t0, start, last, step = have, time.time(), have, 0, -1
+        def show(final=False):
+            global step
+            rate = (done - start) / max(time.time() - t0, 1e-3)
+            pct = done / total * 100 if total else 0
+            eta = (total - done) / rate if rate and total else 0
+            if tty:
+                bar = "#" * int(pct / 2.5) + "-" * (40 - int(pct / 2.5))
+                sys.stderr.write(f"\r   [{bar}] {pct:5.1f}%  {fmt(done)} / {fmt(total)}  {rate/1e6:6.1f} MB/s  "
+                                 + (f"done in {int((time.time()-t0)//60)}m{int((time.time()-t0)%60):02d}s\n" if final else f"ETA {int(eta//60)}m{int(eta%60):02d}s "))
+            elif final or int(pct // 10) != step:
+                step = int(pct // 10); print(f"   {name}: {pct:.0f}% ({fmt(done)} / {fmt(total)}, {rate/1e6:.1f} MB/s)", file=sys.stderr)
+        with open(part, "ab" if have else "wb") as f:
+            while True:
+                b = r.read(4 &lt;&lt; 20)
+                if not b: break
+                f.write(b); done += len(b)
+                if time.time() - last &gt;= 0.5: last = time.time(); show()
+        show(final=True)
+        if total and done != total: raise IOError(f"incomplete: {done} of {total} bytes")
+        os.replace(part, dst); sys.exit(0)
+    except SystemExit: raise
+    except Exception as e:
+        if tty: sys.stderr.write("\n")
+        print(f"   {name}: {e} - retry {attempt}/7 (resumes where it stopped)", file=sys.stderr); time.sleep(min(60, 5 * attempt))
+sys.exit(f"download failed: {name}")
+PY
+}
+
+download_nai() {   # runs right after the questions: both NAI files on disk before any host change
+  local need=0 v f b
+  for v in NAI_TAR_SRC NAI_CHARTS_SRC; do b=${v}_BYTES; [[ ${!v} =~ ^https?:// ]] &amp;&amp; need=$((need + ${!b:-0})); done
+  [ $need = 0 ] &amp;&amp; { ok "NAI files are local: nothing to download"; return; }
+  mkdir -p "$WORK"
+  [ "$(free_gb "$WORK")" -gt $((need / 1000000000 + 5)) ] || die "not enough space in $WORK for the downloads ($(human $need))"
+  for v in NAI_TAR_SRC:nai-images.tar NAI_CHARTS_SRC:nai-charts.tar; do
+    f=$WORK/${v#*:}; v=${v%%:*}; b=${v}_BYTES
+    [[ ${!v} =~ ^https?:// ]] || continue
+    [ -s "$f" ] &amp;&amp; { ok "$(basename "$f") already downloaded"; continue; }
+    echo "  downloading $(basename "${!v%%\?*}") ($(human "${!b:-0}")) to $f" | tee -a "$TLOG"
+    download "${!v}" "$f" || die "download failed; re-run the script to resume (a new link may be needed if it expired)"
+    ok "$(basename "$f") downloaded"
+  done
+  { tar -tf "$WORK/nai-images.tar" 2&gt;/dev/null || true; } | grep -qm1 'index.json' || [[ ! $NAI_TAR_SRC =~ ^https?:// ]] \
+    || die "the image bundle is not a valid NAI OCI bundle (index.json missing)"
+  ok "NAI bundle and charts ready"
+}
+
+# ---------------------------------------------------------------- 1. questions (all asked up front)
+host_inventory() {
+  local cores threads nodes
+  threads=$(nproc --all); cores=$(lscpu -p=SOCKET,CORE | grep -v '^#' | sort -u | wc -l)
+  nodes=$(lscpu -p=NODE | grep -v '^#' | sort -u | wc -l)
+  echo "  CPU     : $(lscpu | awk -F: '/Model name/{gsub(/^ +/,"",$2);print $2; exit}'), $cores cores / $threads threads, $nodes NUMA node(s)"
+  echo "  Memory  : $(free -g | awk '/Mem:/{print $2" GB total, "$7" GB available"}')"
+  echo "  Storage : most free space"
+  df -BG --output=avail,target -x tmpfs -x devtmpfs -x overlay -x squashfs -x efivarfs 2&gt;/dev/null | tail -n +2 | sort -rn | head -3 \
+    | awk '{printf "            %7s free  %s\n", $1, $2}'
+}
+
+list_gpus() {   # numbered list of NVIDIA GPUs with memory, NUMA node, driver and whether the host is using them
+  GPUS=($(nvidia_gpus)); local i=0 g mem note smi=""
+  [ ${#GPUS[@]} = 0 ] &amp;&amp; { echo "  GPUs    : no NVIDIA GPU in this host - the VM runs NAI on CPU"; return; }
+  command -v nvidia-smi &gt;/dev/null &amp;&amp; smi=$(nvidia-smi --query-gpu=pci.bus_id,memory.total --format=csv,noheader 2&gt;/dev/null || true)
+  echo "  NVIDIA GPUs:"
+  for g in "${GPUS[@]}"; do
+    i=$((i + 1)); note=""
+    mem=$(echo "$smi" | grep -i "${g#*:}," | awk -F', ' '{print $2}' || true)
+    [ "$(cat /sys/bus/pci/devices/$g/boot_vga 2&gt;/dev/null)" = 1 ] &amp;&amp; note=" [drives the host display]"
+    [ "$(drv "$g")" = vfio-pci ] &amp;&amp; note=" [already reserved for passthrough]"
+    printf "     %d) %s  %s  %s NUMA %s  driver %s%s\n" "$i" "$g" "$(gpu_name "$g")" "${mem:+$mem, }" \
+      "$(cat /sys/bus/pci/devices/$g/numa_node)" "$(drv "$g")" "$note"
+  done
+}
+
+gpu_group_ok() {   # the card's IOMMU group may hold only its own functions (and PCI bridges)
+  iommu_on || return 0
+  local grp d; grp=$(readlink -f "/sys/bus/pci/devices/$1/iommu_group")/devices
+  for d in "$grp"/*; do d=$(basename "$d")
+    [ "${d%.*}" = "${1%.*}" ] &amp;&amp; continue
+    [[ $(cat /sys/bus/pci/devices/$d/class) == 0x0604* ]] &amp;&amp; continue
+    echo "   $1 shares its IOMMU group with $d ($(lspci -s "$d" | cut -d' ' -f2-)): it cannot be passed through safely" &gt;/dev/tty
+    return 1
+  done
+}
+
+is_pull_secret() { python3 -c "import json,sys;assert 'auths' in json.load(open(sys.argv[1]))" "$1" 2&gt;/dev/null; }
+
+ask_token() {   # Red Hat credential: API token (-&gt; Red Hat console / Assisted Installer) or pull secret (-&gt; agent-based)
+  if [ "${INSTALL_METHOD:-}" = agent ] &amp;&amp; is_pull_secret "$STATE/pull-secret.json"; then ok "pull secret already stored"; return; fi
+  if [ "${INSTALL_METHOD:-}" = assisted ] &amp;&amp; [ -s "$STATE/ocm-token" ] &amp;&amp; ocm GET /api/accounts_mgmt/v1/current_account &gt;/dev/null 2&gt;&amp;1; then
+    ok "Red Hat token already stored"
+  else
+    echo; echo "${c_b}Red Hat credential${c_0} - paste either one:"
+    echo "   - OpenShift API token  https://console.redhat.com/openshift/token"
+    echo "       installs through the Red Hat console (Assisted Installer); the cluster is managed from your Red Hat account"
+    echo "   - pull secret          https://console.redhat.com/openshift/install/pull-secret  ('Copy pull secret')"
+    echo "       installs locally with the agent-based installer (the 'Local Agent-based' flow); the cluster still reports"
+    echo "       to your Red Hat account"
+    local t n=0 user err f=$STATE/cred.tmp
+    while :; do
+      t=$(ask_secret "   Paste the token or the pull secret (input hidden), or press Enter to give a file path")
+      [ -z "$t" ] &amp;&amp; { t=$(ask "   Path to the token or pull-secret file"); [ -f "$t" ] &amp;&amp; t=$(cat "$t") || t=""; }
+      ( umask 077; printf '%s' "$t" &gt; "$f" ); t=""
+      if is_pull_secret "$f"; then
+        mv "$f" "$STATE/pull-secret.json"; INSTALL_METHOD=agent; save INSTALL_METHOD agent
+        ok "pull secret accepted (stored mode 600, never printed): OpenShift is installed with the agent-based installer"
+        return
+      fi
+      if grep -q '^{' "$f"; then err="that is JSON but not a pull secret (no \"auths\")"
+      else
+        mv "$f" "$STATE/ocm-token"; rm -f "$STATE/ocm-access.json"
+        user=$(ocm GET /api/accounts_mgmt/v1/current_account 2&gt;"$STATE/ocm.err" | jget username) || true
+        [ -n "$user" ] &amp;&amp; break
+        err=$(tail -1 "$STATE/ocm.err" | cut -c1-160); rm -f "$STATE/ocm-token"
+      fi
+      rm -f "$f" "$STATE/ocm.err"; n=$((n + 1)); [ $n -ge 3 ] &amp;&amp; die "no usable Red Hat credential ($err)"
+      echo "   not accepted: ${err:-unknown error} - try again" &gt;/dev/tty
+    done
+    rm -f "$STATE/ocm.err"; INSTALL_METHOD=assisted; save INSTALL_METHOD assisted
+    ok "token accepted: Red Hat account $user (stored mode 600, never printed): OpenShift is installed through the Red Hat console"
+  fi
+  ( umask 077; ocm POST /api/accounts_mgmt/v1/access_token &gt; "$STATE/pull-secret.json" )
+  is_pull_secret "$STATE/pull-secret.json" || die "could not fetch the pull secret with this token"
+  ok "pull secret fetched from the Red Hat console"
+}
+
+ask_nai_file() {   # var label: link (checked now) or local path
+  local src n=0 size
+  while :; do
+    src=$(ask "   $2: download link or path")
+    if [[ $src =~ ^https?:// ]]; then
+      if size=$(url_size "$src"); then
+        ok "link works: $(basename "${src%%\?*}"), $(human "$size")"; save "${1}_BYTES" "$size"; break
+      fi
+    elif [ -f "$src" ]; then ok "$src ($(human "$(stat -c %s "$src")"))"; break
+    else echo "   not a link and no such file: $src" &gt;/dev/tty; fi
+    n=$((n + 1)); [ $n -ge 3 ] &amp;&amp; die "no usable $2"; echo "   try again (a fresh link from the Nutanix portal if it expired)" &gt;/dev/tty
+  done
+  printf -v "$1" '%s' "$src"; save "$1" "$src"
+}
+
+ask_nai() {
+  echo; echo "${c_b}Nutanix Enterprise AI${c_0} (Nutanix portal: Downloads &gt; Nutanix Enterprise AI)"
+  ask_nai_file NAI_TAR_SRC "Air-gapped image bundle (nai-v*.tar)"
+  ask_nai_file NAI_CHARTS_SRC "Helm charts (nai-helm-charts-*.tar)"
+  echo "   (links are downloaded right after the final confirmation, with a progress bar)"
+}
+
+pick_ocp_version() {   # latest production OpenShift: from the Assisted Installer, or the stable channel for agent-based
+  if [ "$INSTALL_METHOD" = agent ]; then
+    OCP_RELEASE=$(python3 -c "import urllib.request,re;t=urllib.request.urlopen('https://mirror.openshift.com/pub/openshift-v4/x86_64/clients/ocp/stable/release.txt',timeout=30).read().decode();print(re.search(r'Name:\s+(\S+)',t).group(1))") \
+      || die "cannot read the latest OpenShift release from mirror.openshift.com"
+    OCP_VERSION=$(echo "$OCP_RELEASE" | cut -d. -f1,2)
+    save OCP_VERSION "$OCP_VERSION"; save OCP_RELEASE "$OCP_RELEASE"
+    ok "OpenShift $OCP_RELEASE (latest stable release)"; return
+  fi
+  local v; v=$(ocm GET "$A/openshift-versions?only_latest=true" | python3 -c '
+import json, re, sys
+d = json.load(sys.stdin)
+c = [(k, v) for k, v in d.items() if re.fullmatch(r"\d+\.\d+", k) and v.get("support_level") == "production"
+     and "x86_64" in v.get("cpu_architectures", ["x86_64"])]
+pick = [x for x in c if x[1].get("default")] or sorted(c, key=lambda x: [int(p) for p in x[0].split(".")])
+print(pick[-1][0], pick[-1][1]["display_name"])')
+  OCP_VERSION=${v% *}; OCP_RELEASE=${v#* }
+  save OCP_VERSION "$OCP_VERSION"; save OCP_RELEASE "$OCP_RELEASE"
+  ok "OpenShift $OCP_RELEASE (latest production release in the Red Hat console)"
+}
+
+ask_storage_dir() {   # where the big files go on this host
+  local def; def=${DATA:-$(largest_fs)}
+  DATA=$(ask "   Folder on this host for $1" "$def"); DATA=${DATA%/}
+  [[ $DATA == /* ]] || die "give an absolute path"
+  [ "$(free_gb "$DATA")" -ge "$2" ] || warn "only $(free_gb "$DATA") GB free there (about $2 GB needed)"
+  save DATA "$DATA"
+}
+
+vm_questions() {
+  echo; echo "${c_b}This host ($(hostname))${c_0}"; host_inventory; list_gpus
+  local threads avail sel def g i bad
+  threads=$(nproc --all); avail=$(free -g | awk '/Mem:/{print $7}')
+
+  echo; echo "${c_b}GPU${c_0}: NAI runs endpoints on NVIDIA GPUs or on CPU. A passed-through GPU is used only by the VM"
+  echo "     (the host loses it until --uninstall), and needs one reboot (asked first)."
+  GPU_BDFS=""
+  if [ ${#GPUS[@]} -gt 0 ]; then
+    def=1; for i in "${!GPUS[@]}"; do [ "$(cat /sys/bus/pci/devices/${GPUS[$i]}/boot_vga 2&gt;/dev/null)" = 1 ] || { def=$((i + 1)); break; }; done
+    while :; do
+      sel=$(ask "   GPUs for the VM: number(s) e.g. 1 or 1,2 - 'all' - or 'none' for CPU-only" "$def"); GPU_BDFS=""; bad=0
+      case $sel in
+        none|NONE|0) break ;;
+        all|ALL) sel=$(seq -s, 1 ${#GPUS[@]}) ;;
+      esac
+      for i in ${sel//,/ }; do
+        [[ $i =~ ^[0-9]+$ ]] &amp;&amp; [ "$i" -ge 1 ] &amp;&amp; [ "$i" -le ${#GPUS[@]} ] || { echo "   no GPU number $i" &gt;/dev/tty; bad=1; continue; }
+        g=${GPUS[$((i - 1))]}; [[ " $GPU_BDFS " == *" $g "* ]] &amp;&amp; continue
+        gpu_group_ok "$g" || { bad=1; continue; }
+        if [ "$(cat /sys/bus/pci/devices/$g/boot_vga 2&gt;/dev/null)" = 1 ]; then
+          yesno "   GPU $i drives this host's display; the host loses it. Use it anyway" n || { bad=1; continue; }
+        fi
+        GPU_BDFS="${GPU_BDFS:+$GPU_BDFS }$g"
+      done
+      [ $bad = 0 ] &amp;&amp; [ -n "$GPU_BDFS" ] &amp;&amp; break
+      [ -n "$GPU_BDFS" ] &amp;&amp; yesno "   Continue with $GPU_BDFS only" y &amp;&amp; break
+    done
+  fi
+  save GPU_BDFS "$GPU_BDFS"
+  [ -n "$GPU_BDFS" ] &amp;&amp; ok "GPU passthrough: $GPU_BDFS" || ok "CPU-only: NAI endpoints run on the VM's CPUs (no GPU, no reboot)"
+
+  echo; echo "${c_b}VM size${c_0}: NAI's platform services reserve about 19 cores; endpoints need the rest."
+  local maxc=$((threads - 4)) dc dm maxm=$((avail - 16))
+  if [ -n "$GPU_BDFS" ]; then dc=48; dm=128; else dc=64; dm=192; fi
+  [ $dc -gt $maxc ] &amp;&amp; dc=$maxc; [ $dm -gt $maxm ] &amp;&amp; dm=$maxm
+  [ $maxm -ge 48 ] || die "only $avail GB memory available: OpenShift + NAI need at least 64 GB for the VM"
+  VM_VCPUS=$(ask_int "   vCPUs (host has $threads threads; 48+ recommended with GPU, 64+ CPU-only)" $dc 24 $maxc)
+  VM_VCPUS=$(( (VM_VCPUS + 1) / 2 * 2 ))                                   # whole cores (2 threads each)
+  [ $VM_VCPUS -lt 40 ] &amp;&amp; warn "$VM_VCPUS vCPUs leaves little room for endpoints after NAI's ~19-core reservation"
+  VM_RAM_GB=$(ask_int "   Memory in GB ($avail GB available; 128+ recommended with GPU, 192+ CPU-only)" $dm 48 $maxm)
+  [ $VM_RAM_GB -lt 96 ] &amp;&amp; warn "$VM_RAM_GB GB: NAI needs ~17 GB per small model on top of the platform (NAI-10014)"
+
+  echo; echo "${c_b}Storage${c_0}: two VM disks (CoreOS + OpenShift; LVM storage for NAI's databases and model cache), plus"
+  echo "   the NAI bundle (~60 GB unpacked), the image registry and the NFS model share."
+  OS_DISK_GB=$(ask_int "   OS disk GB" 200 120 2000)
+  DATA_DISK_GB=$(ask_int "   Data disk GB (LVM storage inside OpenShift)" 500 100 20000)
+  ask_storage_dir "VM disks, NAI bundle, registry and NFS model share" $((OS_DISK_GB + DATA_DISK_GB + 300))
+  save VM_VCPUS "$VM_VCPUS"; save VM_RAM_GB "$VM_RAM_GB"; save OS_DISK_GB "$OS_DISK_GB"; save DATA_DISK_GB "$DATA_DISK_GB"
+}
+
+remote_questions() {   # VM on another Linux server: SSH as root, OS validated, key installed with the password once
+  echo; echo "${c_b}Remote server${c_0}: the VM, its disks, the NAI bundle, registry and NFS share all live there."
+  RHOST=$(ask "   Server IP or hostname"); [ -n "$RHOST" ] || die "server address required"
+  timeout 8 bash -c "exec 3&lt;&gt;/dev/tcp/$RHOST/22" 2&gt;/dev/null || die "$RHOST:22 (SSH) is not reachable from here"
+  save RHOST "$RHOST"; ssh_opts
+  [ -f "$STATE/remote_ed25519" ] || ssh-keygen -q -t ed25519 -N "" -C "nai-on-openshift-controller-$(hostname)-$$" -f "$STATE/remote_ed25519"
+  if ! rs true 2&gt;/dev/null; then
+    local p n=0 ap=$STATE/askpass
+    printf '#!/bin/sh\nprintf "%%s\\n" "$NAI_SSHPASS"\n' &gt; "$ap"; chmod 700 "$ap"
+    while :; do
+      p=$(ask_secret "   root password of $RHOST (hidden; used once to install an SSH key)")
+      NAI_SSHPASS=$p SSH_ASKPASS=$ap SSH_ASKPASS_REQUIRE=force DISPLAY=none \
+        ssh "${SSHO[@]}" -o PubkeyAuthentication=no -o PreferredAuthentications=password,keyboard-interactive -o NumberOfPasswordPrompts=1 \
+        "root@$RHOST" 'umask 077; mkdir -p ~/.ssh; cat &gt;&gt; ~/.ssh/authorized_keys' &lt; "$STATE/remote_ed25519.pub" 2&gt;/dev/null \
+        &amp;&amp; rs true 2&gt;/dev/null &amp;&amp; break
+      n=$((n + 1)); [ $n -ge 3 ] &amp;&amp; die "root login to $RHOST failed (wrong password, or PermitRootLogin/PasswordAuthentication off in sshd)"
+      echo "   login failed, try again" &gt;/dev/tty
+    done
+    rm -f "$ap"; p=""
+    rec "REMOTEKEY $(awk '{print $3}' "$STATE/remote_ed25519.pub")"
+  fi
+  ok "root SSH to $RHOST works (key-based; the password is not stored)"
+
+  local info; info=$(rs 'set +e; . /etc/os-release; echo "OS=$ID"; echo "VER=$VERSION_ID"; echo "NAME=$PRETTY_NAME"
+    echo "KERNEL=$(uname -r)"; echo "THREADS=$(nproc --all)"; echo "MEM=$(free -g | awk "/Mem:/{print \$7}")"
+    echo "VIRT=$(grep -cE "svm|vmx" /proc/cpuinfo)"; echo "GPUS=$(lspci -nn 2&gt;/dev/null | grep -cE "\[10de:.*\]" )"
+    echo "LSPCI=$(command -v lspci &gt;/dev/null &amp;&amp; echo yes || echo no)"; echo "PY=$(command -v python3 &gt;/dev/null &amp;&amp; echo yes || echo no)"
+    echo "FREE=$(df -BG --output=avail,target -x tmpfs -x devtmpfs -x overlay -x squashfs 2&gt;/dev/null | tail -n +2 | sort -n | tail -1 | tr -s " " | sed "s/^ //")"
+    echo "PKG=$(command -v apt-get &gt;/dev/null &amp;&amp; echo apt || (command -v dnf &gt;/dev/null &amp;&amp; echo dnf || echo none))"
+    echo "REPOS=$(command -v dnf &gt;/dev/null &amp;&amp; dnf -q repolist --enabled 2&gt;/dev/null | tail -n +2 | wc -l || echo -)"')
+  local OS VER NAME KERNEL THREADS MEM VIRT GPUS LSPCI PY FREE PKG REPOS k v
+  while IFS='=' read -r k v; do printf -v "$k" '%s' "$v"; done &lt;&lt;&lt; "$info"
+  echo "   OS      : $NAME (kernel $KERNEL)"
+  echo "   CPU     : $THREADS threads, virtualization flags $([ "${VIRT:-0}" -gt 0 ] &amp;&amp; echo present || echo MISSING)"
+  echo "   Memory  : ${MEM} GB available;  largest free space: $FREE"
+  echo "   GPUs    : $([ "$LSPCI" = yes ] &amp;&amp; echo "${GPUS:-0} NVIDIA device(s)" || echo 'unknown (pciutils missing; installed next)')"
+  local maj=${VER%%.*} ok_os=no
+  case $OS in
+    ubuntu) [[ ${VER/./} -ge 2204 ]] &amp;&amp; ok_os=yes ;;
+    debian) [ "${maj:-0}" -ge 12 ] &amp;&amp; ok_os=yes ;;
+    rhel|rocky|almalinux|centos) [ "${maj:-0}" -ge 8 ] &amp;&amp; ok_os=yes ;;
+    fedora) [ "${maj:-0}" -ge 38 ] &amp;&amp; ok_os=yes ;;
+  esac
+  [ $ok_os = yes ] || die "$NAME is not supported (Ubuntu 22.04+, Debian 12+, RHEL/Rocky/Alma/CentOS Stream 8+, Fedora 38+)"
+  [ "${VIRT:-0}" -gt 0 ] || die "$RHOST has no CPU virtualization (enable SVM/VT-x in its BIOS)"
+  [ "${MEM:-0}" -ge 80 ] || die "$RHOST has only ${MEM} GB memory available (OpenShift + NAI need 64 GB+ for the VM)"
+  [ "$PKG" = dnf ] &amp;&amp; [ "${REPOS:-0}" = 0 ] &amp;&amp; die "$RHOST has no enabled dnf repositories (register it: subscription-manager register)"
+  ok "$NAME is supported for the VM deployment"
+  local need=""; [ "$PY" = yes ] || need="python3"; [ "$LSPCI" = yes ] || need="$need pciutils"
+  if [ -n "$need" ]; then
+    echo "   installing on $RHOST (needed to run the setup there): $need"
+    rs "DEBIAN_FRONTEND=noninteractive; command -v apt-get &gt;/dev/null &amp;&amp; { apt-get update -qq; apt-get install -y -qq $need; } || dnf install -y -q $need" &gt;/dev/null \
+      || die "could not install $need on $RHOST"
+    for k in $need; do rec "REMOTEPKG $k"; done
+  fi
+  echo "   VM size and GPUs are chosen next, on $RHOST itself (its inventory is shown there)."
+  DATA=$STATE/data; save DATA "$DATA"
+}
+
+bm_questions() {
+  cat &lt;&lt;EOF
+
+${c_r}${c_b}Bare-metal deployment - read before continuing${c_0}
+  - The target server is powered and booted over IPMI from a Red Hat CoreOS discovery ISO, and OpenShift is written
+    to its disk by the Red Hat console's Assisted Installer.
+  - ${c_r}EVERYTHING on the server's install disk and on the data disk you name is ERASED${c_0}: operating system, VMs,
+    containers, databases, files. It cannot be undone. Back up anything you need first.
+  - The target must be another machine: this machine is the provisioning host. It serves the ISO, the NAI image
+    registry, the NFS model share and (if you have no DNS records) the cluster's DNS, so it must stay on.
+  - Needs: the server's IPMI/BMC reachable from here, its NIC on a network this machine reaches and with internet
+    access (the Assisted Installer pulls OpenShift from Red Hat), and a free IP address for the node.
+EOF
+  yesno "Is the target a different machine from the one running this script" y \
+    || die "installing onto this machine would erase the installer midway. Run this script on another Linux host."
+
+  echo; echo "${c_b}Target server IPMI / BMC${c_0}"
+  BMC_HOST=$(ask "   IPMI address (IP or hostname)"); [ -n "$BMC_HOST" ] || die "IPMI address required"
+  BMC_HOST=${BMC_HOST#https://}; BMC_HOST=${BMC_HOST%%/*}; save BMC_HOST "$BMC_HOST"
+  local u p tries=0 code sys=""
+  while :; do
+    u=$(ask "   IPMI username" "${BMC_USER:-admin}"); p=$(ask_secret "   IPMI password (hidden)")
+    ( umask 077; python3 -c 'import json,sys;print(json.dumps({"u":sys.argv[1],"p":sys.argv[2]}))' "$u" "$p" &gt; "$STATE/bmc.json" ); p=""
+    code=$(rf_call GET /redfish/v1/Systems | head -1)
+    case $code in
+      200) break ;;
+      401|403) tries=$((tries + 1)); [ $tries -ge 3 ] &amp;&amp; die "the BMC rejected the IPMI credentials"; echo "   login failed, try again" &gt;/dev/tty ;;
+      *) if command -v ipmitool &gt;/dev/null; then ipmi chassis power status &gt;/dev/null 2&gt;&amp;1 &amp;&amp; break
+           tries=$((tries + 1)); [ $tries -ge 3 ] &amp;&amp; die "IPMI login failed"; echo "   IPMI login failed, try again" &gt;/dev/tty
+         else warn "the BMC has no Redfish API (HTTP $code); IPMI login is checked once ipmitool is installed"; break; fi ;;
+    esac
+  done
+  BMC_USER=$u; save BMC_USER "$BMC_USER"
+  RF_SYSTEM=""; RF_VMEDIA=""
+  if [ "$code" = 200 ]; then
+    RF_SYSTEM=$(rf /redfish/v1/Systems | members | head -1); local mgr m vm try
+    mgr=$(rf /redfish/v1/Managers | members | head -1)
+    for try in 1 2; do
+      for m in "$mgr/VirtualMedia" "$RF_SYSTEM/VirtualMedia"; do
+        for vm in $(rf "$m" | members); do rf "$vm" | jget MediaTypes | grep -qiE 'CD|DVD' &amp;&amp; { RF_VMEDIA=$vm; break 3; }; done
+      done
+      # AMI MegaRAC BMCs list no virtual media until "remote media" is enabled (a BMC setting; undone by --uninstall)
+      [ $try = 1 ] &amp;&amp; rf "$mgr" | grep -q 'AMIVirtualMedia.EnableRMedia' || break
+      yesno "   The BMC's remote media (virtual CD over Redfish) is switched off. Switch it on" y || break
+      code=$(rf_code POST "$mgr/Actions/Oem/AMIVirtualMedia.EnableRMedia" '{"RMediaState":"Enable"}')
+      [[ $code == 2* ]] || { warn "the BMC refused to enable remote media (HTTP $code)"; break; }
+      rec "AMIRMEDIA $mgr"; sleep 10
+    done
+    sys=$(rf "$RF_SYSTEM")
+    ok "BMC login ok: $(echo "$sys" | jget Manufacturer) $(echo "$sys" | jget Model), serial $(echo "$sys" | jget SerialNumber), power $(echo "$sys" | jget PowerState)"
+    echo "   CPUs: $(echo "$sys" | jget ProcessorSummary/Count) x $(echo "$sys" | jget ProcessorSummary/Model)   memory: $(echo "$sys" | jget MemorySummary/TotalSystemMemoryGiB) GiB"
+    [ -n "$RF_VMEDIA" ] &amp;&amp; ok "virtual CD available through the BMC (mounted automatically)" \
+      || warn "no virtual CD over the BMC API: you mount the ISO in the BMC web console when asked"
+  fi
+  save RF_SYSTEM "$RF_SYSTEM"; save RF_VMEDIA "$RF_VMEDIA"
+
+  echo; echo "${c_b}Node network${c_0}"
+  local nics=() e mac i=0 sel j
+  if [ -n "$RF_SYSTEM" ]; then
+    for e in $(rf "$RF_SYSTEM/EthernetInterfaces" | members); do
+      j=$(rf "$e"); mac=$(echo "$j" | jget MACAddress | tr A-Z a-z); [ -n "$mac" ] || continue
+      i=$((i + 1)); nics+=("$mac"); echo "     $i) $mac  $(echo "$j" | jget Id)  link $(echo "$j" | jget LinkStatus)  $(echo "$j" | jget SpeedMbps) Mbps"
+    done
+  fi
+  if [ ${#nics[@]} -gt 0 ]; then
+    sel=$(ask "   NIC the node uses (number, or type a MAC address)" 1)
+    [[ $sel =~ ^[0-9]+$ ]] &amp;&amp; [ "$sel" -ge 1 ] &amp;&amp; [ "$sel" -le ${#nics[@]} ] &amp;&amp; NODE_MAC=${nics[$((sel - 1))]} || NODE_MAC=$sel
+  else
+    NODE_MAC=$(ask "   MAC address of the node's NIC (from the BMC web console or the server label)")
+  fi
+  [[ $NODE_MAC =~ ^([0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}$ ]] || die "not a MAC address: $NODE_MAC"
+  NODE_MAC=$(echo "$NODE_MAC" | tr A-Z a-z)
+  NODE_IP=$(ask "   Node IP address (free, reachable from this host)"); valid_ip "$NODE_IP" || die "not an IPv4 address: $NODE_IP"
+  ping -c1 -W1 "$NODE_IP" &gt;/dev/null 2&gt;&amp;1 &amp;&amp; warn "$NODE_IP answers ping - make sure it is not in use by another machine"
+  local dev pfx gw; dev=$(ip -4 route get "$NODE_IP" 2&gt;/dev/null | grep -oP 'dev \K\S+' || true)
+  pfx=$(ip -o -4 addr show dev "${dev:-lo}" 2&gt;/dev/null | awk '{print $4}' | head -1 | cut -d/ -f2)
+  gw=$(ip -4 route show default dev "${dev:-lo}" 2&gt;/dev/null | awk '{print $3; exit}')
+  NODE_PREFIX=$(ask_int "   Prefix length" "${pfx:-24}" 8 30)
+  NODE_GW=$(ask "   Default gateway" "$gw"); valid_ip "$NODE_GW" || die "not an IPv4 address: $NODE_GW"
+  echo "   Address assignment: 'static' writes the address into the ISO; 'dhcp' needs a DHCP reservation $NODE_MAC -&gt; $NODE_IP"
+  NET_MODE=$(ask "   static or dhcp" static); [[ $NET_MODE =~ ^(static|dhcp)$ ]] || die "answer static or dhcp"
+
+  echo; echo "${c_b}DNS${c_0}: OpenShift needs api.&lt;cluster&gt;.&lt;domain&gt;, api-int.&lt;cluster&gt;.&lt;domain&gt; and *.apps.&lt;cluster&gt;.&lt;domain&gt; -&gt; $NODE_IP"
+  local up; up=$(awk '/^nameserver/ &amp;&amp; $2 !~ /^127\./ {print $2; exit}' /run/systemd/resolve/resolv.conf /etc/resolv.conf 2&gt;/dev/null || true)
+  if yesno "   Do these DNS records already exist (or will you create them now)" n; then
+    HOST_DNS=no
+    CLUSTER_NAME=$(ask "   Cluster name" "$CLUSTER_NAME"); BASE_DOMAIN=$(ask "   Base domain" "$BASE_DOMAIN")
+    NODE_DNS=$(ask "   DNS server the node uses" "$up"); valid_ip "$NODE_DNS" || die "not an IPv4 address: $NODE_DNS"
+    echo "   Records needed: api.$CLUSTER_NAME.$BASE_DOMAIN, api-int.$CLUSTER_NAME.$BASE_DOMAIN, *.apps.$CLUSTER_NAME.$BASE_DOMAIN -&gt; $NODE_IP"
+  else
+    HOST_DNS=yes; NODE_DNS=$(host_ip "$NODE_IP")
+    UPSTREAM_DNS=$(ask "   Upstream DNS for all other names" "$up"); valid_ip "$UPSTREAM_DNS" || die "not an IPv4 address: $UPSTREAM_DNS"
+    save UPSTREAM_DNS "$UPSTREAM_DNS"
+    [ "$NET_MODE" = dhcp ] &amp;&amp; { warn "with DHCP the node takes DNS from your DHCP server; switching to static so it uses this host's DNS"; NET_MODE=static; }
+    ok "this host ($NODE_DNS) answers the cluster names and forwards the rest to $UPSTREAM_DNS"
+  fi
+
+  echo; echo "${c_b}Server disks${c_0} (Linux names as the installer sees them, e.g. /dev/sda, /dev/nvme0n1)"
+  INSTALL_DISK=$(ask "   Install disk for CoreOS/OpenShift - ERASED (Enter = the installer's choice, shown before installing)" "")
+  DATA_DEVICE=$(ask "   Second disk for OpenShift local storage (LVM for NAI databases and model cache) - ERASED")
+  [[ $DATA_DEVICE == /dev/* ]] || die "a data disk such as /dev/nvme1n1 is required"
+  [ "$DATA_DEVICE" != "$INSTALL_DISK" ] || die "the data disk must differ from the install disk"
+  echo; echo "${c_b}GPU${c_0}: NAI runs endpoints on NVIDIA GPUs or on CPU."
+  yesno "   Does the server have NVIDIA GPUs for NAI (y installs the NVIDIA GPU Operator, n = CPU-only)" y &amp;&amp; BM_GPU=yes || BM_GPU=no
+  echo; echo "${c_b}This host${c_0} keeps the NAI bundle (~60 GB unpacked), the image registry and the NFS model share."
+  ask_storage_dir "NAI bundle, registry and NFS model share" 300
+  local v; for v in NODE_MAC NODE_IP NODE_PREFIX NODE_GW NET_MODE HOST_DNS NODE_DNS CLUSTER_NAME BASE_DOMAIN INSTALL_DISK DATA_DEVICE BM_GPU; do save $v "${!v}"; done
+}
+
+inputs() {
+  [ $INTERACTIVE = 1 ] || die "the setup questions have not been answered; run interactively: sudo $SELF"
+  echo; echo "${c_b}Nutanix Enterprise AI on Red Hat OpenShift (single node)${c_0} - all questions first, then it runs unattended."
+  [ "$CHILD" = 1 ] &amp;&amp; echo "   (run on $(hostname) by the controller; the token and NAI links were given there)"
+  ask_token
+  [ -n "${NAI_TAR_SRC:-}" ] &amp;&amp; [ -n "${NAI_CHARTS_SRC:-}" ] || ask_nai
+  [ -n "${OCP_VERSION:-}" ] || pick_ocp_version
+
+  if [ -z "${MODE:-}" ]; then
+    echo; echo "${c_b}Deployment target${c_0}"
+    echo "     1) vm         OpenShift in a VM on this machine ($(hostname)); you choose vCPUs, memory, storage, GPUs."
+    echo "     2) remote     OpenShift in a VM on another Linux server (asks its IP and root password)."
+    echo "     3) baremetal  OpenShift directly on a server through its IPMI (ERASES that server's disks)."
+    local m; m=$(ask "   Choose 1, 2 or 3" 1)
+    case $m in 1|vm) MODE=vm ;; 2|remote) MODE=remote ;; 3|baremetal|bm) MODE=baremetal ;; *) die "choose 1, 2 or 3" ;; esac
+    save MODE "$MODE"
+  fi
+  case $MODE in vm) vm_questions ;; remote) remote_questions ;; baremetal) bm_questions ;; esac
+
+  echo; echo "${c_b}Summary${c_0}"
+  echo "   OpenShift $OCP_RELEASE single node '$CLUSTER_NAME.$BASE_DOMAIN', installed $([ "$INSTALL_METHOD" = agent ] &amp;&amp; echo 'with the agent-based installer' || echo 'through the Red Hat console'); then NAI"
+  case $MODE in
+    vm) echo "   VM $VM_NAME on $(hostname): $VM_VCPUS vCPU, $VM_RAM_GB GB memory, disks ${OS_DISK_GB} GB + ${DATA_DISK_GB} GB in $DATA"
+        echo "   Compute: $([ -n "$GPU_BDFS" ] &amp;&amp; echo "NVIDIA GPU passthrough $GPU_BDFS (one reboot, asked first)" || echo "CPU only")"
+        yesno "Start the deployment with these settings" y || { rm -f "$CONF"; echo "Nothing changed. Run again to answer anew."; exit 0; } ;;
+    remote) echo "   VM on $RHOST: the setup continues there over SSH (VM size, GPUs and a possible reboot are asked there)"
+        yesno "Continue on $RHOST" y || { echo "Stopped. Run again to continue."; exit 0; } ;;
+    baremetal)
+        echo "   Server behind IPMI $BMC_HOST, NIC $NODE_MAC, node $NODE_IP/$NODE_PREFIX gw $NODE_GW ($NET_MODE), DNS $NODE_DNS"
+        echo "   Disks ERASED: install ${INSTALL_DISK:-&lt;chosen by the installer&gt;}, data $DATA_DEVICE.  Compute: $([ $BM_GPU = yes ] &amp;&amp; echo 'NVIDIA GPUs' || echo 'CPU only')"
+        echo "   This host keeps: $DATA (bundle, registry, NFS share)$([ $HOST_DNS = yes ] &amp;&amp; echo ', DNS for the cluster')"
+        [ "$(ask "Type ERASE to wipe those disks on the server and deploy")" = ERASE ] || { rm -f "$CONF" "$STATE/bmc.json"; echo "Aborted - nothing changed."; exit 0; } ;;
+  esac
+  ok "answers saved; no more questions$([ $MODE = vm ] &amp;&amp; [ -n "${GPU_BDFS:-}" ] &amp;&amp; echo ' except the reboot')"
+}
+
+# ---------------------------------------------------------------- 2. host
+check() {
+  log "host check"
+  echo "  OS:     $(. /etc/os-release; echo "$PRETTY_NAME"), kernel $(uname -r), packages $(pkg_mgr)"
+  host_inventory
+  if [ "${MODE:-vm}" = vm ]; then
+    grep -qE 'svm|vmx' /proc/cpuinfo &amp;&amp; ok "CPU virtualization flags" || die "CPU has no virtualization support (needed for a VM)"
+    list_gpus
+  fi
+  if [ -n "${DATA:-}" ]; then
+    local need=300; [ "${MODE:-vm}" = vm ] &amp;&amp; need=$(( ${OS_DISK_GB:-200} + ${DATA_DISK_GB:-500} + 300 ))
+    [ "$(free_gb "$DATA")" -ge $need ] &amp;&amp; ok "$(free_gb "$DATA") GB free in $DATA" || warn "only $(free_gb "$DATA") GB free in $DATA (about $need GB needed)"
+  fi
+}
+
+apt_install() {   # host apt may be locked to an offline repo (NKP does this): fall back to a private Ubuntu
+  local p miss=0   # archive source under $STATE/apt - /etc/apt is never modified
+  export DEBIAN_FRONTEND=noninteractive
+  apt-get update -qq &gt;/dev/null 2&gt;&amp;1 || true
+  for p in "$@"; do apt-cache policy "$p" 2&gt;/dev/null | grep -q 'Candidate: [0-9]' || miss=1; done
+  if [ $miss = 0 ]; then apt-get install -y -qq --no-install-recommends "$@"; return; fi
+  local d=$STATE/apt code; code=$(. /etc/os-release; echo "${VERSION_CODENAME:-$UBUNTU_CODENAME}")
+  [ -n "$code" ] || die "cannot tell the Ubuntu release; install $* manually and re-run"
+  mkdir -p "$d/lists/partial" "$d/archives/partial"; id _apt &gt;/dev/null 2&gt;&amp;1 &amp;&amp; chown -R _apt "$d/lists/partial" "$d/archives/partial"
+  { echo "deb http://archive.ubuntu.com/ubuntu $code main universe restricted multiverse"
+    echo "deb http://archive.ubuntu.com/ubuntu $code-updates main universe restricted multiverse"
+    echo "deb http://security.ubuntu.com/ubuntu $code-security main universe restricted multiverse"; } &gt; "$d/sources.list"
+  local o=(-o Dir::Etc::SourceList="$d/sources.list" -o Dir::Etc::SourceParts=- -o Dir::State::Lists="$d/lists"
+           -o Dir::Cache::Archives="$d/archives")
+  echo "  host apt has no Ubuntu archive configured (offline repo only); using a private source" | tee -a "$TLOG"
+  apt-get "${o[@]}" update -qq || die "cannot reach archive.ubuntu.com"
+  apt-get "${o[@]}" install -y -qq --no-install-recommends --no-upgrade "$@"
+}
+
+host_packages() {
+  local apt=(curl skopeo podman) dnf=(curl skopeo podman) need=0 b
+  if [ $MODE = vm ]; then
+    apt+=(qemu-system-x86 qemu-utils libvirt-daemon-system libvirt-clients virtinst ovmf dnsmasq-base)
+    dnf+=(qemu-kvm libvirt virt-install edk2-ovmf)
+    for b in virt-install virsh qemu-img; do command -v $b &gt;/dev/null || need=1; done
+    ls /usr/share/OVMF/OVMF_CODE*.fd /usr/share/edk2/ovmf/OVMF_CODE*.fd /usr/share/edk2/ovmf/OVMF_CODE*.qcow2 &gt;/dev/null 2&gt;&amp;1 || need=1
+  else
+    apt+=(ipmitool); dnf+=(ipmitool); command -v ipmitool &gt;/dev/null || need=1
+    [ "$HOST_DNS" = yes ] &amp;&amp; { apt+=(dnsmasq-base); dnf+=(dnsmasq); command -v dnsmasq &gt;/dev/null || need=1; }
+    [ "$INSTALL_METHOD" = agent ] &amp;&amp; [ "$NET_MODE" = static ] &amp;&amp; { apt+=(nmstate); dnf+=(nmstate); command -v nmstatectl &gt;/dev/null || need=1; }
+  fi
+  for b in curl skopeo; do command -v $b &gt;/dev/null || need=1; done
+  command -v podman &gt;/dev/null || command -v docker &gt;/dev/null || need=1
+  if [ $need = 1 ]; then
+    pkg_list &gt; "$STATE/pkgs.before"
+    case $(pkg_mgr) in
+      apt) apt_install "${apt[@]}" ;;
+      dnf) dnf install -y -q "${dnf[@]}" ;;
+      *)   die "no apt/dnf: install ${apt[*]} manually" ;;
+    esac
+    pkg_new "$STATE/pkgs.before" | while read -r p; do rec "PKG $p"; done
+    ok "installed $(grep -c '^PKG ' "$MANIFEST") packages (recorded for uninstall)"
+  else
+    ok "required packages already present (nothing installed)"
+  fi
+  if [ $MODE = vm ]; then
+    systemctl enable --now libvirtd &gt;/dev/null 2&gt;&amp;1 || systemctl enable --now virtqemud &gt;/dev/null 2&gt;&amp;1 || true
+    if virsh net-info default &gt;/dev/null 2&gt;&amp;1; then   # libvirt's default net can collide with container networks
+      virsh net-destroy default &gt;/dev/null 2&gt;&amp;1 || true; virsh net-autostart default --disable &gt;/dev/null 2&gt;&amp;1 || true
+    fi
+  else
+    if ipmi chassis power status &gt;/dev/null 2&gt;&amp;1; then ok "IPMI over LAN works: $(ipmi chassis power status)"
+    elif [ -n "$RF_SYSTEM" ]; then warn "IPMI over LAN refused (disabled on the BMC?); power and boot go through the BMC's Redfish API"
+    else die "IPMI over LAN to $BMC_HOST failed and the BMC has no Redfish API: enable 'IPMI over LAN' on the BMC and re-run"; fi
+  fi
+}
+
+gpus_reserved() { local g f; for g in $GPU_BDFS; do for f in $(gpu_functions "$g"); do [ "$(drv "$f")" = vfio-pci ] || return 1; done; done; }
+
+host_prep() {   # vm: KVM; with GPUs also IOMMU on + GPUs reserved for vfio - one reboot, only with consent
+  [ -e /dev/kvm ] || modprobe kvm_amd 2&gt;/dev/null || modprobe kvm_intel 2&gt;/dev/null || true
+  [ -e /dev/kvm ] || die "hardware virtualization is off: enable it in the BIOS (AMD: SVM Mode, Intel: VT-x), reboot, re-run"
+  ok "KVM available"
+  [ -z "$GPU_BDFS" ] &amp;&amp; { ok "CPU-only VM: no GPU passthrough, no reboot"; return; }
+  local why=() g f p
+  if ! iommu_on; then
+    p=$(grep -q AuthenticAMD /proc/cpuinfo &amp;&amp; echo "amd_iommu=on iommu=pt" || echo "intel_iommu=on iommu=pt")
+    if command -v grubby &gt;/dev/null; then
+      grubby --info=DEFAULT | grep -q "${p%% *}" || { grubby --update-kernel=ALL --args="$p"; rec "GRUBBY $p"; }
+    elif [ ! -f /etc/default/grub.d/90-nai-ocp-iommu.cfg ]; then
+      echo "GRUB_CMDLINE_LINUX_DEFAULT=\"\$GRUB_CMDLINE_LINUX_DEFAULT $p\"" &gt; /etc/default/grub.d/90-nai-ocp-iommu.cfg
+      rec "GRUBFILE /etc/default/grub.d/90-nai-ocp-iommu.cfg"; update-grub &gt;/dev/null 2&gt;&amp;1
+    fi
+    why+=("turn on the IOMMU")
+  fi
+  for g in $GPU_BDFS; do for f in $(gpu_functions "$g"); do   # tagged but driverless (vfio-pci loaded before the tag): bind now
+    [ -z "$(drv "$f")" ] &amp;&amp; [ "$(cat /sys/bus/pci/devices/$f/driver_override 2&gt;/dev/null)" = vfio-pci ] \
+      &amp;&amp; { modprobe vfio-pci; echo "$f" &gt; /sys/bus/pci/drivers_probe 2&gt;/dev/null || true; }
+  done; done
+  if gpus_reserved; then :
+  elif [ -f "$DONE/reboot-gpu" ] &amp;&amp; [ "$(cat "$DONE/reboot-gpu")" != "$(cat /proc/sys/kernel/random/boot_id)" ]; then   # rebooted once already: never again
+    for g in $GPU_BDFS; do for f in $(gpu_functions "$g"); do echo "  $f driver: $(drv "$f") override: $(cat /sys/bus/pci/devices/$f/driver_override 2&gt;/dev/null)"; done; done
+    die "the GPU reservation did not take effect after the reboot (see drivers above); not rebooting again"
+  else
+    # driver_override tags the card by PCI address; RUN re-probes so vfio-pci claims it even if it loaded first
+    { echo "# nai-on-openshift: GPUs reserved for VM passthrough: $GPU_BDFS"
+      for g in $GPU_BDFS; do for f in $(gpu_functions "$g"); do
+        echo "ACTION==\"add\", SUBSYSTEM==\"pci\", KERNEL==\"$f\", ATTR{driver_override}=\"vfio-pci\", RUN+=\"/sbin/modprobe -b vfio-pci\", RUN+=\"/bin/sh -c 'echo %k &gt; /sys/bus/pci/drivers_probe'\""; done; done
+    } &gt; /etc/udev/rules.d/90-nai-ocp-vfio.rules
+    printf 'softdep nvidia pre: vfio-pci\nsoftdep nouveau pre: vfio-pci\nsoftdep snd_hda_intel pre: vfio-pci\n' &gt; /etc/modprobe.d/90-nai-ocp-vfio.conf
+    echo vfio-pci &gt; /etc/modules-load.d/90-nai-ocp-vfio.conf
+    rec "FILE /etc/udev/rules.d/90-nai-ocp-vfio.rules"; rec "FILE /etc/modprobe.d/90-nai-ocp-vfio.conf"
+    rec "FILE /etc/modules-load.d/90-nai-ocp-vfio.conf"; rec "INITRAMFS"
+    if command -v update-initramfs &gt;/dev/null; then update-initramfs -u -k "$(uname -r)" &gt;/dev/null; else dracut -f; fi
+    cat /proc/sys/kernel/random/boot_id &gt; "$DONE/reboot-gpu"   # remembers which boot asked for the reboot
+    why+=("reserve GPU(s) $GPU_BDFS for the VM (the host stops using them)")
+  fi
+  [ ${#why[@]} = 0 ] &amp;&amp; { rm -f "$STATE/need-reboot"; ok "IOMMU active; GPU(s) $GPU_BDFS reserved for the VM"; return; }
+  local msg; msg=$(printf '%s; ' "${why[@]}"); reboot_ask "${msg%; }"
+}
+
+fw_allow() {   # port proto: open the host firewall to the cluster, if one is active (recorded)
+  if command -v ufw &gt;/dev/null &amp;&amp; ufw status 2&gt;/dev/null | grep -q 'Status: active'; then
+    ufw allow from "$CLIENT_NET" to any port "$1" proto "$2" &gt;/dev/null; rec "UFW from $CLIENT_NET to any port $1 proto $2"
+  elif command -v firewall-cmd &gt;/dev/null &amp;&amp; firewall-cmd --state &gt;/dev/null 2&gt;&amp;1; then
+    local z; z=$(firewall-cmd --get-default-zone)
+    [ "$MODE" = vm ] &amp;&amp; firewall-cmd --get-zones | grep -qw libvirt &amp;&amp; z=libvirt   # VM traffic arrives in libvirt's zone
+    firewall-cmd -q --permanent --zone="$z" --add-port="$1/$2"; firewall-cmd -q --reload; rec "FIREWALLD $z $1/$2"
+  fi
+}
+
+# ---------------------------------------------------------------- 3. OpenShift through the Red Hat console
+tools() {
+  local base=https://mirror.openshift.com/pub/openshift-v4/x86_64/clients/ocp/$OCP_RELEASE
+  mkdir -p "$WORK/bin"
+  [ -x "$WORK/bin/oc" ] || { download "$base/openshift-client-linux.tar.gz" "$WORK/oc.tar.gz"; tar -xzf "$WORK/oc.tar.gz" -C "$WORK/bin" oc kubectl; }
+  if [ "$INSTALL_METHOD" = agent ] &amp;&amp; [ ! -x "$WORK/bin/openshift-install" ]; then
+    download "$base/openshift-install-linux.tar.gz" "$WORK/openshift-install.tar.gz"; tar -xzf "$WORK/openshift-install.tar.gz" -C "$WORK/bin" openshift-install
+  fi
+  [ -x "$WORK/bin/helm" ] || { download https://get.helm.sh/helm-v3.19.0-linux-amd64.tar.gz "$WORK/helm.tar.gz"
+                               tar -xzf "$WORK/helm.tar.gz" -C "$WORK"; mv "$WORK/linux-amd64/helm" "$WORK/bin/"; }
+  [ -f "$STATE/ssh_ed25519" ] || ssh-keygen -q -t ed25519 -N "" -C "nai-ocp-core" -f "$STATE/ssh_ed25519"
+  ok "oc $(oc version --client 2&gt;/dev/null | awk '/Client/{print $3}'); helm $(helm version --short)"
+}
+
+hosts_entries() {   # this host resolves the cluster names (oc, helm, SSH SOCKS tunnels)
+  local n line; for n in api api-int console-openshift-console.apps oauth-openshift.apps nai.apps downloads-openshift-console.apps; do
+    line="$NODE_IP $n.$CLUSTER_NAME.$BASE_DOMAIN"; grep -qxF "$line" /etc/hosts || { echo "$line" &gt;&gt; /etc/hosts; rec "HOSTS $line"; }
+  done
+}
+
+vm_network() {
+  if [ -z "${NET_PREFIX:-}" ]; then
+    local x; for x in 130 131 132 140 150; do ip route | grep -q "172.20.$x\." || { NET_PREFIX=172.20.$x; break; }; done
+    [ -n "${NET_PREFIX:-}" ] || die "no free 172.20.x.0/24 network"; save NET_PREFIX "$NET_PREFIX"
+  fi
+  NODE_IP=$NET_PREFIX.10; SVC_IP=$NET_PREFIX.1; CLIENT_NET=$NET_PREFIX.0/24
+  MACHINE_CIDR=$NET_PREFIX.0/24; save NODE_IP "$NODE_IP"; save SVC_IP "$SVC_IP"; save CLIENT_NET "$CLIENT_NET"; save MACHINE_CIDR "$MACHINE_CIDR"
+  if ! virsh net-info "$NET_NAME" &gt;/dev/null 2&gt;&amp;1; then
+    cat &gt; "$WORK/net.xml" &lt;&lt;EOF
+&lt;network xmlns:dnsmasq='http://libvirt.org/schemas/network/dnsmasq/1.0'&gt;
+  &lt;name&gt;$NET_NAME&lt;/name&gt;
+  &lt;forward mode='nat'/&gt;
+  &lt;bridge name='$NET_BRIDGE' stp='on' delay='0'/&gt;
+  &lt;domain name='$BASE_DOMAIN' localOnly='yes'/&gt;
+  &lt;dns&gt;&lt;host ip='$NODE_IP'&gt;&lt;hostname&gt;api.$CLUSTER_NAME.$BASE_DOMAIN&lt;/hostname&gt;&lt;hostname&gt;api-int.$CLUSTER_NAME.$BASE_DOMAIN&lt;/hostname&gt;&lt;/host&gt;&lt;/dns&gt;
+  &lt;ip address='$NET_PREFIX.1' netmask='255.255.255.0'&gt;
+    &lt;dhcp&gt;&lt;range start='$NET_PREFIX.100' end='$NET_PREFIX.200'/&gt;&lt;host mac='$VM_MAC' name='$CLUSTER_NAME' ip='$NODE_IP'/&gt;&lt;/dhcp&gt;
+  &lt;/ip&gt;
+  &lt;dnsmasq:options&gt;&lt;dnsmasq:option value='address=/apps.$CLUSTER_NAME.$BASE_DOMAIN/$NODE_IP'/&gt;&lt;/dnsmasq:options&gt;
+&lt;/network&gt;
+EOF
+    virsh net-define "$WORK/net.xml" &gt;/dev/null; virsh net-autostart "$NET_NAME" &gt;/dev/null; virsh net-start "$NET_NAME" &gt;/dev/null
+    rec "NET $NET_NAME"
+  fi
+  if command -v resolvectl &gt;/dev/null &amp;&amp; systemctl is-active -q systemd-resolved; then
+    mkdir -p /etc/libvirt/hooks
+    [ -f /etc/libvirt/hooks/network ] &amp;&amp; ! grep -q nai-on-openshift /etc/libvirt/hooks/network &amp;&amp; die "/etc/libvirt/hooks/network exists and is not ours"
+    printf '#!/bin/sh\n# nai-on-openshift\n[ "$1" = "%s" ] &amp;&amp; [ "$2" = started ] &amp;&amp; { resolvectl dns %s %s; resolvectl domain %s "~%s"; }\nexit 0\n' \
+      "$NET_NAME" "$NET_BRIDGE" "$NET_PREFIX.1" "$NET_BRIDGE" "$BASE_DOMAIN" &gt; /etc/libvirt/hooks/network
+    chmod 755 /etc/libvirt/hooks/network; rec "FILE /etc/libvirt/hooks/network"
+    resolvectl dns "$NET_BRIDGE" "$NET_PREFIX.1"; resolvectl domain "$NET_BRIDGE" "~$BASE_DOMAIN"
+  else
+    hosts_entries
+  fi
+  ok "VM network $NET_PREFIX.0/24; cluster names resolve to $NODE_IP"
+}
+
+bm_network() {   # bare metal: this host serves registry/NFS (and DNS) to the node
+  SVC_IP=$(host_ip "$NODE_IP"); CLIENT_NET=$NODE_IP/32
+  [ -n "$SVC_IP" ] || die "no route from this host to $NODE_IP"
+  MACHINE_CIDR=$(python3 -c "import ipaddress,sys;print(ipaddress.ip_network(sys.argv[1],strict=False))" "$NODE_IP/$NODE_PREFIX")
+  save SVC_IP "$SVC_IP"; save CLIENT_NET "$CLIENT_NET"; save MACHINE_CIDR "$MACHINE_CIDR"
+  if [ "$HOST_DNS" = yes ]; then
+    ss -lunH "sport = :53" 2&gt;/dev/null | grep -qE "($SVC_IP|0\.0\.0\.0|\*):53 " &amp;&amp; die "port 53 on $SVC_IP is taken; re-run and say the DNS records exist"
+    local d=$CLUSTER_NAME.$BASE_DOMAIN
+    cat &gt; "$DNS_UNIT" &lt;&lt;EOF
+[Unit]
+Description=nai-on-openshift: DNS for the OpenShift cluster $d
+After=network-online.target
+Wants=network-online.target
+[Service]
+ExecStart=$(command -v dnsmasq) -k --user=nobody --group=$(getent group nogroup &gt;/dev/null &amp;&amp; echo nogroup || echo nobody) --bind-interfaces --listen-address=$SVC_IP --no-resolv --no-hosts --server=$UPSTREAM_DNS --host-record=api.$d,$NODE_IP --host-record=api-int.$d,$NODE_IP --address=/apps.$d/$NODE_IP
+Restart=always
+[Install]
+WantedBy=multi-user.target
+EOF
+    rec "FILE $DNS_UNIT"; rec "SERVICE nai-ocp-dns"
+    systemctl daemon-reload; systemctl enable --now nai-ocp-dns &gt;/dev/null 2&gt;&amp;1 || die "DNS service failed (journalctl -u nai-ocp-dns)"
+    fw_allow 53 udp; fw_allow 53 tcp
+    ok "DNS for $d on $SVC_IP (other names forwarded to $UPSTREAM_DNS)"
+  fi
+  getent hosts "api.$CLUSTER_NAME.$BASE_DOMAIN" | grep -q "^$NODE_IP " || hosts_entries
+  ok "node $NODE_IP; this host serves the cluster from $SVC_IP"
+}
+
+ocp_cluster() {   # register the cluster in the Red Hat console (Assisted Installer) and download its discovery ISO
+  local ps key body snc="" url
+  ps=$(cat "$STATE/pull-secret.json"); key=$(cat "$STATE/ssh_ed25519.pub")
+  if [ -z "${OCM_CLUSTER_ID:-}" ]; then
+    body=$(jobj name="$CLUSTER_NAME" openshift_version="$OCP_VERSION" cpu_architecture=x86_64 high_availability_mode=None \
+           base_dns_domain="$BASE_DOMAIN" pull_secret="$ps" ssh_public_key="$key" user_managed_networking:=true network_type=OVNKubernetes)
+    OCM_CLUSTER_ID=$(ocm POST "$A/clusters" "$body" | jget id); [ -n "$OCM_CLUSTER_ID" ] || die "the Red Hat console did not create the cluster"
+    save OCM_CLUSTER_ID "$OCM_CLUSTER_ID"; rec "OCMCLUSTER $OCM_CLUSTER_ID"
+  fi
+  if [ -z "${OCM_INFRA_ID:-}" ]; then
+    if [ "$MODE" = baremetal ] &amp;&amp; [ "$NET_MODE" = static ]; then
+      snc=$(python3 -c '
+import json, sys
+mac, ip, pfx, gw, dns = sys.argv[1:]
+y = f"""interfaces:
+- name: eno1
+  type: ethernet
+  state: up
+  mac-address: {mac}
+  ipv4: {{enabled: true, dhcp: false, address: [{{ip: {ip}, prefix-length: {pfx}}}]}}
+  ipv6: {{enabled: false}}
+dns-resolver: {{config: {{server: [{dns}]}}}}
+routes: {{config: [{{destination: 0.0.0.0/0, next-hop-address: {gw}, next-hop-interface: eno1, table-id: 254}}]}}
+"""
+print(json.dumps([{"network_yaml": y, "mac_interface_map": [{"mac_address": mac, "logical_nic_name": "eno1"}]}]))' \
+        "$NODE_MAC" "$NODE_IP" "$NODE_PREFIX" "$NODE_GW" "$NODE_DNS")
+    fi
+    body=$(jobj name="$CLUSTER_NAME-infra" cluster_id="$OCM_CLUSTER_ID" openshift_version="$OCP_VERSION" cpu_architecture=x86_64 \
+           pull_secret="$ps" ssh_authorized_key="$key" image_type=full-iso ${snc:+static_network_config:="$snc"})
+    OCM_INFRA_ID=$(ocm POST "$A/infra-envs" "$body" | jget id); [ -n "$OCM_INFRA_ID" ] || die "the Red Hat console did not create the discovery image"
+    save OCM_INFRA_ID "$OCM_INFRA_ID"; rec "OCMINFRA $OCM_INFRA_ID"
+  fi
+  ok "cluster '$CLUSTER_NAME' registered: https://console.redhat.com/openshift/assisted-installer/clusters/$OCM_CLUSTER_ID"
+  if [ ! -s "$WORK/discovery.iso" ]; then
+    url=$(ocm GET "$A/infra-envs/$OCM_INFRA_ID/downloads/image-url" | jget url)
+    echo "  downloading the discovery ISO from the Red Hat console" | tee -a "$TLOG"
+    download "$url" "$WORK/discovery.iso" || die "discovery ISO download failed; re-run to resume"
+  fi
+  ok "discovery ISO $(human "$(stat -c %s "$WORK/discovery.iso")")"
+}
+
+cpuset() {   # $2 vCPUs as whole cores (+SMT siblings), NUMA node $1 first, leaving the first core to the host
+  python3 - "$1" "$2" &lt;&lt;'EOF'
+import subprocess, sys
+node, want = int(sys.argv[1]), int(sys.argv[2])
+cores = {}
+for l in subprocess.check_output(["lscpu", "-p=CPU,CORE,NODE"], text=True).splitlines():
+    if l.startswith("#"): continue
+    cpu, core, n = l.split(",")
+    cores.setdefault((int(n or 0), int(core)), []).append(int(cpu))
+keys = sorted(cores)[1:]
+pref = [k for k in keys if node &lt; 0 or k[0] == node]
+out = []
+for k in pref + [k for k in keys if k not in pref]:
+    if len(out) &gt;= want: break
+    out += cores[k]
+print(",".join(map(str, out[:want])))
+EOF
+}
+
+vm_create() {
+  virsh dominfo "$VM_NAME" &gt;/dev/null 2&gt;&amp;1 &amp;&amp; { ok "VM exists"; return; }
+  local disks=$DATA/vm node=-1 hostdev=() g f os=rhel9.4
+  mkdir -p "$disks"; cp "$WORK/discovery.iso" "$disks/discovery.iso"
+  for g in $GPU_BDFS; do
+    [ $node = -1 ] &amp;&amp; node=$(cat /sys/bus/pci/devices/$g/numa_node)
+    for f in $(gpu_functions "$g"); do [ "$(drv "$f")" = vfio-pci ] || die "$f is not reserved for passthrough (reboot needed?)"; hostdev+=(--hostdev "$f"); done
+  done
+  local avail; avail=$(free -g | awk '/Mem:/{print $7}')
+  [ "$avail" -ge $((VM_RAM_GB + 8)) ] || die "only $avail GB memory free now; the VM needs $VM_RAM_GB GB (free memory, or --uninstall and answer again)"
+  local cpus numa=(); cpus=$(cpuset "$node" "$VM_VCPUS")
+  [ "$node" -ge 0 ] &amp;&amp; numa=(--numatune "$node,mode=preferred")
+  virt-install --osinfo list 2&gt;/dev/null | grep -qw rhel9.4 || os=linux2022
+  # plain UEFI firmware without Secure Boot, named explicitly: auto-selection can pick the AMD-SEV/TDX build, which
+  # Ubuntu's AppArmor helper rejects ("skipped restricted file"), and Secure Boot blocks the in-cluster NVIDIA driver
+  local fw_code="" fw_vars="" c
+  for c in /usr/share/OVMF/OVMF_CODE_4M.fd /usr/share/OVMF/OVMF_CODE.fd /usr/share/edk2/ovmf/OVMF_CODE.fd /usr/share/edk2/x64/OVMF_CODE.4m.fd /usr/share/edk2/x64/OVMF_CODE.fd; do
+    [ -f "$c" ] &amp;&amp; [ -f "${c/CODE/VARS}" ] &amp;&amp; { fw_code=$c; fw_vars=${c/CODE/VARS}; break; }
+  done
+  [ -n "$fw_code" ] || die "no non-Secure-Boot OVMF firmware (OVMF_CODE + OVMF_VARS) found on this host"
+  log "creating VM $VM_NAME: $VM_VCPUS vCPU, $VM_RAM_GB GB, ${OS_DISK_GB}+${DATA_DISK_GB} GB disks, ${GPU_BDFS:-no GPU (CPU-only)}"
+  virt-install --name "$VM_NAME" --osinfo "$os" \
+    --boot "loader=$fw_code,loader.readonly=yes,loader.type=pflash,loader.secure=no,nvram.template=$fw_vars" \
+    --cpu host-passthrough --vcpus "$VM_VCPUS,cpuset=$cpus" "${numa[@]}" --memory $((VM_RAM_GB * 1024)) \
+    --disk "path=$disks/os.qcow2,size=$OS_DISK_GB,format=qcow2,bus=virtio,cache=none,io=native" \
+    --disk "path=$disks/data.qcow2,size=$DATA_DISK_GB,format=qcow2,bus=virtio,cache=none,io=native" \
+    --cdrom "$disks/discovery.iso" --network "network=$NET_NAME,mac=$VM_MAC,model=virtio" \
+    "${hostdev[@]}" --graphics vnc,listen=127.0.0.1 --noautoconsole --autostart --wait 0 &gt;/dev/null
+  rec "VM $VM_NAME"
+}
+
+bm_boot() {   # serve the ISO over HTTP, attach it as virtual CD, boot the server from it once over IPMI
+  local ip p=8088 dir=$WORK/iso-http url code body
+  ip=$(host_ip "${BMC_HOST%%:*}"); [ -n "$ip" ] || ip=$SVC_IP
+  while ! port_free $p; do p=$((p + 1)); done
+  mkdir -p "$dir"; ln -f "$WORK/discovery.iso" "$dir/discovery.iso" 2&gt;/dev/null || cp "$WORK/discovery.iso" "$dir/discovery.iso"
+  systemctl stop nai-ocp-iso &gt;/dev/null 2&gt;&amp;1 || true
+  systemd-run -q --unit nai-ocp-iso --collect python3 -m http.server "$p" --bind "$ip" --directory "$dir"
+  sleep 2; url=http://$ip:$p/discovery.iso
+  python3 -c "import urllib.request,sys;urllib.request.urlopen(urllib.request.Request(sys.argv[1],method='HEAD'),timeout=10)" "$url" \
+    || die "cannot serve the ISO at $url"
+  CLIENT_NET=${BMC_HOST%%:*} fw_allow $p tcp
+  if [ -n "$RF_VMEDIA" ]; then
+    rf_code POST "$RF_VMEDIA/Actions/VirtualMedia.EjectMedia" &gt;/dev/null || true
+    code=000
+    for body in "{\"Image\":\"$url\",\"Inserted\":true,\"WriteProtected\":true,\"TransferProtocolType\":\"HTTP\"}" \
+                "{\"Image\":\"$url\",\"Inserted\":true,\"WriteProtected\":true}" "{\"Image\":\"$url\"}"; do
+      code=$(rf_code POST "$RF_VMEDIA/Actions/VirtualMedia.InsertMedia" "$body"); [[ $code == 2* ]] &amp;&amp; break
+    done
+    [[ $code == 2* ]] || code=$(rf_code PATCH "$RF_VMEDIA" "{\"Image\":\"$url\",\"Inserted\":true}")
+    [[ $code == 2* ]] || die "BMC refused the virtual media (HTTP $code). Mount $url as virtual CD by hand, then re-run."
+    rec "BMCMEDIA $RF_VMEDIA"; ok "ISO attached as virtual CD from $url"
+  else
+    [ $INTERACTIVE = 1 ] || die "mount $url as virtual CD in the BMC web console, then re-run this script interactively"
+    echo "  ${c_b}Mount the ISO now${c_0}: in the BMC web console (https://${BMC_HOST%%:*}) open Remote Control / Virtual Media"
+    echo "  and attach this URL (or download it and attach the file) as CD/DVD:  $url"
+    ask "  Press Enter once it is attached" &gt;/dev/null
+  fi
+  if ipmi chassis bootdev cdrom options=efiboot &gt;/dev/null 2&gt;&amp;1; then
+    ok "IPMI: next boot from CD (UEFI, once)"
+    if ipmi chassis power status | grep -q 'is on'; then ipmi chassis power cycle &gt;/dev/null; else ipmi chassis power on &gt;/dev/null; fi
+    ok "IPMI: server power-cycled into the discovery ISO; its disks are overwritten by the installer"
+  else
+    [ -n "$RF_SYSTEM" ] || die "IPMI boot-device command failed and the BMC has no Redfish API"
+    code=$(rf_code PATCH "$RF_SYSTEM" '{"Boot":{"BootSourceOverrideTarget":"Cd","BootSourceOverrideEnabled":"Once","BootSourceOverrideMode":"UEFI"}}')
+    [[ $code == 2* ]] || code=$(rf_code PATCH "$RF_SYSTEM" '{"Boot":{"BootSourceOverrideTarget":"Cd","BootSourceOverrideEnabled":"Once"}}')
+    [[ $code == 2* ]] || die "BMC refused the one-time CD boot (HTTP $code)"
+    if [ "$(rf "$RF_SYSTEM" | jget PowerState)" = On ]; then body=ForceRestart; else body=On; fi
+    code=$(rf_code POST "$RF_SYSTEM/Actions/ComputerSystem.Reset" "{\"ResetType\":\"$body\"}")
+    [[ $code == 2* ]] || die "BMC refused the power action $body (HTTP $code)"
+    ok "Redfish: server booting the discovery ISO (power action $body)"
+  fi
+}
+
+host_report() {   # failing validations of the node and the cluster, as the Red Hat console shows them
+  python3 -c '
+import json, sys
+hosts, cl = json.loads(sys.argv[1] or "[]"), json.loads(sys.argv[2] or "{}")
+def failing(v, prefix):
+    for items in json.loads(v or "{}").values():
+        for it in items:
+            if it.get("status") == "failure": print("     - " + prefix + it.get("id", "") + ": " + it.get("message", "")[:140])
+for h in hosts:
+    print("   node " + (h.get("requested_hostname") or h.get("id", "")[:8]) + ": " + str(h.get("status")) + " - " + (h.get("status_info") or "")[:110])
+    failing(h.get("validations_info"), "")
+failing(cl.get("validations_info"), "cluster ")' "$1" "$2"
+}
+
+install_wait() {
+  local hosts cl st hid want disk path i keeper="" last="" pct info
+  if [ $MODE = vm ]; then   # the VM powers off after CoreOS is written: start it again (it then boots from disk)
+    ( while [ ! -f "$WORK/install-finished" ]; do [ "$(virsh domstate "$VM_NAME" 2&gt;/dev/null)" = "shut off" ] &amp;&amp; virsh start "$VM_NAME" &gt;/dev/null; sleep 20; done ) &amp;
+    keeper=$!
+  fi
+  log "waiting for the node to boot the discovery ISO and register in the Red Hat console"
+  for i in $(seq 1 120); do
+    hosts=$(ocm GET "$A/infra-envs/$OCM_INFRA_ID/hosts"); [ "$(echo "$hosts" | jget 0/id)" != "" ] &amp;&amp; break; sleep 15
+  done
+  hid=$(echo "$hosts" | jget 0/id); [ -n "$hid" ] || die "the node did not register within 30 min (check its console: does it boot the ISO, reach the internet?)"
+  ok "node registered: $(echo "$hosts" | python3 -c 'import json,sys;h=json.load(sys.stdin)[0];i=json.loads(h.get("inventory") or "{}");print(i.get("cpu",{}).get("count","?"),"CPUs,",round(i.get("memory",{}).get("physical_bytes",0)/2**30),"GiB,",len(i.get("disks",[])),"disks")')"
+  want=/dev/vda; [ $MODE = baremetal ] &amp;&amp; want=$INSTALL_DISK
+  if [ -n "$want" ]; then
+    disk=$(echo "$hosts" | python3 -c '
+import json, sys
+h = json.load(sys.stdin)[0]; want = sys.argv[1]
+for d in json.loads(h.get("inventory") or "{}").get("disks", []):
+    if want in (d.get("path"), d.get("by_path"), d.get("by_id"), "/dev/" + d.get("name", "")):
+        print(d.get("id") or d.get("by_id") or d.get("path")); break' "$want")
+    [ -n "$disk" ] || die "the node has no disk $want (see the disks in the Red Hat console)"
+    ocm PATCH "$A/infra-envs/$OCM_INFRA_ID/hosts/$hid" "$(jobj disks_selected_config:="[{\"id\": \"$disk\", \"role\": \"install\"}]")" &gt;/dev/null
+  fi
+  for i in $(seq 1 120); do
+    cl=$(ocm GET "$A/clusters/$OCM_CLUSTER_ID"); hosts=$(ocm GET "$A/infra-envs/$OCM_INFRA_ID/hosts")
+    st=$(echo "$cl" | jget status); [ "$st" = ready ] &amp;&amp; break
+    [ $((i % 8)) = 1 ] &amp;&amp; { echo "  cluster status: $st - waiting for the node's checks:"; host_report "$hosts" "$cl"; } | tee -a "$TLOG"
+    sleep 15
+  done
+  [ "$st" = ready ] || { host_report "$hosts" "$cl"; die "the cluster is not ready to install after 30 min (failing checks above)"; }
+  path=$(echo "$hosts" | jget 0/installation_disk_path)
+  [ $MODE = baremetal ] &amp;&amp; [ "$path" = "$DATA_DEVICE" ] &amp;&amp; die "the installer picked $path, which you named as the data disk: re-run with an explicit install disk"
+  ok "all checks passed; installing to $path"
+  ocm POST "$A/clusters/$OCM_CLUSTER_ID/actions/install" &gt;/dev/null
+  log "installing Red Hat CoreOS + OpenShift through the Red Hat console (45-75 min)"
+  for i in $(seq 1 400); do
+    cl=$(ocm GET "$A/clusters/$OCM_CLUSTER_ID"); st=$(echo "$cl" | jget status)
+    pct=$(echo "$cl" | jget progress/total_percentage); info=$(echo "$cl" | jget status_info)
+    [ "$st $pct" != "$last" ] &amp;&amp; { echo "  $(date +%T)  ${pct:-0}%  $st - ${info:0:100}" | tee -a "$TLOG"; last="$st $pct"; }
+    case $st in installed) break ;; error|cancelled) die "installation $st: $info" ;; esac
+    sleep 30
+  done
+  [ "$st" = installed ] || die "installation did not finish within 200 min (status $st)"
+  mkdir -p "$WORK/install/auth"; chmod 700 "$WORK/install"
+  ( umask 077
+    ocm GET "$A/clusters/$OCM_CLUSTER_ID/downloads/credentials?file_name=kubeconfig" &gt; "$KCFG"
+    ocm GET "$A/clusters/$OCM_CLUSTER_ID/downloads/credentials?file_name=kubeadmin-password" | tr -d '\n' &gt; "$WORK/install/auth/kubeadmin-password" )
+  touch "$WORK/install-finished"; [ -n "$keeper" ] &amp;&amp; kill $keeper 2&gt;/dev/null || true
+  if [ $MODE = baremetal ]; then
+    [ -n "${RF_VMEDIA:-}" ] &amp;&amp; rf_code POST "$RF_VMEDIA/Actions/VirtualMedia.EjectMedia" &gt;/dev/null || true
+    systemctl stop nai-ocp-iso &gt;/dev/null 2&gt;&amp;1 || true; ok "virtual CD released"
+  fi
+  for i in $(seq 1 30); do oc_ get nodes &gt;/dev/null 2&gt;&amp;1 &amp;&amp; break; sleep 10; done
+  oc_ get nodes | tee -a "$TLOG"
+  local c m; c=$(oc_ get nodes -o jsonpath='{.items[0].status.capacity.cpu}'); m=$(oc_ get nodes -o jsonpath='{.items[0].status.capacity.memory}'); m=${m:-0Ki}
+  [ "${c:-0}" -ge 40 ] || warn "node has $c CPUs: NAI's platform reserves ~19 cores, endpoints may not fit"
+  ok "OpenShift installed; node capacity: $c CPUs, $(( ${m%Ki} / 1048576 )) GiB memory"
+}
+
+# --- agent-based install (when a pull secret was given instead of the API token)
+agent_iso() {
+  local d=$WORK/install key=$STATE/ssh_ed25519
+  rm -rf "$d"; mkdir -p "$d"; chmod 700 "$d"
+  python3 - "$d/install-config.yaml" "$STATE/pull-secret.json" "$key.pub" "$BASE_DOMAIN" "$CLUSTER_NAME" "$MACHINE_CIDR" &lt;&lt;'EOF'
+import json, sys
+out, ps, key, dom, name, cidr = sys.argv[1:]
+pull = json.dumps(json.load(open(ps)), separators=(",", ":"))
+open(out, "w").write(f"""apiVersion: v1
+baseDomain: {dom}
+metadata: {{name: {name}}}
+compute: [{{name: worker, replicas: 0}}]
+controlPlane: {{name: master, replicas: 1}}
+networking:
+  networkType: OVNKubernetes
+  machineNetwork: [{{cidr: {cidr}}}]
+  clusterNetwork: [{{cidr: 10.128.0.0/14, hostPrefix: 23}}]
+  serviceNetwork: [172.30.0.0/16]
+platform: {{none: {{}}}}
+pullSecret: '{pull}'
+sshKey: '{open(key).read().strip()}'
+""")
+EOF
+  chmod 600 "$d/install-config.yaml"
+  { echo "apiVersion: v1beta1"; echo "kind: AgentConfig"; echo "metadata: {name: $CLUSTER_NAME}"; echo "rendezvousIP: $NODE_IP"
+    echo "hosts:"; echo "- hostname: $CLUSTER_NAME"; echo "  role: master"
+    if [ $MODE = vm ]; then
+      echo "  interfaces: [{name: enp1s0, macAddress: $VM_MAC}]"; echo "  rootDeviceHints: {deviceName: /dev/vda}"
+    else
+      echo "  interfaces: [{name: eno1, macAddress: $NODE_MAC}]"
+      [ -n "$INSTALL_DISK" ] &amp;&amp; echo "  rootDeviceHints: {deviceName: $INSTALL_DISK}"
+      if [ "$NET_MODE" = static ]; then
+        echo "  networkConfig:"
+        echo "    interfaces:"
+        echo "    - {name: eno1, type: ethernet, state: up, mac-address: $NODE_MAC, ipv4: {enabled: true, dhcp: false, address: [{ip: $NODE_IP, prefix-length: $NODE_PREFIX}]}, ipv6: {enabled: false}}"
+        echo "    dns-resolver: {config: {server: [$NODE_DNS]}}"
+        echo "    routes: {config: [{destination: 0.0.0.0/0, next-hop-address: $NODE_GW, next-hop-interface: eno1, table-id: 254}]}"
+      fi
+    fi
+  } &gt; "$d/agent-config.yaml"
+  # it pulls the base ISO from the release payload: right after a reboot DNS/network may not be ready yet, so retry
+  local try keep=$STATE/agent-inputs; mkdir -p -m 700 "$keep"; cp "$d/install-config.yaml" "$d/agent-config.yaml" "$keep/"
+  for try in 1 2 3 4 5; do
+    openshift-install agent create image --dir "$d" --log-level warn &amp;&amp; break
+    [ $try = 5 ] &amp;&amp; die "could not build the agent ISO (needs quay.io and mirror.openshift.com; check DNS and internet access)"
+    warn "agent ISO build failed (attempt $try/5); retrying in 60 s"; sleep 60
+    cp "$keep/install-config.yaml" "$keep/agent-config.yaml" "$d/"   # openshift-install consumes these files
+  done
+  rm -rf "$keep"
+  ln -f "$d/agent.x86_64.iso" "$WORK/discovery.iso" 2&gt;/dev/null || cp "$d/agent.x86_64.iso" "$WORK/discovery.iso"
+  ok "CoreOS agent ISO built ($(human "$(stat -c %s "$WORK/discovery.iso")"))"
+}
+
+agent_wait() {
+  local d=$WORK/install keeper=""
+  if [ $MODE = vm ]; then   # the VM powers off after CoreOS is written: start it again (it then boots from disk)
+    ( while [ ! -f "$WORK/install-finished" ]; do [ "$(virsh domstate "$VM_NAME" 2&gt;/dev/null)" = "shut off" ] &amp;&amp; virsh start "$VM_NAME" &gt;/dev/null; sleep 20; done ) &amp;
+    keeper=$!
+  fi
+  log "installing Red Hat CoreOS + OpenShift on the node (agent-based, 45-75 min; progress in $LOG)"
+  openshift-install agent wait-for bootstrap-complete --dir "$d" --log-level info 2&gt;&amp;1 | grep -viE "password|Sleeping for" | tee -a "$TLOG" | grep -E "level=info msg=\"(Host|Cluster|Bootstrap)" | cut -c1-150 || true
+  openshift-install agent wait-for install-complete --dir "$d" --log-level info 2&gt;&amp;1 | grep -viE "password|Sleeping for" &gt;&gt; "$LOG"
+  touch "$WORK/install-finished"; [ -n "$keeper" ] &amp;&amp; kill $keeper 2&gt;/dev/null || true
+  if [ $MODE = baremetal ]; then
+    [ -n "${RF_VMEDIA:-}" ] &amp;&amp; rf_code POST "$RF_VMEDIA/Actions/VirtualMedia.EjectMedia" &gt;/dev/null || true
+    systemctl stop nai-ocp-iso &gt;/dev/null 2&gt;&amp;1 || true; ok "virtual CD released"
+  fi
+  oc_ get nodes | tee -a "$TLOG"
+  local c m; c=$(oc_ get nodes -o jsonpath='{.items[0].status.capacity.cpu}'); m=$(oc_ get nodes -o jsonpath='{.items[0].status.capacity.memory}'); m=${m:-0Ki}
+  [ "${c:-0}" -ge 40 ] || warn "node has $c CPUs: NAI's platform reserves ~19 cores, endpoints may not fit"
+  ok "OpenShift installed; node capacity: $c CPUs, $(( ${m%Ki} / 1048576 )) GiB memory"
+}
+
+# ---------------------------------------------------------------- remote: run the VM setup on another server
+remote_run() {
+  ssh_opts
+  local seed=$STATE/remote-seed.conf rc boot1 boot2 i v
+  log "preparing $RHOST"
+  rs "mkdir -p -m 700 /var/lib/nai-ocp"
+  rcp "$SELF" "$REMOTE_SCRIPT"; rs "chmod 700 $REMOTE_SCRIPT"; rec "REMOTEFILE $REMOTE_SCRIPT"
+  [ "$INSTALL_METHOD" = assisted ] &amp;&amp; { rcp "$STATE/ocm-token" /var/lib/nai-ocp/ocm-token; rs "chmod 600 /var/lib/nai-ocp/ocm-token"; }
+  rcp "$STATE/pull-secret.json" /var/lib/nai-ocp/pull-secret.json; rs "chmod 600 /var/lib/nai-ocp/pull-secret.json"
+  if ! rs "test -s /var/lib/nai-ocp/answers.conf"; then   # seed the answers given here; the VM questions are asked there
+    : &gt; "$seed"; for v in INSTALL_METHOD NAI_TAR_SRC NAI_TAR_SRC_BYTES NAI_CHARTS_SRC NAI_CHARTS_SRC_BYTES OCP_VERSION OCP_RELEASE; do
+      [ -n "${!v:-}" ] &amp;&amp; printf '%s=%q\n' "$v" "${!v}" &gt;&gt; "$seed"; done
+    printf 'MODE=vm\n' &gt;&gt; "$seed"; chmod 600 "$seed"
+    rcp "$seed" /var/lib/nai-ocp/answers.conf; rs "chmod 600 /var/lib/nai-ocp/answers.conf"; rm -f "$seed"
+  fi
+  ok "script, Red Hat credential and answers copied to $RHOST:$REMOTE_SCRIPT"
+  while :; do
+    boot1=$(rs cat /proc/sys/kernel/random/boot_id)
+    log "running the setup on $RHOST (its output follows)"
+    rc=0; ssh "${SSHO[@]}" -t "root@$RHOST" "NAI_CONTROLLED=1 $REMOTE_SCRIPT" || rc=$?
+    if rs "test -f /var/lib/nai-ocp/done/nai" 2&gt;/dev/null; then ok "setup on $RHOST finished"; return; fi
+    if [ $rc = 0 ]; then
+      rs "test -f /var/lib/nai-ocp/need-reboot" 2&gt;/dev/null \
+        &amp;&amp; { echo "  $RHOST needs a reboot. Reboot it when convenient, then run 'sudo $SELF' here again."; exit 0; }
+      echo "  the setup on $RHOST stopped before finishing; run 'sudo $SELF' here again to continue."; exit 0
+    fi
+    if [ $rc = 255 ]; then   # connection dropped: a reboot the operator agreed to, or a network break
+      log "lost the connection to $RHOST; waiting for it to come back (up to 20 min)"
+      for i in $(seq 1 120); do rs true 2&gt;/dev/null &amp;&amp; break; sleep 10; done
+      boot2=$(rs cat /proc/sys/kernel/random/boot_id 2&gt;/dev/null) || die "$RHOST did not come back; check its console, then run 'sudo $SELF' again"
+      [ "$boot1" != "$boot2" ] &amp;&amp; { ok "$RHOST rebooted; continuing there"; continue; }
+      die "the connection to $RHOST dropped; run 'sudo $SELF' again to continue"
+    fi
+    die "the setup on $RHOST failed (exit $rc); its log: ssh root@$RHOST tail -50 /var/lib/nai-ocp/run.log"
+  done
+}
+
+finish_remote() {
+  { echo
+    echo "======================================== ready ========================================"
+    echo "OpenShift + NAI run in a VM on $RHOST (details: ssh root@$RHOST tail -20 /var/lib/nai-ocp/run.log)"
+    echo "Red Hat console   : https://console.redhat.com/openshift (cluster '$CLUSTER_NAME')"
+    echo "NAI               : https://nai.apps.$CLUSTER_NAME.$BASE_DOMAIN/nai  (VM network is private to $RHOST:"
+    echo "   ssh -D 1080 -N root@$RHOST   then a browser with proxy socks5://127.0.0.1:1080)"
+    echo "Remove everything: sudo $SELF --uninstall   (runs the uninstall on $RHOST, then removes this controller's key)"; } | tee -a "$TLOG"
+}
+
+sub() { # namespace package catalog targetNamespacesYAML
+  oc_ apply -f - &gt;/dev/null &lt;&lt;EOF
+apiVersion: v1
+kind: Namespace
+metadata: {name: $1}
+---
+apiVersion: operators.coreos.com/v1
+kind: OperatorGroup
+metadata: {name: $1, namespace: $1}
+spec: $4
+---
+apiVersion: operators.coreos.com/v1alpha1
+kind: Subscription
+metadata: {name: $2, namespace: $1}
+spec: {name: $2, channel: "$(oc_ get packagemanifest "$2" -n openshift-marketplace -o jsonpath='{.status.defaultChannel}')", source: $3, sourceNamespace: openshift-marketplace, installPlanApproval: Automatic}
+EOF
+  local i; for i in $(seq 1 60); do oc_ get csv -n "$1" -l '!olm.copiedFrom' 2&gt;/dev/null | grep -q Succeeded &amp;&amp; { ok "$2"; return; }; sleep 10; done
+  die "operator $2 did not install"
+}
+
+operators() {
+  local i dev=/dev/vdb wipe=""
+  [ $MODE = baremetal ] &amp;&amp; { dev=$DATA_DEVICE; wipe=", forceWipeDevicesAndDestroyAllData: true"; }
+  for i in $(seq 1 30); do oc_ get packagemanifest lvms-operator -n openshift-marketplace &gt;/dev/null 2&gt;&amp;1 &amp;&amp; break; sleep 10; done
+  sub openshift-nfd nfd redhat-operators "{targetNamespaces: [openshift-nfd]}"
+  oc_ apply -f - &gt;/dev/null &lt;&lt;'EOF'
+apiVersion: nfd.openshift.io/v1
+kind: NodeFeatureDiscovery
+metadata: {name: nfd-instance, namespace: openshift-nfd}
+spec: {operand: {servicePort: 12000}}
+EOF
+  sub openshift-storage lvms-operator redhat-operators "{targetNamespaces: [openshift-storage]}"
+  oc_ apply -f - &gt;/dev/null &lt;&lt;EOF
+apiVersion: lvm.topolvm.io/v1alpha1
+kind: LVMCluster
+metadata: {name: lvmcluster, namespace: openshift-storage}
+spec:
+  storage:
+    deviceClasses:
+    - {name: vg1, default: true, deviceSelector: {paths: [$dev]$wipe}, thinPoolConfig: {name: thin-pool-1, sizePercent: 90, overprovisionRatio: 10}}
+EOF
+  sub cert-manager-operator openshift-cert-manager-operator redhat-operators "{targetNamespaces: [cert-manager-operator]}"
+  oc_ apply -f - &gt;/dev/null &lt;&lt;'EOF'
+apiVersion: operators.coreos.com/v1alpha1
+kind: Subscription
+metadata: {name: cloudnative-pg, namespace: openshift-operators}
+spec: {name: cloudnative-pg, channel: stable-v1, source: certified-operators, sourceNamespace: openshift-marketplace, installPlanApproval: Automatic}
+EOF
+  for i in $(seq 1 60); do oc_ get csv -n openshift-operators 2&gt;/dev/null | grep -i cloudnative | grep -q Succeeded &amp;&amp; break; sleep 10; done; ok cloudnative-pg
+  if use_gpu; then
+    sub nvidia-gpu-operator gpu-operator-certified certified-operators "{targetNamespaces: [nvidia-gpu-operator]}"
+    oc_ get csv -n nvidia-gpu-operator -l '!olm.copiedFrom' -o jsonpath='{.items[0].metadata.annotations.alm-examples}' \
+      | python3 -c "import json,sys;print(json.dumps([x for x in json.load(sys.stdin) if x['kind']=='ClusterPolicy'][0]))" | oc_ apply -f - &gt;/dev/null
+    log "waiting for the NVIDIA driver (built in-cluster for the CoreOS kernel, 10-25 min)"
+    local g=""; for i in $(seq 1 90); do g=$(oc_ get nodes -o jsonpath='{.items[0].status.allocatable.nvidia\.com/gpu}'); [ -n "$g" ] &amp;&amp; [ "$g" != 0 ] &amp;&amp; break; sleep 20; done
+    [ -n "$g" ] &amp;&amp; [ "$g" != 0 ] &amp;&amp; ok "nvidia.com/gpu: $g" || warn "GPU not allocatable yet (oc get pods -n nvidia-gpu-operator)"
+  else
+    ok "CPU-only: NVIDIA GPU Operator not installed (NAI endpoints run on CPU)"
+  fi
+}
+
+# ---------------------------------------------------------------- 4. NAI
+fetch() { local src=$1 dst=$2; if [[ $src =~ ^https?:// ]]; then [ -s "$dst" ] || curl -fSL --retry 3 -o "$dst" "$src"; echo "$dst"; else [ -f "$src" ] || die "not found: $src"; echo "$src"; fi; }
+
+nai_bundle() {
+  local img chr; img=$(fetch "$NAI_TAR_SRC" "$WORK/nai-images.tar"); chr=$(fetch "$NAI_CHARTS_SRC" "$WORK/nai-charts.tar")
+  mkdir -p "$WORK/oci" "$WORK/charts-tgz" "$WORK/charts"
+  [ -s "$WORK/oci/index.json" ] || tar -xf "$img" -C "$WORK/oci"
+  [ -s "$WORK/oci/index.json" ] || die "image bundle is not an OCI layout (index.json missing)"
+  tar -xf "$chr" -C "$WORK/charts-tgz"; find "$WORK/charts-tgz" -name '*.tgz' -exec tar -xzf {} -C "$WORK/charts" \;
+  local c; for c in gateway-crds-helm gateway-helm kserve-crd kserve-llmisvc-crd kserve-resources kserve-llmisvc-resources lws opentelemetry-operator nai-operators nai-core; do
+    [ -d "$WORK/charts/$c" ] || die "chart $c missing from the chart bundle"
+  done
+  ok "NAI bundle: $(python3 -c "import json;print(len(json.load(open('$WORK/oci/index.json'))['manifests']))" ) images, all charts present"
+}
+
+registry() {   # own registry on a free port (never reuses another tool's registry, e.g. NKP's on :5000)
+  if [ -z "${REG:-}" ] || ! curl -fsS "http://$REG/v2/" &gt;/dev/null 2&gt;&amp;1; then
+    local rt p=5001; rt=$(command -v podman || command -v docker)
+    while ! port_free $p; do p=$((p + 1)); done
+    REG=$SVC_IP:$p; save REG "$REG"
+    $rt image inspect docker.io/library/registry:2 &gt;/dev/null 2&gt;&amp;1 || $rt pull -q docker.io/library/registry:2 &gt;/dev/null
+    mkdir -p "$DATA/registry"; $rt rm -f nai-ocp-registry &gt;/dev/null 2&gt;&amp;1 || true
+    $rt run -d --name nai-ocp-registry --restart=always --network host -e REGISTRY_HTTP_ADDR=0.0.0.0:$p -v "$DATA/registry:/var/lib/registry:Z" docker.io/library/registry:2 &gt;/dev/null   # host network: no NAT rules a firewall reload can wipe
+    rec "REGISTRY $(basename "$rt") nai-ocp-registry"
+    [ "$(basename "$rt")" = podman ] &amp;&amp; systemctl enable --now podman-restart.service &gt;/dev/null 2&gt;&amp;1 || true
+    fw_allow "$p" tcp; sleep 3
+  fi
+  curl -fsS "http://$REG/v2/" &gt;/dev/null || die "registry $REG not reachable"
+  ok "registry http://$REG"
+}
+
+images() {
+  local O=$WORK/oci
+  python3 -c "import json,sys;[print(i,m['annotations']['io.containerd.image.name']) for i,m in enumerate(json.load(open(sys.argv[1]))['manifests'])]" "$O/index.json" \
+  | while read -r i ref; do skopeo copy -q --dest-tls-verify=false "oci:$O:@$i" "docker://$REG/${ref#docker.io/}" &amp;&amp; echo "OK $ref" || echo "FAIL $ref"; done &gt; "$WORK/images.log"
+  grep -q '^FAIL' "$WORK/images.log" &amp;&amp; die "image push failed (see $WORK/images.log)" || ok "$(grep -c '^OK' "$WORK/images.log") images pushed"
+}
+
+ocp_prepare() {
+  registry_ensure
+  oc_ apply -f - &gt;/dev/null &lt;&lt;EOF
+apiVersion: config.openshift.io/v1
+kind: ImageTagMirrorSet
+metadata: {name: nai-registry}
+spec: {imageTagMirrors: [{source: docker.io, mirrors: ["$REG"]}]}
+---
+apiVersion: config.openshift.io/v1
+kind: ImageDigestMirrorSet
+metadata: {name: nai-registry}
+spec: {imageDigestMirrors: [{source: docker.io, mirrors: ["$REG"]}]}
+EOF
+  oc_ patch image.config.openshift.io/cluster --type merge -p "{\"spec\":{\"registrySources\":{\"insecureRegistries\":[\"$REG\"]}}}" &gt;/dev/null
+  sleep 30; oc_ wait mcp/master --for=condition=Updated=True --timeout=30m &gt;/dev/null; ok "docker.io mirrored through $REG"
+
+  helm template x "$WORK/charts/gateway-crds-helm" --set crds.gatewayAPI.enabled=true --set crds.gatewayAPI.channel=standard --set crds.envoyGateway.enabled=false &gt; "$WORK/gwapi.yaml"
+  helm template x "$WORK/charts/gateway-crds-helm" --set crds.gatewayAPI.enabled=false --set crds.envoyGateway.enabled=true &gt; "$WORK/eg-crds.yaml"
+  local want have b=openshift-ingress-operator-gatewayapi-crd-admission
+  want=$(grep -m1 -oE 'bundle-version: v[0-9.]+' "$WORK/gwapi.yaml" | awk '{print $2}')
+  have=$(oc_ get crd gateways.gateway.networking.k8s.io -o jsonpath='{.metadata.annotations.gateway\.networking\.k8s\.io/bundle-version}' 2&gt;/dev/null || true)
+  if [ -n "$have" ] &amp;&amp; [ "$have" != "$want" ] &amp;&amp; oc_ get validatingadmissionpolicy $b &gt;/dev/null 2&gt;&amp;1; then
+    [ "$GATEWAY_API_OVERRIDE" = yes ] || die "OpenShift locks Gateway API $have; NAI needs $want (set GATEWAY_API_OVERRIDE=yes to override)"
+    warn "overriding OpenShift's Gateway API $have with $want (not supported by Red Hat)"
+    local try   # the ingress operator recreates its binding within seconds: delete and apply back to back, retry
+    for try in $(seq 1 10); do
+      oc_ delete validatingadmissionpolicybinding $b --ignore-not-found &gt;/dev/null 2&gt;&amp;1 || true
+      oc_ apply --server-side --force-conflicts -f "$WORK/gwapi.yaml" &gt;/dev/null 2&gt;&amp;1 &amp;&amp; break
+      [ $try = 10 ] &amp;&amp; die "OpenShift kept blocking the Gateway API $want CRDs (admission policy $b)"
+      sleep 2
+    done
+  elif [ "$have" != "$want" ]; then oc_ apply --server-side --force-conflicts -f "$WORK/gwapi.yaml" &gt;/dev/null; fi
+  oc_ apply --server-side --force-conflicts -f "$WORK/eg-crds.yaml" &gt;/dev/null; ok "Gateway API $want + Envoy Gateway CRDs"
+
+  local ns; for ns in nai-system envoy-gateway-system kserve lws-system opentelemetry-operator-system; do oc_ get ns $ns &gt;/dev/null 2&gt;&amp;1 || oc_ create ns $ns &gt;/dev/null; done
+  oc_ adm policy add-scc-to-group privileged system:serviceaccounts:nai-system &gt;/dev/null
+  # anyuid (priority 10) keeps root-image users (ClickHouse, iam-ui); pods that set a seccomp profile (Envoy certgen,
+  # UID 65532) are refused by anyuid and admitted by nonroot-v2 instead
+  for ns in nai-system nai-admin envoy-gateway-system kserve lws-system opentelemetry-operator-system; do
+    oc_ adm policy add-scc-to-group anyuid system:serviceaccounts:$ns &gt;/dev/null; oc_ adm policy add-scc-to-group nonroot-v2 system:serviceaccounts:$ns &gt;/dev/null
+  done
+  oc_ adm policy add-scc-to-user privileged -z csi-nfs-node-sa -n kube-system &gt;/dev/null
+  oc_ adm policy add-scc-to-user privileged -z csi-nfs-controller-sa -n kube-system &gt;/dev/null
+  ok "security context constraints granted"
+}
+
+rwx_storage() {   # NFS export on this host for NAI model storage (RWX)
+  local dir=$DATA/nfs line
+  if ! command -v exportfs &gt;/dev/null; then
+    pkg_list &gt; "$STATE/pkgs.nfs.before"
+    case $(pkg_mgr) in
+      apt) apt_install nfs-kernel-server ;;
+      dnf) dnf install -y -q nfs-utils ;;
+    esac
+    pkg_new "$STATE/pkgs.nfs.before" | while read -r p; do rec "PKG $p"; done
+  fi
+  mkdir -p "$dir"; line="$dir $CLIENT_NET(rw,sync,no_subtree_check,no_root_squash)"
+  grep -qxF "$line" /etc/exports 2&gt;/dev/null || { echo "$line" &gt;&gt; /etc/exports; rec "EXPORT $line"; }
+  systemctl enable --now nfs-server &gt;/dev/null 2&gt;&amp;1 || systemctl enable --now nfs-kernel-server &gt;/dev/null 2&gt;&amp;1
+  exportfs -ra; fw_allow 2049 tcp
+  helm repo add csi-driver-nfs https://raw.githubusercontent.com/kubernetes-csi/csi-driver-nfs/master/charts &gt;/dev/null 2&gt;&amp;1 || true
+  helm repo update &gt;/dev/null
+  helm --kubeconfig "$KCFG" upgrade --install csi-driver-nfs csi-driver-nfs/csi-driver-nfs -n kube-system --set externalSnapshotter.enabled=false --wait &gt;/dev/null
+  oc_ apply -f - &gt;/dev/null &lt;&lt;EOF
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata: {name: nai-nfs-storage}
+provisioner: nfs.csi.k8s.io
+parameters: {server: $SVC_IP, share: $dir}
+reclaimPolicy: Delete
+volumeBindingMode: Immediate
+allowVolumeExpansion: true
+mountOptions: [nfsvers=4.1, hard]
+EOF
+  ok "RWX storage class nai-nfs-storage on $SVC_IP:$dir"
+}
+
+tag_of() { python3 - "$WORK/oci/index.json" "$1" &lt;&lt;'EOF'
+import json, sys
+for m in json.load(open(sys.argv[1]))["manifests"]:
+    n = m["annotations"]["io.containerd.image.name"]
+    if n.rsplit(":", 1)[0].endswith("/" + sys.argv[2]):
+        print(n.rsplit(":", 1)[1]); break
+EOF
+}
+
+registry_ensure() {   # the cluster pulls every NAI image from here: make sure it answers before installing NAI
+  curl -fsS -m 5 "http://$REG/v2/" &gt;/dev/null 2&gt;&amp;1 &amp;&amp; return 0
+  warn "registry $REG is not answering; restarting it"
+  local rt; rt=$(command -v podman || command -v docker)
+  $rt restart nai-ocp-registry &gt;/dev/null 2&gt;&amp;1 || $rt start nai-ocp-registry &gt;/dev/null 2&gt;&amp;1 || true
+  sleep 3; curl -fsS -m 5 "http://$REG/v2/" &gt;/dev/null 2&gt;&amp;1 || die "registry $REG is down ($rt ps -a; $rt logs nai-ocp-registry)"
+  ok "registry $REG answering again"
+}
+
+hinst() {   # release chart namespace timeout [helm args]: install/upgrade, wait until ready; on failure show why
+  local r=$1 c=$2 n=$3 t=$4; shift 4
+  helm --kubeconfig "$KCFG" upgrade --install "$r" "$c" -n "$n" --wait --timeout "$t" "$@" &gt;/dev/null 2&gt;"$WORK/helm-$r.err" &amp;&amp; return 0
+  { echo "  NAI component '$r' (namespace $n) did not become ready within $t:"
+    tail -3 "$WORK/helm-$r.err" | sed 's/^/    helm: /'
+    oc_ get pods -n "$n" --no-headers 2&gt;/dev/null | awk '$3 != "Running" &amp;&amp; $3 != "Completed" {print "    pod: " $1 "  " $3}'
+    oc_ get events -n "$n" --field-selector type=Warning --sort-by=.lastTimestamp --no-headers 2&gt;/dev/null | tail -5 | cut -c1-220 | sed 's/^/    event: /'
+  } | tee -a "$TLOG"
+  die "NAI component $r failed (details above); fix the cause and run the script again to continue"
+}
+
+nai_install() {
+  local V=$WORK/values C=$WORK/charts
+  registry_ensure
+  mkdir -p "$V"
+  cat &gt; "$V/envoy-gateway.yaml" &lt;&lt;EOF
+global:
+  images:
+    envoyGateway: {image: docker.io/nutanix/nai-gateway:$(tag_of nai-gateway)}
+    ratelimit: {image: docker.io/nutanix/nai-ratelimit:$(tag_of nai-ratelimit)}
+config:
+  envoyGateway:
+    gateway: {controllerName: gateway.envoyproxy.io/gatewayclass-controller}
+    provider: {type: Kubernetes}
+    extensionApis: {enableEnvoyPatchPolicy: true, enableBackend: true}
+    extensionManager:
+      hooks:
+        xdsTranslator:
+          translation: {listener: {includeAll: true}, route: {includeAll: true}, cluster: {includeAll: true}, secret: {includeAll: true}}
+          post: [Translation, Cluster, Route]
+      service: {fqdn: {hostname: ai-gateway-controller.nai-system.svc.cluster.local, port: 1063}}
+      backendResources: [{group: inference.networking.k8s.io, kind: InferencePool, version: v1}]
+EOF
+  cat &gt; "$V/kserve.yaml" &lt;&lt;EOF
+kserve:
+  controller:
+    deploymentMode: RawDeployment
+    image: docker.io/nutanix/nai-kserve-controller
+    tag: $(tag_of nai-kserve-controller)
+    rbacProxyImage: docker.io/nutanix/nai-kube-rbac-proxy:$(tag_of nai-kube-rbac-proxy)
+    gateway: {disableIngressCreation: true, disableIstioVirtualHost: true}
+EOF
+  cat &gt; "$V/kserve-llmisvc.yaml" &lt;&lt;EOF
+kserve:
+  createSharedResources: false
+  inferenceServiceConfig: {enabled: false}
+  certManager: {enabled: false}
+  storagecontainer: {enabled: false}
+  llmisvc:
+    createGIECRDs: false
+    controller: {image: docker.io/nutanix/nai-llmisvc-controller, tag: $(tag_of nai-llmisvc-controller)}
+EOF
+  printf 'image:\n  manager: {repository: docker.io/nutanix/nai-lws, tag: %s}\n' "$(tag_of nai-lws)" &gt; "$V/lws.yaml"
+  cat &gt; "$V/otel-operator.yaml" &lt;&lt;EOF
+manager:
+  image: {repository: docker.io/nutanix/nai-opentelemetry-operator, tag: "$(tag_of nai-opentelemetry-operator)"}
+  collectorImage: {repository: docker.io/nutanix/nai-opentelemetry-collector-contrib, tag: "$(tag_of nai-opentelemetry-collector-contrib)"}
+  targetAllocatorImage: {repository: docker.io/nutanix/nai-target-allocator, tag: "$(tag_of nai-target-allocator)"}
+admissionWebhooks: {certManager: {enabled: true}}
+EOF
+  printf 'global:\n  storage:\n    storageClassName: lvms-vg1\n' &gt; "$V/nai-operators.yaml"
+  cat &gt; "$V/nai-core.yaml" &lt;&lt;EOF
+global:
+  storage: {storageClassName: lvms-vg1, storageClassNameRWX: nai-nfs-storage}
+gateway:
+  globalRateLimit: {enabled: false}
+  certManager: {selfSigned: true, dnsNames: [nai.apps.$CLUSTER_NAME.$BASE_DOMAIN]}
+EOF
+  hinst eg "$C/gateway-helm" envoy-gateway-system 15m -f "$V/envoy-gateway.yaml" --skip-crds; ok "Envoy Gateway"
+  for c in kserve-crd kserve-llmisvc-crd; do hinst $c "$C/$c" kserve 10m; done; ok "KServe CRDs"
+  hinst lws "$C/lws" lws-system 15m -f "$V/lws.yaml"; ok "LeaderWorkerSet"
+  hinst opentelemetry-operator "$C/opentelemetry-operator" opentelemetry-operator-system 15m -f "$V/otel-operator.yaml"; ok "OpenTelemetry"
+  hinst nai-operators "$C/nai-operators" nai-system 20m -f "$V/nai-operators.yaml"; ok "NAI operators"
+  hinst kserve "$C/kserve-resources" kserve 20m -f "$V/kserve.yaml"
+  hinst kserve-llmisvc "$C/kserve-llmisvc-resources" kserve 20m -f "$V/kserve-llmisvc.yaml"; ok "KServe"
+  hinst nai-core "$C/nai-core" nai-system 40m -f "$V/nai-core.yaml"; ok "NAI core"
+  local svc port host=nai.apps.$CLUSTER_NAME.$BASE_DOMAIN
+  svc=$(oc_ get svc -n envoy-gateway-system -l gateway.envoyproxy.io/owning-gateway-name=nai-ingress-gateway -o jsonpath='{.items[0].metadata.name}')
+  port=$(oc_ get svc "$svc" -n envoy-gateway-system -o jsonpath='{.spec.ports[?(@.port==443)].name}')
+  oc_ create route passthrough nai --service="$svc" --port="$port" --hostname="$host" -n envoy-gateway-system --dry-run=client -o yaml | oc_ apply -f - &gt;/dev/null
+  ok "Route https://$host/nai"
+}
+
+verify() {   # end-to-end check: cluster, GPU, every NAI pod, and the NAI login page through the cluster's route
+  local i bad url=https://nai.apps.$CLUSTER_NAME.$BASE_DOMAIN/nai code ns n
+  oc_ get clusterversion version -o jsonpath='{.status.conditions[?(@.type=="Available")].status}' | grep -q True \
+    &amp;&amp; ok "OpenShift $(oc_ get clusterversion version -o jsonpath='{.status.desired.version}') available" || die "OpenShift reports not available (oc get clusterversion)"
+  oc_ get nodes --no-headers | awk '{print $2}' | grep -qx Ready &amp;&amp; ok "node Ready" || die "the node is not Ready (oc get nodes)"
+  if use_gpu; then
+    n=$(oc_ get nodes -o jsonpath='{.items[0].status.allocatable.nvidia\.com/gpu}')
+    [ "${n:-0}" -ge 1 ] &amp;&amp; ok "GPUs allocatable for endpoints: $n" || warn "no GPU allocatable yet (oc get pods -n nvidia-gpu-operator)"
+  fi
+  for i in $(seq 1 60); do   # up to 15 min for every NAI pod to be running or completed
+    bad=$(for ns in envoy-gateway-system kserve lws-system opentelemetry-operator-system nai-system nai-admin; do
+            oc_ get pods -n $ns --no-headers 2&gt;/dev/null | awk -v ns=$ns '$3 != "Completed" &amp;&amp; ($3 != "Running" || split($2, r, "/") &amp;&amp; r[1] != r[2]) {print ns "/" $1 " " $2 " " $3}'
+          done)
+    [ -z "$bad" ] &amp;&amp; break; sleep 15
+  done
+  [ -z "$bad" ] &amp;&amp; ok "all NAI pods running ($(for ns in envoy-gateway-system kserve lws-system opentelemetry-operator-system nai-system nai-admin; do oc_ get pods -n $ns --no-headers 2&gt;/dev/null; done | wc -l) pods)" \
+    || { echo "$bad" | sed 's/^/    not ready: /' | tee -a "$TLOG"; warn "some NAI pods are not ready after 15 min (listed above)"; }
+  for i in $(seq 1 20); do
+    code=$(curl -sk -m 10 -o /dev/null -w '%{http_code}' --resolve "nai.apps.$CLUSTER_NAME.$BASE_DOMAIN:443:$NODE_IP" "$url" || true)
+    [[ $code =~ ^(200|30[1-8])$ ]] &amp;&amp; break; sleep 15
+  done
+  [[ $code =~ ^(200|30[1-8])$ ]] &amp;&amp; ok "NAI login page answers at $url (HTTP $code)" || warn "NAI login page not answering yet at $url (HTTP $code)"
+}
+
+finish() {
+  systemctl disable nai-ocp-resume.service &gt;/dev/null 2&gt;&amp;1 || true
+  local apps=apps.$CLUSTER_NAME.$BASE_DOMAIN
+  { echo
+    echo "======================================== ready ========================================"
+    echo "Deployment        : $MODE on $(hostname), $(use_gpu &amp;&amp; echo 'NVIDIA GPU' || echo 'CPU-only') endpoints"
+    [ "$INSTALL_METHOD" = assisted ] &amp;&amp; echo "Red Hat console   : https://console.redhat.com/openshift/assisted-installer/clusters/$OCM_CLUSTER_ID"
+    echo "OpenShift console : https://console-openshift-console.$apps"
+    echo "   user kubeadmin, password: sudo cat $WORK/install/auth/kubeadmin-password"
+    echo "NAI               : https://nai.$apps/nai"
+    echo "   user admin, initial password: sudo $WORK/bin/oc --kubeconfig $KCFG -n nai-system get secret nai-default-user -o jsonpath='{.data.password}' | base64 -d"
+    echo "   (changed at first login; then apply the NAI licence)"
+    if [ $MODE = vm ]; then
+      echo "The VM network is private to this host. From your workstation:"
+      echo "   ssh -D 1080 -N &lt;user&gt;@$(host_ip)"
+      echo "   chrome --user-data-dir=&lt;new dir&gt; --proxy-server=\"socks5://127.0.0.1:1080\" https://nai.$apps/nai"
+    else
+      echo "Workstations reach the node at $NODE_IP; they need the cluster names in DNS"
+      [ "$HOST_DNS" = yes ] &amp;&amp; echo "   (use $SVC_IP as DNS server, or add '$NODE_IP nai.$apps console-openshift-console.$apps oauth-openshift.$apps' to the hosts file)"
+      echo "This host must stay on: it serves the NAI images (registry $REG), the NFS model share$([ "$HOST_DNS" = yes ] &amp;&amp; echo ' and the cluster DNS')."
+    fi
+    echo "Remove everything: sudo $SELF --uninstall"; } | tee -a "$TLOG"
+}
+
+# ---------------------------------------------------------------- uninstall
+uninstall() {   # --yes: no questions, no reboot   --confirmed: skip 'wipe' (asked by a controller), report reboot via exit 3
+  local arg=${1:-} assume_yes=no confirmed=no
+  [ "$arg" = --yes ] &amp;&amp; { assume_yes=yes; confirmed=yes; }; [ "$arg" = --confirmed ] &amp;&amp; confirmed=yes
+  # only what this script recorded is removed: a VM or files created by other tools are never touched
+  [ -s "$MANIFEST" ] || { echo "nothing installed by this script (no manifest in $STATE)"; rm -rf "$STATE"; exit 0; }
+  case "${MODE:-vm}" in
+    remote)
+      echo "This runs the uninstall on ${RHOST:-?} (NAI, OpenShift, the VM, packages, GPU reservation, the cluster record in"
+      echo "the Red Hat console), then removes this controller's SSH key, script copy and helper packages from it." ;;
+    baremetal)
+      echo "This removes from THIS host: the NAI image registry, the NFS export, the cluster DNS service, the hosts entries,"
+      echo "the virtual CD on the BMC, every package this script installed, the cluster record in the Red Hat console, and"
+      echo "$STATE (token, IPMI login, ISO)."
+      echo "${c_y}The server (${NODE_IP:-?}) keeps OpenShift on its disks and stops working without this host's registry and${c_0}"
+      echo "${c_y}NFS share. Reinstall that server (or run this script again) to reuse it.${c_0}" ;;
+    *)
+      echo "This permanently removes: NAI, OpenShift and Red Hat CoreOS (the VM and its disks), the cluster record in the"
+      echo "Red Hat console, the VM network, the local registry and its images, the NFS export, the GPU passthrough"
+      echo "reservation, the IOMMU boot setting, every package this script installed, and $STATE." ;;
+  esac
+  echo "Recorded changes:"; sed 's/^/   /' "$MANIFEST"
+  if [ $confirmed = no ]; then local a; a=$(ask "Type 'wipe' to continue"); [ "$a" = wipe ] || { echo "aborted"; exit 1; }; fi
+  local reboot=no kind rest redo="" datadirs="" rrc=0
+  log "uninstall"
+  if [ "${MODE:-}" = remote ]; then   # the server does its own uninstall; then remove what the controller put there
+    ssh_opts
+    if rs true 2&gt;/dev/null; then
+      if rs "test -x $REMOTE_SCRIPT"; then
+        ssh "${SSHO[@]}" -t "root@$RHOST" "$REMOTE_SCRIPT --uninstall --confirmed" || rrc=$?
+        [ $rrc = 0 ] || [ $rrc = 3 ] || warn "the uninstall on $RHOST reported exit $rrc"
+      fi
+      local pk; pk=$(awk '$1=="REMOTEPKG"{print $2}' "$MANIFEST" | tr '\n' ' ')
+      [ -n "${pk// /}" ] &amp;&amp; { rs "command -v apt-get &gt;/dev/null &amp;&amp; DEBIAN_FRONTEND=noninteractive apt-get purge -y -qq $pk || dnf remove -y -q $pk" &gt;/dev/null 2&gt;&amp;1 || true; ok "removed $pk from $RHOST"; }
+      rs "rm -f $REMOTE_SCRIPT" || true
+      local cmt; cmt=$(awk '$1=="REMOTEKEY"{print $2}' "$MANIFEST")
+      local again=""; [ $rrc = 3 ] &amp;&amp; [ $assume_yes = no ] &amp;&amp; [ $INTERACTIVE = 1 ] &amp;&amp; yesno "Reboot $RHOST now to give its GPU back to it" n &amp;&amp; again="(sleep 3; systemctl reboot) &gt;/dev/null 2&gt;&amp;1 &amp;"
+      rs "${cmt:+sed -i '/ $cmt\$/d' ~/.ssh/authorized_keys;} $again" || true
+      ok "controller key and script removed from $RHOST${again:+; it is rebooting}"
+      [ $rrc = 3 ] &amp;&amp; [ -z "$again" ] &amp;&amp; echo "  Reboot $RHOST when convenient to give its GPU back."
+    else
+      warn "$RHOST is not reachable: run '$REMOTE_SCRIPT --uninstall' on it yourself; removing the controller side only"
+    fi
+  fi
+  systemctl disable nai-ocp-resume.service &gt;/dev/null 2&gt;&amp;1 || true
+  systemctl stop nai-ocp-iso &gt;/dev/null 2&gt;&amp;1 || true
+  if grep -qx "VM $VM_NAME" "$MANIFEST" &amp;&amp; command -v virsh &gt;/dev/null &amp;&amp; virsh dominfo "$VM_NAME" &gt;/dev/null 2&gt;&amp;1; then
+    virsh destroy "$VM_NAME" &gt;/dev/null 2&gt;&amp;1 || true
+    virsh undefine "$VM_NAME" --nvram --remove-all-storage &gt;/dev/null 2&gt;&amp;1 || virsh undefine "$VM_NAME" --nvram &gt;/dev/null
+    ok "VM $VM_NAME with Red Hat CoreOS, OpenShift and NAI removed (disks deleted)"
+  fi
+  while read -r kind rest; do                                     # undo recorded changes, newest first
+    case $kind in
+      NET)       virsh net-destroy "$rest" &gt;/dev/null 2&gt;&amp;1 || true; virsh net-undefine "$rest" &gt;/dev/null 2&gt;&amp;1 || true; ok "VM network $rest removed" ;;
+      REGISTRY)  local rt=${rest%% *} rn=${rest#* }; "$rt" rm -f "$rn" &gt;/dev/null 2&gt;&amp;1 || true; ok "registry container $rn removed" ;;
+      EXPORT)    grep -vxF "$rest" /etc/exports &gt; /etc/exports.tmp || true; cat /etc/exports.tmp &gt; /etc/exports; rm -f /etc/exports.tmp
+                 exportfs -ra 2&gt;/dev/null || true; ok "NFS export removed" ;;
+      HOSTS)     grep -vxF "$rest" /etc/hosts &gt; /etc/hosts.tmp || true; cat /etc/hosts.tmp &gt; /etc/hosts; rm -f /etc/hosts.tmp ;;
+      EXPORTCLIENT) # "&lt;path&gt; &lt;client(opts)&gt;": remove one client from a shared export line, keep the others
+                 local ep=${rest%% *} ec=${rest#* }
+                 python3 - "$ep" "$ec" &lt;&lt;'PY'
+import sys
+path, client = sys.argv[1:]
+out = []
+for line in open("/etc/exports"):
+    parts = line.split()
+    if parts and parts[0] == path and client in parts:
+        parts.remove(client)
+        line = " ".join(parts) + "\n" if len(parts) &gt; 1 else ""
+    out.append(line)
+open("/etc/exports", "w").write("".join(out))
+PY
+                 exportfs -ra 2&gt;/dev/null || true; ok "NFS client ${ec%%(*} removed from $ep (other clients kept)" ;;
+      RESTORE)   # "&lt;backup&gt; &lt;destination&gt;": put back a file this setup had modified
+                 local rb=${rest%% *} rd=${rest#* }; [ -f "$rb" ] &amp;&amp; cp -p "$rb" "$rd" &amp;&amp; ok "restored $rd" ;;
+      SERVICE)   systemctl disable --now "$rest" &gt;/dev/null 2&gt;&amp;1 || true; ok "service $rest stopped" ;;
+      UFW)       ufw delete allow $rest &gt;/dev/null 2&gt;&amp;1 || true ;;
+      FIREWALLD) firewall-cmd -q --permanent --zone="${rest%% *}" --remove-port="${rest#* }" 2&gt;/dev/null &amp;&amp; firewall-cmd -q --reload || true ;;
+      BMCMEDIA)  [ -f "$STATE/bmc.json" ] &amp;&amp; rf_code POST "$rest/Actions/VirtualMedia.EjectMedia" &gt;/dev/null 2&gt;&amp;1 || true; ok "virtual CD ejected on the BMC" ;;
+      AMIRMEDIA) [ -f "$STATE/bmc.json" ] &amp;&amp; rf_code POST "$rest/Actions/Oem/AMIVirtualMedia.EnableRMedia" '{"RMediaState":"Disable"}' &gt;/dev/null 2&gt;&amp;1 || true
+                 ok "BMC remote media switched off again" ;;
+      OCMINFRA)  ocm DELETE "$A/infra-envs/$rest" &gt;/dev/null 2&gt;&amp;1 &amp;&amp; ok "discovery image removed from the Red Hat console" || warn "could not delete infra-env $rest in the Red Hat console" ;;
+      OCMCLUSTER) ocm DELETE "$A/clusters/$rest" &gt;/dev/null 2&gt;&amp;1 &amp;&amp; ok "cluster record removed from the Red Hat console" || warn "could not delete cluster $rest in the Red Hat console (remove it there)" ;;
+      DATADIR)   datadirs="$datadirs $rest" ;;
+      FILE)      rm -f "$rest" ;;
+      INITRAMFS) redo="$redo initramfs" ;;
+      GRUBFILE)  rm -f "$rest"; redo="$redo grub" ;;
+      GRUBBY)    grubby --update-kernel=ALL --remove-args="$rest"; reboot=yes ;;
+    esac
+  done &lt; &lt;(tac "$MANIFEST")
+  systemctl daemon-reload
+  if [[ $redo == *initramfs* ]]; then
+    if command -v update-initramfs &gt;/dev/null; then update-initramfs -u -k "$(uname -r)" &gt;/dev/null; else dracut -f; fi
+    ok "GPU passthrough reservation removed (the GPU returns to the host after a reboot)"; reboot=yes
+  fi
+  [[ $redo == *grub* ]] &amp;&amp; { update-grub &gt;/dev/null 2&gt;&amp;1 || true; ok "IOMMU boot setting removed"; reboot=yes; }
+  local pkgs; pkgs=$(awk '$1=="PKG"{print $2}' "$MANIFEST" | tr '\n' ' ')
+  if [ -n "${pkgs// /}" ]; then
+    case $(pkg_mgr) in
+      apt) DEBIAN_FRONTEND=noninteractive apt-get purge -y -qq $pkgs &gt;/dev/null || warn "some packages could not be removed" ;;
+      dnf) dnf remove -y -q $pkgs &gt;/dev/null || warn "some packages could not be removed" ;;
+    esac
+    ok "removed $(echo $pkgs | wc -w) packages that this script installed"
+  fi
+  rm -f "$RESUME_UNIT"; systemctl daemon-reload
+  local d; for d in $datadirs; do [ -n "$d" ] &amp;&amp; [ "$d" != / ] &amp;&amp; rm -rf "$d" &amp;&amp; ok "removed $d"; done
+  rm -rf "$STATE"
+  echo "  ${c_g}[ok]${c_0} token, pull secret, credentials, ISO, NAI bundle, registry data, binaries and state removed"
+  echo "Uninstall complete. Run '$SELF' again to set everything up from scratch."
+  if [ $reboot = yes ]; then
+    [ $confirmed = yes ] &amp;&amp; [ $assume_yes = no ] &amp;&amp; exit 3                  # the controller asks about the reboot
+    if [ $assume_yes = no ] &amp;&amp; [ $INTERACTIVE = 1 ] &amp;&amp; yesno "A reboot gives the GPU back to the host. Reboot now" n; then systemctl reboot
+    else echo "Reboot when convenient (sudo reboot) to give the GPU back to the host."; fi
+  fi
+}
+
+status() {
+  echo "State: $STATE"
+  if [ -f "$CONF" ]; then
+    echo "Deployment: ${MODE:-?}, OpenShift ${OCP_RELEASE:-?}${OCM_CLUSTER_ID:+, console cluster $OCM_CLUSTER_ID}"
+    [ "${MODE:-}" = vm ] &amp;&amp; echo "VM: ${VM_VCPUS:-?} vCPU, ${VM_RAM_GB:-?} GB, disks ${OS_DISK_GB:-?}+${DATA_DISK_GB:-?} GB in ${DATA:-?}; GPUs: ${GPU_BDFS:-none (CPU-only)}"
+    [ "${MODE:-}" = baremetal ] &amp;&amp; echo "Server: IPMI ${BMC_HOST:-?}, node ${NODE_IP:-?}, disks ${INSTALL_DISK:-auto} + ${DATA_DEVICE:-?}; GPUs: ${BM_GPU:-?}"
+  fi
+  echo "Finished stages:"; ls -1tr "$DONE" 2&gt;/dev/null | sed 's/^/  /'
+  [ -s "$MANIFEST" ] &amp;&amp; { echo "Recorded changes:"; sed 's/^/  /' "$MANIFEST"; }
+  if [ "${MODE:-}" = remote ]; then ssh_opts; echo "--- on $RHOST:"; rs "$REMOTE_SCRIPT --status" 2&gt;/dev/null || echo "  (not reachable)"; return; fi
+  if grep -qx "VM $VM_NAME" "$MANIFEST" 2&gt;/dev/null; then virsh dominfo "$VM_NAME" 2&gt;/dev/null | grep -E "State|CPU\(s\)|Max memory" || true
+  elif command -v virsh &gt;/dev/null &amp;&amp; virsh dominfo "$VM_NAME" &gt;/dev/null 2&gt;&amp;1; then echo "A VM named $VM_NAME exists but was not created by this script (not managed)."; fi
+  [ -f "$KCFG" ] &amp;&amp; oc_ get nodes 2&gt;/dev/null || true
+}
+
+# ---------------------------------------------------------------- main
+[ "$(id -u)" = 0 ] || { echo "run with sudo"; exit 1; }
+mkdir -p "$STATE" "$DONE"; chmod 700 "$STATE"; touch "$MANIFEST"
+[ -f "$CONF" ] &amp;&amp; source "$CONF"
+set_work
+case "${1:-}" in
+  --uninstall) uninstall "${2:-}"; exit 0 ;;
+  --status)    status; exit 0 ;;
+  --check)     MODE=${MODE:-vm}; check; exit 0 ;;
+  --resume)    INTERACTIVE=0; exec &gt;&gt;"$LOG" 2&gt;&amp;1; TLOG=/dev/null ;;
+  -h|--help)   sed -n '2,32p' "$SELF"; exit 0 ;;
+  "") ;;
+  *) echo "unknown option $1 (see --help)"; exit 1 ;;
+esac
+exec 9&gt;"$STATE/lock"; flock -n 9 || die "another run of this script is active on $(hostname)"
+log "nai-on-openshift setup (state in $STATE)"
+stage inputs inputs
+source "$CONF"
+[ -n "${MODE:-}" ] &amp;&amp; [ -n "${DATA:-}" ] &amp;&amp; [ -n "${OCP_RELEASE:-}" ] &amp;&amp; [ -n "${INSTALL_METHOD:-}" ] \
+  || die "setup state from an older version of this script: run 'sudo $SELF --uninstall' first"
+set_work; mkdir -p "$DATA" "$WORK/bin"
+if [ "$MODE" = remote ]; then
+  stage remote-run remote_run
+  source "$CONF"; finish_remote; exit 0
+fi
+rec "DATADIR $DATA"
+stage download      download_nai
+stage host-check    check
+stage host-packages host_packages
+if [ "$MODE" = vm ]; then
+  stage host-prep   host_prep
+  stage tools       tools
+  stage network     vm_network
+  if [ "$INSTALL_METHOD" = agent ]; then stage ocp-iso agent_iso; else stage ocp-cluster ocp_cluster; fi
+  stage vm          vm_create
+else
+  stage tools       tools
+  stage network     bm_network
+  if [ "$INSTALL_METHOD" = agent ]; then stage ocp-iso agent_iso; else stage ocp-cluster ocp_cluster; fi
+  stage bm-boot     bm_boot
+fi
+source "$CONF"
+if [ "$INSTALL_METHOD" = agent ]; then stage install agent_wait; else stage install install_wait; fi
+stage operators     operators
+stage nai-bundle    nai_bundle
+stage registry      registry
+stage images        images
+stage ocp-prepare   ocp_prepare
+stage rwx-storage   rwx_storage
+stage nai           nai_install
+stage verify        verify
+finish
+</pre></div>
+</div></details>
+</main>
+</div>
+<script>
+document.querySelectorAll('.copy').forEach(function (b) {
+  b.addEventListener('click', function () {
+    var pre = b.parentElement.querySelector('pre'), text = pre.innerText;
+    function done(msg) { b.textContent = msg; setTimeout(function () { b.textContent = 'Copy'; }, 1500); }
+    try {
+      navigator.clipboard.writeText(text).then(function () { done('Copied'); }, function () { select(pre); done('Select + Ctrl+C'); });
+    } catch (e) { select(pre); done('Select + Ctrl+C'); }
+  });
+});
+function select(el) { var r = document.createRange(); r.selectNodeContents(el); var s = window.getSelection(); s.removeAllRanges(); s.addRange(r); }
+</script>
+
+</body></html>

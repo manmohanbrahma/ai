@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AI Deployment Guides</title>
+<meta name="description" content="Deployment and install guides for enterprise AI platforms.">
+<style>
+:root{
+  --bg:#f5f6f4; --panel:#ffffff; --fg:#1b1f1d; --muted:#5d6661; --line:#d9ddd9; --soft:#eceeeb; --accent:#4f8a00;
+  --f-display:"Barlow Semi Condensed","Roboto Condensed","Arial Narrow","Helvetica Neue",Arial,sans-serif;
+  --f-body:"IBM Plex Sans","Segoe UI",system-ui,-apple-system,Roboto,sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,"SF Mono",Consolas,"Liberation Mono",monospace;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#121514; --panel:#1a1e1c; --fg:#e6e9e6; --muted:#9aa49e; --line:#2e3431; --soft:#222725; --accent:#8cc63f; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#121514; --panel:#1a1e1c; --fg:#e6e9e6; --muted:#9aa49e; --line:#2e3431; --soft:#222725; --accent:#8cc63f; color-scheme:dark}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--fg);font:15px/1.55 var(--f-body);padding:40px 16px 64px}
+.wrap{max-width:1000px;margin:0 auto;display:flex;flex-direction:column;gap:32px}
+.eyebrow{font:500 12px var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+h1,h2{font-family:var(--f-display);font-weight:600;line-height:1.15;margin:0}
+h1{font-size:clamp(30px,5vw,44px)} h2{font-size:21px}
+p{margin:0;max-width:70ch}
+.muted{color:var(--muted)}
+.list{display:grid;gap:14px}
+a.card{display:flex;flex-direction:column;gap:8px;padding:18px 20px;background:var(--panel);border:1px solid var(--line);border-radius:8px;color:inherit;text-decoration:none;transition:border-color .15s}
+a.card:hover,a.card:focus-visible{border-color:var(--accent);outline:none}
+.card .go{color:var(--accent);font-weight:500}
+.tags{display:flex;flex-wrap:wrap;gap:6px}
+.tag{font:500 11.5px var(--f-mono);padding:2px 8px;border-radius:4px;background:var(--soft);color:var(--muted)}
+footer{font-size:12.5px;color:var(--muted);border-top:1px solid var(--line);padding-top:16px}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header style="display:flex;flex-direction:column;gap:10px">
+  <span class="eyebrow">Enterprise AI</span>
+  <h1>AI Deployment Guides</h1>
+  <p class="muted">Planning and install guides for running enterprise AI platforms on Kubernetes, written from real lab deployments.</p>
+</header>
+
+<section class="list" aria-label="Nutanix Enterprise AI on Red Hat OpenShift">
+  <h2>Nutanix Enterprise AI on Red Hat OpenShift</h2>
+  <a class="card" href="nai-openshift/planning-guide/">
+    <span class="eyebrow">Deployment Planning Guide · October 2026</span>
+    <h2>Deployment Planning Guide</h2>
+    <p class="muted">Architecture, prerequisites, sizing and the deployment plan for Nutanix Enterprise AI 2.8.1 on single-node Red Hat OpenShift 4.22 with the NVIDIA GPU Operator, including CPU and GPU inference endpoints.</p>
+    <div class="tags"><span class="tag">NAI 2.8.1</span><span class="tag">OpenShift 4.22</span><span class="tag">NVIDIA GPU Operator</span><span class="tag">RTX A6000</span></div>
+    <span class="go">Open guide →</span>
+  </a>
+  <a class="card" href="nai-openshift/install-guide/">
+    <span class="eyebrow">Install Guide · October 2026</span>
+    <h2>Install Guide</h2>
+    <p class="muted">Step-by-step install procedure, from the OpenShift agent-based install through the GPU Operator to NAI and the first model endpoints, with the commands used and their checks.</p>
+    <div class="tags"><span class="tag">Agent-based install</span><span class="tag">nai-on-openshift.sh</span><span class="tag">Runbook</span></div>
+    <span class="go">Open guide →</span>
+  </a>
+</section>
+
+<footer>Author: Manmohan Brahma. More guides will be added here. GPU benchmarks: <a href="https://manmohanbrahma.github.io/gpu-benchmark/" style="color:var(--accent)">manmohanbrahma.github.io/gpu-benchmark</a></footer>
+</div>
+</body>
+</html>
