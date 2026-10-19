@@ -1,0 +1,357 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style><title>Deployment Planning Guide: Nutanix Enterprise AI on Red Hat OpenShift</title><meta name="description" content="Architecture, sizing and deployment plan for Nutanix Enterprise AI on Red Hat OpenShift with NVIDIA GPUs."></head><body>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..100,500..800&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a printed technical paper - narrow reading column; tables, steps and figures may widen to 1040px */
+:root{
+  --paper:#fbfbfa; --ink:#18202a; --muted:#5b6672; --rule:#dee2e6; --panel:#f1f3f4;
+  --accent:#b8322a; --accent2:#2c5d8f; --ok:#2f7d32; --okbg:#e6f2e6; --warn:#8f5a00; --warnbg:#fbf1de;
+  --f-head:"Archivo","Arial Narrow","Helvetica Neue",Arial,sans-serif;
+  --f-body:"Source Serif 4",Georgia,"Times New Roman",serif;
+  --f-mono:"JetBrains Mono",ui-monospace,Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --paper:#13171c; --ink:#e5e9ed; --muted:#9ba6b1; --rule:#2d343c; --panel:#1b2128;
+  --accent:#ff7b6e; --accent2:#7fb2e5; --ok:#86d08a; --okbg:#1c311f; --warn:#f0b65c; --warnbg:#2e2413; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --paper:#13171c; --ink:#e5e9ed; --muted:#9ba6b1; --rule:#2d343c; --panel:#1b2128;
+  --accent:#ff7b6e; --accent2:#7fb2e5; --ok:#86d08a; --okbg:#1c311f; --warn:#f0b65c; --warnbg:#2e2413; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--paper);color:var(--ink);font:17px/1.62 var(--f-body);padding-inline:18px;padding-block:40px 80px;margin:0}
+.paper{max-width:1040px;margin:0 auto}
+.col{max-width:720px;margin-inline:auto}
+h1,h2,h3,.eyebrow,.meta,th,.fig figcaption,.step b.t{font-family:var(--f-head)}
+h1{font-size:clamp(34px,5.4vw,52px);font-stretch:85%;font-weight:750;line-height:1.05;letter-spacing:-.01em;margin:10px 0 18px;text-wrap:balance}
+h2{font-size:27px;font-stretch:88%;font-weight:700;margin:56px 0 12px;padding-top:18px;border-top:2px solid var(--ink);text-wrap:balance}
+h2 .n{color:var(--accent);margin-right:10px}
+h3{font-size:19px;font-weight:650;margin:28px 0 8px;text-wrap:balance}
+p{margin:0 0 14px} ul,ol{margin:0 0 16px;padding-left:22px} li{margin-bottom:6px}
+a{color:var(--accent2)}
+code{font-family:var(--f-mono);font-size:.82em;background:var(--panel);padding:1px 5px;border-radius:3px}
+pre{font-family:var(--f-mono);font-size:13px;line-height:1.5;background:var(--panel);border:1px solid var(--rule);padding:12px 14px;overflow-x:auto;margin:10px 0 16px}
+pre code{background:none;padding:0}
+.eyebrow{font-size:12.5px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--accent)}
+.lede{font-size:21px;line-height:1.5}
+.meta{display:flex;flex-wrap:wrap;gap:6px 26px;font-size:13.5px;color:var(--muted);margin:22px 0 0;padding-top:14px;border-top:1px solid var(--rule)}
+.meta b{color:var(--ink);font-weight:600}
+.note{background:var(--warnbg);border-left:3px solid var(--warn);padding:12px 16px;font-size:15px;margin:22px 0}
+.note b{color:var(--warn)}
+.wide{max-width:1040px;margin:22px auto}
+.tbl{overflow-x:auto;border-top:2px solid var(--ink);border-bottom:1px solid var(--ink)}
+table{border-collapse:collapse;width:100%;font-size:14.5px;font-variant-numeric:tabular-nums}
+th{font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);text-align:left;padding:9px 10px;border-bottom:1px solid var(--rule);vertical-align:bottom}
+td{padding:7px 10px;border-bottom:1px solid var(--rule);vertical-align:top}
+tr:last-child td{border-bottom:0}
+.pill{display:inline-block;font-family:var(--f-head);font-size:12px;font-weight:600;padding:1px 8px;border-radius:999px;white-space:nowrap}
+.pill.ok{background:var(--okbg);color:var(--ok)} .pill.todo{background:var(--warnbg);color:var(--warn)}
+.steps{list-style:none;padding:0;margin:18px 0;counter-reset:s}
+.step{display:grid;grid-template-columns:42px 1fr;gap:14px;padding:14px 0;border-top:1px solid var(--rule)}
+.step:first-child{border-top:0}
+.step::before{counter-increment:s;content:counter(s);font-family:var(--f-head);font-weight:750;font-size:26px;font-stretch:80%;color:var(--accent);line-height:1}
+.step>div{min-width:0}
+.step b.t{display:block;font-size:17px;font-weight:650;margin-bottom:4px}
+.step p{font-size:15.5px;margin-bottom:8px}
+.fig{margin:26px auto;max-width:1040px}
+.fig img{display:block;width:100%;height:auto;border:1px solid var(--rule)}
+.fig .slot{border:1.5px dashed var(--rule);background:var(--panel);aspect-ratio:16/8;display:flex;align-items:center;justify-content:center;padding:18px;text-align:center;color:var(--muted);font-family:var(--f-head);font-size:14px;max-width:100%}
+.fig figcaption{font-size:13.5px;color:var(--muted);margin-top:8px}
+.fig figcaption b{color:var(--ink)}
+pre.mermaid{background:var(--panel);padding:14px;overflow-x:auto;border:1px solid var(--rule);font-family:var(--f-head)}
+.two{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:22px}
+.two>*{min-width:0}
+footer{margin-top:60px;padding-top:14px;border-top:1px solid var(--rule);font-size:13.5px;color:var(--muted)}
+@media (max-width:520px){body{font-size:16px}.lede{font-size:18px}h2{font-size:23px}.step{grid-template-columns:30px 1fr}}
+</style>
+
+<article class="paper">
+<header class="col">
+  <div class="eyebrow">Deployment Planning Guide · October 2026</div>
+  <h1>Deploying Nutanix Enterprise AI on Red Hat OpenShift</h1>
+  <p class="lede">How to run Nutanix Enterprise AI 2.8 on Red Hat OpenShift, for inference on x86_64 CPU nodes and on NVIDIA GPU nodes: what OpenShift needs that a Nutanix Kubernetes Platform cluster provides out of the box, the deployment steps, and what we learned doing it.</p>
+  <div class="meta">
+    <span><b>Author</b> Manmohan Brahma</span>
+    <span><b>NAI</b> 2.8.1, air-gapped bundle</span>
+    <span><b>OpenShift</b> 4.22.17, single node</span>
+    <span><b>Accelerators</b> x86_64 CPU · NVIDIA GPU</span>
+    <span><b>Lab GPU</b> NVIDIA RTX A6000</span>
+  </div>
+  <div class="note"><b>Check the support matrix first.</b> NAI supports CNCF-conformant Kubernetes distributions listed in its requirements. Confirm that your OpenShift version is listed for your NAI release. The lab in this paper used OpenShift 4.22, whose managed Gateway API version differs from what NAI 2.8.1 needs; section 4 explains the override the lab used, which Red Hat does not support.</div>
+</header>
+
+<section class="col">
+  <h2><span class="n">1</span>Why NAI on OpenShift</h2>
+  <p>Many enterprises standardise on Red Hat OpenShift for their container platform. Nutanix Enterprise AI (NAI) adds a governed model-serving service on top: a catalog of validated models, guided endpoint creation, one secure OpenAI-compatible gateway, role-based access, per-endpoint API keys, audit logging and per-endpoint metrics. NAI serves models with vLLM and runs as ordinary Kubernetes workloads, so it can run where the customer's platform team already operates.</p>
+  <p>The same NAI release serves two kinds of hardware:</p>
+  <ul>
+    <li><b>x86_64 CPU nodes</b> for small models, development, and sites without accelerators. NAI uses its CPU build of vLLM.</li>
+    <li><b>NVIDIA GPU nodes</b> for production throughput and larger models. NAI uses its GPU build of vLLM, and the NVIDIA GPU Operator provides the driver and device plugin.</li>
+  </ul>
+</section>
+
+<section class="col">
+  <h2><span class="n">2</span>Architecture</h2>
+<pre class="mermaid">
+flowchart TB
+  U["Users and applications<br/>(browser, OpenAI-compatible clients)"] -->|"https://nai.apps.&lt;cluster&gt;.&lt;domain&gt;"| R["OpenShift router<br/>(Route, TLS passthrough)"]
+  R --> GW["NAI gateway<br/>Envoy Gateway + AI Gateway"]
+  subgraph OCP["Red Hat OpenShift"]
+    GW --> CORE["NAI core<br/>UI, API, IAM, metrics"]
+    GW --> EPC["CPU endpoints<br/>vLLM CPU"]
+    GW --> EPG["GPU endpoints<br/>vLLM GPU"]
+    CORE --> PG["PostgreSQL<br/>CloudNativePG"]
+    KS["KServe + LeaderWorkerSet"] --> EPC
+    KS --> EPG
+    OPS["Operators: NFD, NVIDIA GPU, LVM Storage,<br/>cert-manager, CloudNativePG"]
+  end
+  REG["Private registry<br/>NAI air-gap images"] -.->|"docker.io mirror"| OCP
+  NFS["NFS / RWX storage<br/>model files"] -.-> EPC
+  NFS -.-> EPG
+</pre>
+  <p class="fig"><figcaption><b>Figure 1.</b> NAI on OpenShift. Users reach NAI through an OpenShift Route; NAI's own gateway routes requests to CPU or GPU endpoints.</figcaption></p>
+</section>
+
+<section class="col">
+  <h2><span class="n">3</span>Prerequisites</h2>
+</section>
+<div class="wide tbl"><table>
+  <thead><tr><th>Item</th><th>Requirement</th><th>Lab</th></tr></thead>
+  <tbody>
+    <tr><td>OpenShift</td><td>A version listed in the NAI requirements; cluster-admin access</td><td>4.22.17, single-node OpenShift</td></tr>
+    <tr><td>Compute</td><td>NAI's platform services reserve about 19 vCPU of CPU requests on a single node (API 4, metrics database 4, gateway 3, PostgreSQL 2, others), and OpenShift a few more. Every endpoint reserves its own CPUs on top, GPU endpoints included. Plan at least 48 vCPU and 128 GB for a single node serving CPU and GPU endpoints. Recent x86_64 CPUs with AVX-512 (or Intel AMX) perform best for CPU inference.</td><td>48 vCPU, 128 GB (KVM VM; first sized at 32 vCPU, see section 8)</td></tr>
+    <tr><td>NVIDIA GPU (optional)</td><td>A GPU supported by the NVIDIA GPU Operator, on bare metal or passed through to a VM</td><td>RTX A6000 48 GB, PCI passthrough</td></tr>
+    <tr><td>Storage</td><td>A ReadWriteOnce class for NAI's databases and a ReadWriteMany class for model files</td><td>LVM Storage (RWO); NFS CSI driver on an NFS export (RWX)</td></tr>
+    <tr><td>Images</td><td>NAI's air-gapped image bundle and Helm charts, and a registry the cluster can pull from</td><td>NAI 2.8.1 bundle (41 images) in a local registry</td></tr>
+    <tr><td>DNS</td><td><code>api</code>, <code>api-int</code> and <code>*.apps</code> records for the cluster</td><td>Local DNS for <code>sno.nai.lab</code></td></tr>
+    <tr><td>Red Hat</td><td>Pull secret from console.redhat.com (subscription or 60-day trial)</td><td>Trial</td></tr>
+  </tbody>
+</table></div>
+
+<section class="col">
+  <h2><span class="n">4</span>What OpenShift needs that NKP provides</h2>
+  <p>Nutanix Kubernetes Platform ships several pieces NAI relies on and runs pods with fewer restrictions. On OpenShift these are added explicitly.</p>
+</section>
+<div class="wide tbl"><table>
+  <thead><tr><th>Area</th><th>On NKP</th><th>On OpenShift</th></tr></thead>
+  <tbody>
+    <tr><td><b>Pod security</b></td><td>Pods run with their image users</td><td>The default policy (<code>restricted-v2</code>) assigns random user IDs. Grant <code>anyuid</code> to NAI's namespaces so images keep their own users, and <code>privileged</code> to <code>nai-system</code> for the log collectors that read host paths. OpenShift picks the highest-priority policy a pod qualifies for, so grant <code>anyuid</code> rather than broader non-root policies, which force root images to fail.</td></tr>
+    <tr><td><b>PostgreSQL operator</b></td><td>CloudNativePG ships with Kommander</td><td>Install CloudNativePG from the certified operator catalog</td></tr>
+    <tr><td><b>Gateway API</b></td><td>Installed with NAI (v1.5.1)</td><td>OpenShift 4.19 and later manage the Gateway API CRDs and block other versions; 4.22 provides v1.4.1. NAI 2.8.1's Envoy Gateway needs v1.5.1. Use an OpenShift release whose version matches, or accept an override that Red Hat does not support (the lab's choice).</td></tr>
+    <tr><td><b>Image pulls</b></td><td>The air-gap registry mirrors all registries on every node</td><td>Add an <code>ImageTagMirrorSet</code> and <code>ImageDigestMirrorSet</code> for <code>docker.io</code>, and list the registry as insecure if it uses plain HTTP. Applied without a node reboot.</td></tr>
+    <tr><td><b>External access</b></td><td>LoadBalancer IP from MetalLB</td><td>An OpenShift Route on the cluster's apps domain, with TLS passthrough to NAI's gateway</td></tr>
+    <tr><td><b>Storage</b></td><td>Local and NFS classes</td><td>LVM Storage operator (or ODF) for RWO; NFS CSI driver or another RWX class for models</td></tr>
+    <tr><td><b>NVIDIA driver</b></td><td>GPU Operator, host driver</td><td>NVIDIA GPU Operator from the certified catalog. It builds the driver for the CoreOS kernel inside the cluster; on UEFI Secure Boot machines use NVIDIA's precompiled signed driver, or disable Secure Boot.</td></tr>
+  </tbody>
+</table></div>
+
+<section class="col">
+  <h2><span class="n">5</span>Deployment steps</h2>
+  <ol class="steps">
+    <li class="step"><div><b class="t">Install OpenShift</b>
+      <p>Any supported installation method works. For a single node, the agent-based installer builds a bootable ISO from <code>install-config.yaml</code> and <code>agent-config.yaml</code>:</p>
+<pre><code>openshift-install agent create image --dir install/
+# boot the server (or VM) from install/agent.x86_64.iso, then
+openshift-install agent wait-for install-complete --dir install/</code></pre></div></li>
+    <li class="step"><div><b class="t">Install the platform operators</b>
+      <p>From OperatorHub: <b>Node Feature Discovery</b>, <b>LVM Storage</b> (with an <code>LVMCluster</code> on a spare disk), <b>cert-manager Operator for Red Hat OpenShift</b> and <b>CloudNativePG</b>. For GPU nodes add the <b>NVIDIA GPU Operator</b> and create its <code>ClusterPolicy</code>. Wait until the node reports the GPU:</p>
+<pre><code>oc get node -o jsonpath='{.items[0].status.allocatable.nvidia\.com/gpu}'</code></pre></div></li>
+    <li class="step"><div><b class="t">Load NAI's images into a registry</b>
+      <p>Push every image from the NAI air-gapped bundle to a registry the cluster can reach, keeping the names, then mirror <code>docker.io</code> to it:</p>
+<pre><code>skopeo copy oci:nai-oci:@&lt;n&gt; docker://registry.example:5000/nutanix/&lt;image&gt;
+oc apply -f image-tag-mirror-set.yaml -f image-digest-mirror-set.yaml</code></pre></div></li>
+    <li class="step"><div><b class="t">Prepare OpenShift for NAI</b>
+      <p>Grant the security policies, create the RWX storage class, and make sure the Gateway API version matches NAI's:</p>
+<pre><code>oc adm policy add-scc-to-group privileged system:serviceaccounts:nai-system
+for ns in nai-system nai-admin envoy-gateway-system kserve lws-system opentelemetry-operator-system; do
+  oc adm policy add-scc-to-group anyuid system:serviceaccounts:$ns
+done</code></pre>
+      <p>Do not create the <code>nai-admin</code> namespace yourself: the <code>nai-core</code> chart creates it and refuses a namespace that already exists.</p></div></li>
+    <li class="step"><div><b class="t">Install the NAI components in order</b>
+      <p>With Helm, from the NAI chart bundle, each pointed at the NAI images: Envoy Gateway CRDs and Envoy Gateway (with the AI Gateway extension), KServe CRDs, LeaderWorkerSet, the OpenTelemetry operator, NAI operators, KServe in RawDeployment mode, and finally <code>nai-core</code> with the RWO and RWX storage classes and the global rate limit disabled.</p></div></li>
+    <li class="step"><div><b class="t">Expose NAI</b>
+      <p>Create a Route to the NAI gateway service. Use the service's actual HTTPS port name (<code>https-443</code> in NAI 2.8.1):</p>
+<pre><code>oc create route passthrough nai --service=&lt;nai-gateway-svc&gt; --port=https-443 \
+  --hostname=nai.apps.&lt;cluster&gt;.&lt;domain&gt; -n envoy-gateway-system</code></pre></div></li>
+    <li class="step"><div><b class="t">Log in and create endpoints</b>
+      <p>Open <code>https://nai.apps.&lt;cluster&gt;.&lt;domain&gt;/nai</code>, sign in as <code>admin</code> with the initial password from the <code>nai-default-user</code> secret, change it, and apply the NAI licence. Then import a model and create an endpoint: choose <b>CPU</b> for x86_64 inference or <b>GPU Passthrough</b> for an NVIDIA GPU.</p></div></li>
+  </ol>
+  <p>The lab automated all of these steps in one interactive script, which builds single-node OpenShift on a VM or bare metal, installs the operators, loads the NAI bundle and deploys NAI. It resumes after reboots and asks before any unsupported change.</p>
+</section>
+
+<section class="col">
+  <h2><span class="n">6</span>CPU and GPU endpoints</h2>
+</section>
+<div class="wide tbl"><table>
+  <thead><tr><th></th><th>x86_64 CPU endpoint</th><th>NVIDIA GPU endpoint</th></tr></thead>
+  <tbody>
+    <tr><td>Engine</td><td>NAI's CPU build of vLLM</td><td>NAI's GPU build of vLLM (CUDA)</td></tr>
+    <tr><td>Scheduling</td><td>CPU and memory requests on any worker</td><td><code>nvidia.com/gpu</code> request, on nodes labelled by the GPU Operator</td></tr>
+    <tr><td>Operators needed</td><td>None beyond the platform set</td><td>Node Feature Discovery, NVIDIA GPU Operator</td></tr>
+    <tr><td>Good for</td><td>Small models, embeddings, development, sites without GPUs</td><td>Production chat and generation, larger models, many concurrent users</td></tr>
+    <tr><td>Sizing guidance</td><td>NAI enforces a per-model minimum (8 vCPU and 17 GiB for the model used here); memory for weights plus cache; AVX-512 or AMX CPUs</td><td>GPU memory for weights plus KV cache; BF16 on Ampere and later; the endpoint still reserves CPU cores</td></tr>
+    <tr><td>Lab result (1B Llama model, single request)</td><td>8 vCPU / 17 GiB: Active, answered correctly; about 0.8 tokens/s. Not tuned: this CPU should do considerably better, see section 9</td><td>RTX A6000, 8 vCPU / 16 GiB, 131K context: Active, answered correctly; about 228 tokens/s</td></tr>
+  </tbody>
+</table></div>
+
+<section class="col">
+  <h2><span class="n">7</span>Lab results</h2>
+</section>
+<div class="wide tbl"><table>
+  <thead><tr><th>Check</th><th>Result</th><th>Status</th></tr></thead>
+  <tbody>
+    <tr><td>Single-node OpenShift 4.22.17 installed (agent-based, KVM VM)</td><td>Node Ready, all 34 cluster operators available</td><td><span class="pill ok">Verified</span></td></tr>
+    <tr><td>NVIDIA GPU in OpenShift</td><td>GPU Operator 26.7.2, driver 595.91.07; RTX A6000 visible to <code>nvidia-smi</code>; node reports <code>nvidia.com/gpu: 1</code>; CUDA validation passed</td><td><span class="pill ok">Verified</span></td></tr>
+    <tr><td>Platform operators</td><td>NFD, LVM Storage, cert-manager 1.20.1, CloudNativePG 1.30.1 installed</td><td><span class="pill ok">Verified</span></td></tr>
+    <tr><td>Storage</td><td>LVM Storage default class; NFS RWX volume provisioned from the cluster</td><td><span class="pill ok">Verified</span></td></tr>
+    <tr><td>NAI 2.8.1 components</td><td>All 10 Helm releases deployed; every pod in <code>nai-system</code> running</td><td><span class="pill ok">Verified</span></td></tr>
+    <tr><td>NAI UI through an OpenShift Route</td><td>HTTPS 200, NAI sign-in page served</td><td><span class="pill ok">Verified</span></td></tr>
+    <tr><td>CPU endpoint serving a model</td><td>Llama 1B model (2.3 GiB, BF16) on NAI's CPU vLLM 0.26, 8 vCPU / 17 GiB: Active, NAI test request answered, about 0.8 tokens/s</td><td><span class="pill ok">Verified</span></td></tr>
+    <tr><td>GPU endpoint serving a model</td><td>Same model on NAI's GPU vLLM 0.26 with the RTX A6000: Active, NAI test request answered, about 228 tokens/s for a single request</td><td><span class="pill ok">Verified</span></td></tr>
+    <tr><td>CPU inference tuning</td><td>0.8 tokens/s is well below this CPU's capability; thread pinning and CPU-engine settings to be investigated</td><td><span class="pill todo">Next</span></td></tr>
+  </tbody>
+</table></div>
+<figure class="fig"><img src="ocp-img/operators.png" alt="OpenShift Installed Operators: cert-manager, CloudNativePG, NVIDIA GPU Operator and LVM Storage, all Succeeded" loading="lazy">
+  <figcaption><b>Figure 2.</b> Platform operators on OpenShift: cert-manager, CloudNativePG, NVIDIA GPU Operator and LVM Storage, all Succeeded (Node Feature Discovery further down the list).</figcaption></figure>
+<div class="two wide">
+  <figure class="fig"><img src="ocp-img/gpu-operator-pods.png" alt="NVIDIA GPU Operator pods running, CUDA validator completed" loading="lazy">
+  <figcaption><b>Figure 3.</b> NVIDIA GPU Operator components running; the CUDA validator completed.</figcaption></figure>
+  <figure class="fig"><img src="ocp-img/nvidia-smi.png" alt="nvidia-smi showing NVIDIA RTX A6000, driver 595.91.07, CUDA 13.3" loading="lazy">
+  <figcaption><b>Figure 4.</b> <code>nvidia-smi</code> inside OpenShift: RTX A6000, driver 595.91.07.</figcaption></figure>
+</div>
+<div class="two wide">
+  <figure class="fig"><img src="ocp-img/node-gpu-labels.png" alt="Node labels nvidia.com/gpu.count=1 and gpu.product=NVIDIA-RTX-A6000, AVX-512 CPU features" loading="lazy">
+  <figcaption><b>Figure 5.</b> Node labels from Node Feature Discovery and the GPU Operator: one RTX A6000, and AVX-512 CPU features used by CPU inference.</figcaption></figure>
+  <figure class="fig"><img src="ocp-img/pods.png" alt="OpenShift pods list including NAI ai-gateway-controller running" loading="lazy">
+  <figcaption><b>Figure 6.</b> NAI pods running alongside OpenShift's own.</figcaption></figure>
+</div>
+<figure class="fig"><img src="ocp-img/nai-dashboard.png" alt="Nutanix Enterprise AI dashboard served at nai.apps.sno.nai.lab" loading="lazy">
+  <figcaption><b>Figure 7.</b> NAI served through an OpenShift Route at <code>https://nai.apps.sno.nai.lab/nai</code>.</figcaption></figure>
+<div class="two wide">
+  <figure class="fig"><img src="ocp-img/nai-infrastructure.png" alt="NAI Infrastructure page: one node, one accelerator with 47.99 GiB" loading="lazy">
+  <figcaption><b>Figure 8.</b> NAI sees the OpenShift node and its GPU (captured before the resize to 48 vCPU).</figcaption></figure>
+  <figure class="fig"><img src="ocp-img/nai-cpu-endpoint.png" alt="NAI Create Endpoint summary with Acceleration Type CPU and vLLM v0.26.0" loading="lazy">
+  <figcaption><b>Figure 9.</b> Creating a CPU endpoint. Memory per instance must meet the model's minimum (17 GiB here); a first attempt with 8 GB was rejected.</figcaption></figure>
+</div>
+<div class="two wide">
+  <figure class="fig"><img src="ocp-img/nai-gpu-endpoint.png" alt="NAI Create Endpoint summary: GPU Passthrough, NVIDIA-RTX-A6000, vLLM v0.26.0-gpu" loading="lazy">
+  <figcaption><b>Figure 10.</b> Creating a GPU endpoint: GPU Passthrough on the RTX A6000 with NAI's GPU engine.</figcaption></figure>
+  <figure class="fig"><img src="ocp-img/nai-endpoint-list.png" alt="NAI Local Endpoints: meta-llama-cpu on 8 vCPU and meta-llama-gpu on NVIDIA-RTX-A6000" loading="lazy">
+  <figcaption><b>Figure 11.</b> One CPU endpoint (8 vCPU) and one GPU endpoint (RTX A6000). The CPU endpoint was still starting when captured; both became Active.</figcaption></figure>
+</div>
+<div class="two wide">
+  <figure class="fig"><img src="ocp-img/nai-gpu-overview.png" alt="meta-llama-gpu endpoint overview: Active, vLLM v0.26.0-gpu, NVIDIA-RTX-A6000, access URL" loading="lazy">
+  <figcaption><b>Figure 12.</b> GPU endpoint Active, with its OpenAI-compatible access URL on the NAI gateway.</figcaption></figure>
+  <figure class="fig"><img src="ocp-img/nai-cpu-overview.png" alt="meta-llama-cpu endpoint overview: Active, vLLM v0.26.0, vCPU, 8 cores, 17 GiB" loading="lazy">
+  <figcaption><b>Figure 13.</b> CPU endpoint Active, with its API key (masked).</figcaption></figure>
+</div>
+<div class="two wide">
+  <figure class="fig"><img src="ocp-img/nai-gpu-test.png" alt="NAI Test Endpoint dialog for meta-llama-gpu with a generated answer" loading="lazy">
+  <figcaption><b>Figure 14.</b> NAI's built-in test: the GPU endpoint answering.</figcaption></figure>
+  <figure class="fig"><img src="ocp-img/nai-cpu-test.png" alt="NAI Test Endpoint dialog for meta-llama-cpu with a generated answer" loading="lazy">
+  <figcaption><b>Figure 15.</b> The same test on the CPU endpoint.</figcaption></figure>
+</div>
+
+<section class="col">
+  <h2><span class="n">8</span>Lessons learned</h2>
+  <ul>
+    <li><b>Grant <code>anyuid</code>, not a broad non-root policy.</b> A cluster-wide <code>nonroot-v2</code> grant made OpenShift force "must not run as root" onto NAI's ClickHouse, which then failed; <code>restricted-v2</code> gave the IAM UI a random user that could not write its cache. Restart pods after changing grants.</li>
+    <li><b>Let the charts own their namespaces.</b> Pre-creating <code>nai-admin</code> stops <code>nai-core</code> from installing.</li>
+    <li><b>Plan the Gateway API version.</b> On OpenShift 4.19 and later the ingress operator owns the Gateway API CRDs. Pick an OpenShift release that matches NAI's requirement wherever possible.</li>
+    <li><b>Secure Boot and the NVIDIA driver.</b> The GPU Operator compiles its driver inside the cluster; Secure Boot rejects that unsigned module. Use NVIDIA's precompiled signed driver where available, or disable Secure Boot on the node.</li>
+    <li><b>GPU passthrough for VM-based clusters.</b> Reserve the GPU for passthrough at host boot rather than releasing it from a running driver, and keep the VM's memory on the GPU's NUMA node.</li>
+    <li><b>Size the node for NAI's own reservations.</b> At 32 vCPU the first CPU endpoint stayed Pending ("Insufficient cpu"): NAI's platform pods already reserved about 19 cores. Resizing to 48 vCPU let it schedule. Endpoint memory must also meet the model's minimum, or NAI rejects the request (NAI-10014).</li>
+    <li><b>Same model, very different speed.</b> On this lab the GPU endpoint generated about 228 tokens/s against about 0.8 on 8 CPU cores for a 1B model. CPU endpoints suit light use; tune them before relying on them.</li>
+    <li><b>No load balancer is needed.</b> NAI's gateway reports no external address without one, which is expected; the Route provides access.</li>
+  </ul>
+</section>
+
+<section class="col">
+  <h2><span class="n">9</span>Next steps</h2>
+  <ul>
+    <li>Tune CPU inference (thread pinning, CPU-engine settings, Intel AMX on supported CPUs) and measure CPU and GPU endpoints under load through NAI's gateway.</li>
+    <li>Test larger models: an 8B-class model on the GPU, and the CPU sizing it needs.</li>
+    <li>Repeat on an OpenShift release whose managed Gateway API matches NAI's requirement, to remove the override.</li>
+    <li>Extend to multi-node OpenShift with dedicated GPU worker nodes.</li>
+  </ul>
+</section>
+
+<footer class="col">Author: Manmohan Brahma. Lab deployment, October 2026: NAI 2.8.1, Red Hat OpenShift 4.22.17 (single node, KVM VM, 48 vCPU, 128 GB), NVIDIA GPU Operator 26.7.2, NVIDIA RTX A6000. Scripts available on request. See also the <a href="../install-guide/">Install Guide</a> · <a href="../../">All guides</a>.</footer>
+</article>
+
+<!--claude-mermaid-runtime-begin:3477-->
+<style>.mermaid-diagram{margin-block:4px}.mermaid-diagram svg{display:block;margin:0 auto;max-width:100%;height:auto}</style>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.min.js"></script>
+<script>(function(){
+var CFG={"palettes":{"light":{"surface":"#f4efe4","text":"#42392e","line":"#8a7f6d","border":"#7a6c52","bg":"#fffdf8"},"dark":{"surface":"#262b34","text":"#f2f3f5","line":"#a8adb8","border":"#9aa4b8","bg":"#1f232b"}}};
+if(typeof mermaid==='undefined')return;
+var pres=Array.prototype.slice.call(document.querySelectorAll('pre.mermaid')).filter(function(p){if(p.hasAttribute('data-claude-mermaid-claimed'))return false;p.setAttribute('data-claude-mermaid-claimed','1');return true;});
+if(!pres.length)return;
+var mq=window.matchMedia?window.matchMedia('(prefers-color-scheme: dark)'):null;
+var root=document.documentElement;
+var items=pres.map(function(pre){
+var mount=document.createElement('div');mount.className='mermaid-diagram';
+return {pre:pre,mount:mount,src:pre.textContent||''};
+});
+var seq=0;
+var renderGen=0;
+var lastKey='';
+function pageBg(fallback){
+var els=[document.body,document.documentElement];
+for(var i=0;i<els.length;i++){
+var c=els[i]&&getComputedStyle(els[i]).backgroundColor;
+if(c&&c!=='transparent'&&c!=='rgba(0, 0, 0, 0)')return c;
+}
+return fallback;
+}
+function render(){
+var theme=root.getAttribute('data-theme');
+var dark=theme==='dark'||(!!(mq&&mq.matches)&&theme!=='light');
+var pal=dark?CFG.palettes.dark:CFG.palettes.light;
+var bg=pageBg(pal.bg);
+var key=(dark?'d':'l')+'|'+bg;
+if(key===lastKey)return;
+lastKey=key;
+var gen=++renderGen;
+var font=getComputedStyle(document.body).fontFamily||'sans-serif';
+var nat={useMaxWidth:false};
+mermaid.initialize({
+startOnLoad:false,securityLevel:'strict',theme:'base',
+flowchart:nat,sequence:nat,er:nat,state:nat,class:nat,pie:nat,
+gantt:nat,journey:nat,timeline:nat,gitGraph:nat,mindmap:nat,xyChart:nat,
+quadrantChart:nat,sankey:nat,c4:nat,requirement:nat,block:nat,
+packet:nat,kanban:nat,architecture:nat,radar:nat,
+themeVariables:{background:bg,mainBkg:pal.surface,primaryColor:pal.surface,
+primaryTextColor:pal.text,lineColor:pal.line,primaryBorderColor:pal.border,
+nodeBorder:pal.border,clusterBorder:pal.border,edgeLabelBackground:bg,
+clusterBkg:'rgba(127,127,127,0.07)',titleColor:pal.text,
+darkMode:dark,rowOdd:bg,rowEven:'rgba(127,127,127,0.07)',
+attributeBackgroundColorOdd:bg,attributeBackgroundColorEven:'rgba(127,127,127,0.07)',
+fontSize:'16px',fontFamily:font},
+themeCSS:'.node rect, .node circle, .node polygon, .node path, .cluster rect { stroke-width: 2px; }'
+});
+items.forEach(function(it){
+var id='claude-mermaid-'+seq++;
+mermaid.render(id,it.src).then(function(r){
+if(gen!==renderGen)return;
+var prev=it.pre.previousElementSibling;
+if(prev&&prev.className==='mermaid-diagram'&&prev!==it.mount)return;
+it.mount.innerHTML=r.svg;
+if(!it.mount.parentNode)it.pre.parentNode.insertBefore(it.mount,it.pre);
+it.pre.style.display='none';
+},function(){
+var scratch=document.getElementById(id);
+if(scratch)scratch.parentNode.removeChild(scratch);
+scratch=document.getElementById('d'+id);
+if(scratch)scratch.parentNode.removeChild(scratch);
+if(gen!==renderGen)return;
+if(it.mount.parentNode)it.mount.parentNode.removeChild(it.mount);
+it.pre.style.display='';
+});
+});
+}
+render();
+if(mq&&mq.addEventListener)mq.addEventListener('change',render);
+if(typeof MutationObserver!=='undefined')new MutationObserver(render).observe(root,{attributes:true,attributeFilter:['data-theme']});
+})();</script>
+<!--claude-mermaid-runtime-end-->
+
+</body></html>
