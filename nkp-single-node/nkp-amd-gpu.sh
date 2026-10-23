@@ -1,0 +1,872 @@
+#!/bin/bash
+# =====================================================================================================================
+# nkp-amd-gpu.sh - single-node Nutanix Kubernetes Platform (NKP) from the air-gapped bundle, with the AMD GPU Operator
+# published as a custom Kommander catalog app and enabled on the cluster.
+# Author: Manmohan Brahma
+#
+#   sudo ./nkp-amd-gpu.sh               install (asks its questions first, then runs unattended; asks before reboots)
+#   sudo ./nkp-amd-gpu.sh --uninstall   remove NKP, the AMD GPU Operator and every host change this script made
+#   sudo ./nkp-amd-gpu.sh --status      progress and recorded host changes
+#   sudo ./nkp-amd-gpu.sh --plan        read-only preview of what --uninstall would remove and keep
+#   sudo ./nkp-amd-gpu.sh --check       read-only host and GPU check
+#
+# What it builds: a self-managed, single-node NKP cluster (control plane runs workloads), a local image registry,
+# local volumes, MetalLB and Kommander; then the AMD GPU Operator 1.5.1 as a catalog collection in the local registry
+# (device plugin, node labeller, metrics exporter with an ECC threshold for kernel 7.0, Grafana dashboard). The
+# in-kernel amdgpu driver is used; no driver is built. Other AMD GPUs (e.g. a display card) are kept away from
+# Kubernetes with vfio-pci (one reboot, asked first) or with a PCI-filtered device plugin built from the kit.
+# Questions: NKP bundle (download link or path), AMD GPUs to use, installation folder, MetalLB address range.
+#
+# Every change to this host is recorded in /var/lib/nkp-amd/manifest; --uninstall reverses exactly those changes and
+# removes the packages this script installed (never one the OS had before).
+# Tested: Ubuntu 26.04.1 (kernel 7.0), NKP 2.18.0, AMD Radeon PRO W7900.
+# =====================================================================================================================
+set -eEuo pipefail
+trap 'rc=$?; [ "$BASH_SUBSHELL" = 0 ] && echo "${c_r:-}ERROR: unexpected failure (exit $rc) at line $LINENO: $BASH_COMMAND - run the script again to continue from this stage${c_0:-}" | tee -a "${TLOG:-/dev/null}" >&2' ERR
+umask 022
+SELF=$(readlink -f "$0"); KIT=$(dirname "$SELF"); ASSETS=$KIT/assets
+
+STATE=${STATE:-/var/lib/nkp-amd}             # answers, manifest, logs, done markers (root only)
+CONF=$STATE/answers.conf
+MANIFEST=$STATE/manifest
+DONE=$STATE/done
+LOG=$STATE/run.log
+TLOG=$LOG                                     # where on-screen lines are copied (/dev/null when stdout is the log)
+RESUME_UNIT=/etc/systemd/system/nkp-amd-resume.service
+MARK="nkp-amd"                                # marker for blocks this script adds to shared files (fstab)
+
+TESTED_NKP=2.18.0
+REG_PORT=${REG_PORT:-5000}
+LOCAL_PV_COUNT=${LOCAL_PV_COUNT:-20}          # bind-mounted local volumes for NKP platform apps (/mnt/disks)
+KUBELET_MAX_PODS=${KUBELET_MAX_PODS:-250}
+HELM_VERSION=${HELM_VERSION:-v3.19.0}
+AMD_OPERATOR_VERSION=${AMD_OPERATOR_VERSION:-v1.5.1}
+AMD_ECC_UMC_THRESHOLD=${AMD_ECC_UMC_THRESHOLD:-4000000000}
+AMD_SUPPORTED_IDS=${AMD_SUPPORTED_IDS:-"7448 744a 7449 745e 744c 7551 74a1 74a5 75a3"}   # W7900/W7800/RX7900/R9700/MI300-355
+INTERACTIVE=1; [ -t 0 ] || INTERACTIVE=0
+
+# ---------------------------------------------------------------- output, prompts, state
+c_b=$'\e[1m'; c_g=$'\e[32m'; c_y=$'\e[33m'; c_r=$'\e[31m'; c_0=$'\e[0m'
+log()  { mkdir -p "$STATE"; echo "${c_b}$(date '+%F %T') == $*${c_0}" | tee -a "$TLOG"; }
+ok()   { echo "  ${c_g}[ok]${c_0} $*" | tee -a "$TLOG"; }
+warn() { echo "  ${c_y}[!]${c_0} $*" | tee -a "$TLOG"; }
+die()  { echo "${c_r}ERROR: $*${c_0}" | tee -a "$TLOG" >&2; exit 1; }
+ask()  { local v=""; [ $INTERACTIVE = 1 ] && read -r -p "$1${2:+ [$2]}: " v </dev/tty; echo "${v:-${2:-}}"; }
+yesno() { local a; a=$(ask "$1 (y/n)" "${2:-y}"); [[ $a =~ ^[Yy] ]]; }
+valid_ip() { python3 -c "import ipaddress,sys;ipaddress.IPv4Address(sys.argv[1])" "$1" 2>/dev/null; }
+save() { touch "$CONF"; grep -v "^$1=" "$CONF" > "$CONF.tmp" || true; printf '%s=%q\n' "$1" "$2" >> "$CONF.tmp"; mv "$CONF.tmp" "$CONF"; chmod 600 "$CONF"; }
+rec()  { grep -qxF "$*" "$MANIFEST" 2>/dev/null || echo "$*" >> "$MANIFEST"; }      # record a host change for --uninstall
+done_() { [ -f "$DONE/$1" ]; }
+stage() { local s=$1; shift; done_ "$s" && return 0; log "stage: $s"; "$@"; touch "$DONE/$s"; }
+human() { python3 -c "import sys;b=float(sys.argv[1]);print(next(f'{b/1024**i:.1f} {u}' for i,u in reversed(list(enumerate(['B','KB','MB','GB','TB']))) if b>=1024**i or i==0))" "${1:-0}"; }
+free_gb() { local d=$1; while [ ! -d "$d" ]; do d=$(dirname "$d"); done; df -BG --output=avail "$d" | tail -1 | tr -dc 0-9; }
+largest_fs() { df -BG --output=avail,target -x tmpfs -x devtmpfs -x overlay -x squashfs -x efivarfs 2>/dev/null | tail -n +2 | sort -n | tail -1 | awk '{print $2}'; }
+host_ip() { ip -4 route get "${1:-1.1.1.1}" 2>/dev/null | awk '{for(i=1;i<=NF;i++) if($i=="src"){print $(i+1); exit}}'; }
+port_free() { ! ss -ltnH "sport = :$1" 2>/dev/null | grep -q .; }
+user_home() { getent passwd "$1" | cut -d: -f6; }
+
+# record a file before changing it (restored by --uninstall); new files are recorded as FILE
+backup_file() { local f=$1 b; b=$STATE/backup$(echo "$f" | tr / _)
+  [ -e "$b" ] && return 0
+  if [ -e "$f" ]; then cp -p "$f" "$b"; rec "RESTORE $b $f"; else rec "FILE $f"; fi; }
+# marker-delimited block in a shared file (fstab): added once, removed exactly by --uninstall
+block_set() { local f=$1 tag=$2 body=$3
+  touch "$f"; sed -i "\|^# BEGIN $MARK $tag\$|,\|^# END $MARK $tag\$|d" "$f"
+  printf '# BEGIN %s %s\n%s\n# END %s %s\n' "$MARK" "$tag" "$body" "$MARK" "$tag" >> "$f"; rec "BLOCK $f $tag"; }
+
+# ---------------------------------------------------------------- packages (recorded; removed safely on uninstall)
+pkg_list() { dpkg-query -W -f='${Package}\n' | LC_ALL=C sort -u; }
+pkg_new()  { pkg_list | LC_ALL=C comm -13 "$1" -; }
+apt_install() {   # host apt may be locked to NKP's offline repo: use a private Ubuntu archive source then (never /etc/apt)
+  local p miss=0 before=$STATE/pkgs.before.$$
+  pkg_list > "$before"; export DEBIAN_FRONTEND=noninteractive
+  apt-get update -qq >/dev/null 2>&1 || true
+  for p in "$@"; do apt-cache policy "$p" 2>/dev/null | grep -q 'Candidate: [0-9]' || miss=1; done
+  if [ $miss = 0 ]; then apt-get install -y -qq --no-install-recommends "$@"
+  else
+    local d=$STATE/apt code; code=$(. /etc/os-release; echo "${VERSION_CODENAME:-$UBUNTU_CODENAME}")
+    mkdir -p "$d/lists/partial" "$d/archives/partial"; id _apt >/dev/null 2>&1 && chown -R _apt "$d/lists/partial" "$d/archives/partial"
+    { echo "deb http://archive.ubuntu.com/ubuntu $code main universe restricted multiverse"
+      echo "deb http://archive.ubuntu.com/ubuntu $code-updates main universe restricted multiverse"
+      echo "deb http://security.ubuntu.com/ubuntu $code-security main universe restricted multiverse"; } > "$d/sources.list"
+    local o=(-o Dir::Etc::SourceList="$d/sources.list" -o Dir::Etc::SourceParts=- -o Dir::State::Lists="$d/lists" -o Dir::Cache::Archives="$d/archives")
+    apt-get "${o[@]}" update -qq || die "cannot reach archive.ubuntu.com"
+    apt-get "${o[@]}" install -y -qq --no-install-recommends --no-upgrade "$@"
+  fi
+  pkg_new "$before" | while read -r p; do rec "PKG $p"; done; rm -f "$before"
+}
+
+# ---------------------------------------------------------------- downloads
+url_size() {   # bytes behind a download link (1-byte ranged GET: signed links often refuse HEAD); exit 1 = unusable
+  python3 - "$1" <<'PY'
+import sys, urllib.request, urllib.error
+try:
+    r = urllib.request.urlopen(urllib.request.Request(sys.argv[1], headers={"Range": "bytes=0-0"}), timeout=30)
+    cr, cl = r.headers.get("Content-Range", ""), r.headers.get("Content-Length", "")
+    print(cr.rsplit("/", 1)[1] if "/" in cr else (cl if r.status == 200 else "0"))
+except urllib.error.HTTPError as e:
+    print(f"HTTP {e.code}" + (" - link expired or not authorised" if e.code in (401, 403) else ""), file=sys.stderr); sys.exit(1)
+except Exception as e:
+    print(f"unreachable: {e}", file=sys.stderr); sys.exit(1)
+PY
+}
+
+download() {   # url dst: resumable download with a progress bar (python: works before curl/wget are installed)
+  python3 - "$1" "$2" <<'PY'
+import os, sys, time, urllib.request
+url, dst = sys.argv[1], sys.argv[2]
+part, name = dst + ".part", os.path.basename(url.split("?")[0])
+tty = sys.stderr.isatty()
+def fmt(b): return f"{b/1e9:.2f} GB" if b >= 1e9 else f"{b/1e6:.1f} MB"
+for attempt in range(1, 8):
+    have = os.path.getsize(part) if os.path.exists(part) else 0
+    try:
+        r = urllib.request.urlopen(urllib.request.Request(url, headers={"Range": f"bytes={have}-"} if have else {}), timeout=60)
+        if have and r.status != 206: have = 0
+        cr = r.headers.get("Content-Range", "")
+        total = int(cr.rsplit("/", 1)[1]) if "/" in cr else have + int(r.headers.get("Content-Length") or 0)
+        done, t0, start, last, step = have, time.time(), have, 0, -1
+        def show(final=False):
+            global step
+            rate = (done - start) / max(time.time() - t0, 1e-3)
+            pct = done / total * 100 if total else 0
+            eta = (total - done) / rate if rate and total else 0
+            if tty:
+                bar = "#" * int(pct / 2.5) + "-" * (40 - int(pct / 2.5))
+                sys.stderr.write(f"\r   [{bar}] {pct:5.1f}%  {fmt(done)} / {fmt(total)}  {rate/1e6:6.1f} MB/s  "
+                                 + (f"done in {int((time.time()-t0)//60)}m{int((time.time()-t0)%60):02d}s\n" if final else f"ETA {int(eta//60)}m{int(eta%60):02d}s "))
+            elif final or int(pct // 10) != step:
+                step = int(pct // 10); print(f"   {name}: {pct:.0f}% ({fmt(done)} / {fmt(total)}, {rate/1e6:.1f} MB/s)", file=sys.stderr)
+        with open(part, "ab" if have else "wb") as f:
+            while True:
+                b = r.read(4 << 20)
+                if not b: break
+                f.write(b); done += len(b)
+                if time.time() - last >= 0.5: last = time.time(); show()
+        show(final=True)
+        if total and done != total: raise IOError(f"incomplete: {done} of {total} bytes")
+        os.replace(part, dst); sys.exit(0)
+    except SystemExit: raise
+    except Exception as e:
+        if tty: sys.stderr.write("\n")
+        print(f"   {name}: {e} - retry {attempt}/7 (resumes where it stopped)", file=sys.stderr); time.sleep(min(60, 5 * attempt))
+sys.exit(f"download failed: {name}")
+PY
+}
+
+# ---------------------------------------------------------------- reboots (never without consent)
+install_resume_unit() {
+  cat > "$RESUME_UNIT" <<EOF
+[Unit]
+Description=Resume nkp-amd-gpu setup after reboot
+After=network-online.target
+Wants=network-online.target
+[Service]
+Type=oneshot
+ExecStart=$SELF --resume
+StandardOutput=journal+console
+TimeoutStartSec=0
+[Install]
+WantedBy=multi-user.target
+EOF
+  systemctl daemon-reload; systemctl enable nkp-amd-resume.service >/dev/null 2>&1; rec "FILE $RESUME_UNIT"
+}
+reboot_ask() {   # consent was asked with the questions (REBOOT_OK); the background job never reboots without it
+  install_resume_unit; warn "a reboot is needed to $1"
+  if [ "${REBOOT_OK:-no}" = yes ]; then
+    echo "  rebooting in 10 s (agreed at the start); the setup continues automatically after the reboot" | tee -a "$TLOG"; sync; sleep 10; systemctl reboot; exit 0
+  fi
+  if [ $INTERACTIVE = 1 ] && yesno "Reboot now? The setup continues automatically after the reboot" y; then
+    echo "  follow it after the reboot with: journalctl -fu nkp-amd-resume   or   sudo tail -f $LOG"; sync; systemctl reboot; exit 0
+  fi
+  echo "  Not rebooting. Reboot when convenient (sudo reboot); the setup then continues on its own, or run this script again."
+  exit 0
+}
+
+# ---------------------------------------------------------------- kubernetes helpers
+kc() { kubectl --kubeconfig "$KCFG" "$@"; }
+hl() { helm --kubeconfig "$KCFG" "$@"; }
+wait_for() {   # description timeout-seconds interval shell-condition
+  local d=$1 t=$2 i=$3 c=$4 s=$SECONDS
+  until bash -c "$c" >/dev/null 2>&1; do
+    [ $((SECONDS - s)) -ge "$t" ] && { warn "$d: not reached within $((t / 60)) min"; return 1; }
+    sleep "$i"
+  done; ok "$d"; }
+reg_has() { skopeo inspect --tls-verify=false "docker://$REG/$1" >/dev/null 2>&1; }
+retry() {   # cmd...: up to 4 tries, 15/30/45 s apart (rides out DNS and registry blips)
+  local _try=1; until "$@"; do [ $_try -ge 4 ] && return 1; warn "attempt $_try failed, retrying in $((_try * 15)) s: $*"; sleep $((_try * 15)); _try=$((_try + 1)); done; }
+mirror_image() { reg_has "${2:-${1#*/}}" || retry skopeo copy -q --all --dest-tls-verify=false "docker://$1" "docker://$REG/${2:-${1#*/}}"; }
+registry_ensure() {
+  curl -fsS -m 5 "http://$REG/v2/" >/dev/null 2>&1 && return 0
+  warn "registry $REG is not answering; restarting it"; systemctl restart nkp-registry.service >/dev/null 2>&1 || true; sleep 5
+  curl -fsS -m 5 "http://$REG/v2/" >/dev/null 2>&1 || die "registry $REG is down (journalctl -u nkp-registry)"
+}
+
+# ---------------------------------------------------------------- GPU discovery
+pci_ids() { local v d; v=$(<"/sys/bus/pci/devices/$1/vendor"); d=$(<"/sys/bus/pci/devices/$1/device"); echo "${v#0x}:${d#0x}"; }
+pci_name() { lspci -s "$1" 2>/dev/null | sed -E 's/^[^ ]+ [^:]+: //; s/ \(rev [0-9a-f]+\)$//' | cut -c1-70; }
+drv() { basename "$(readlink /sys/bus/pci/devices/$1/driver 2>/dev/null)" 2>/dev/null || true; }
+slot_functions() { local f; for f in /sys/bus/pci/devices/${1%.*}.*; do basename "$f"; done; }
+discover_gpus() {   # NV_BDFS, AMD_BDFS (all AMD display/compute devices)
+  NV_BDFS=(); AMD_BDFS=(); local b cls
+  for b in $(ls /sys/bus/pci/devices); do
+    cls=$(<"/sys/bus/pci/devices/$b/class")
+    [[ $cls == 0x0300* || $cls == 0x0302* || $cls == 0x0380* || $cls == 0x1200* ]] || continue
+    case $(pci_ids "$b") in 10de:*) NV_BDFS+=("$b") ;; 1002:*) AMD_BDFS+=("$b") ;; esac
+  done
+}
+amd_supported() { [[ " $AMD_SUPPORTED_IDS " == *" $(pci_ids "$1" | cut -d: -f2) "* ]]; }
+gpu_report() {
+  discover_gpus; local b i=0
+  echo "  CPU     : $(lscpu | awk -F: '/Model name/{gsub(/^ +/,"",$2);print $2; exit}'), $(nproc --all) threads"
+  echo "  Memory  : $(free -g | awk '/Mem:/{print $2" GB total, "$7" GB available"}')"
+  if [ ${#AMD_BDFS[@]} = 0 ]; then echo "  AMD     : none"; fi
+  for b in "${AMD_BDFS[@]}"; do i=$((i + 1))
+    printf "  AMD %-4s: %s  %s  driver %s%s\n" "$i)" "$b" "$(pci_name "$b")" "$(drv "$b")" "$(amd_supported "$b" && echo '  [compute: supported]' || echo '  [not a compute target]')"
+  done
+  for b in "${NV_BDFS[@]}"; do echo "  NVIDIA  : $b  $(pci_name "$b")  (not used by this setup)"; done
+}
+
+# ---------------------------------------------------------------- 1. questions (all asked up front)
+ask_src() {   # VAR label: download link (checked now) or local path
+  local src n=0 size
+  while :; do
+    src=$(ask "   $2: download link or path")
+    if [[ $src =~ ^https?:// ]]; then
+      if size=$(url_size "$src"); then ok "link works: $(basename "${src%%\?*}"), $(human "$size")"; save "${1}_BYTES" "$size"; break; fi
+    elif [ -f "$src" ]; then ok "$src ($(human "$(stat -c %s "$src")"))"; break
+    else echo "   not a link and no such file: $src" >/dev/tty; fi
+    n=$((n + 1)); [ $n -ge 3 ] && die "no usable $2"; echo "   try again (a fresh link from the Nutanix portal if it expired)" >/dev/tty
+  done
+  printf -v "$1" '%s' "$src"; save "$1" "$src"
+}
+
+ask_dir() {   # VAR question default need-GB
+  local d; d=$(ask "$2" "$3"); d=${d%/}; [[ $d == /* ]] || die "give an absolute path"
+  [ "$(free_gb "$d")" -ge "$4" ] && ok "$d: $(free_gb "$d") GB free" || warn "$d has only $(free_gb "$d") GB free (about $4 GB needed)"
+  printf -v "$1" '%s' "$d"; save "$1" "$d"
+}
+
+inputs() {
+  [ $INTERACTIVE = 1 ] || die "the setup questions have not been answered; run interactively: sudo $SELF"
+  echo; echo "${c_b}Single-node NKP + AMD GPU Operator${c_0} - all questions first, then it runs unattended."
+  . /etc/os-release
+  [[ $ID == ubuntu ]] || die "$PRETTY_NAME is not supported (Ubuntu 22.04, 24.04 or 26.04)"
+  INSTALL_USER=${SUDO_USER:-}; [ -n "$INSTALL_USER" ] && [ "$INSTALL_USER" != root ] \
+    || INSTALL_USER=$(ask "   Non-root user with sudo that NKP connects as over SSH"); id "$INSTALL_USER" >/dev/null 2>&1 || die "no user $INSTALL_USER"
+  save INSTALL_USER "$INSTALL_USER"
+
+  echo; echo "${c_b}NKP bundle${c_0} (Nutanix portal: Downloads > NKP; links expire, a path is fine too)"
+  ask_src NKP_SRC "NKP air-gapped bundle (nkp-air-gapped-bundle_v*_linux_amd64.tar.gz)"
+  NKP_VERSION=$(basename "${NKP_SRC%%\?*}" | grep -oE 'v[0-9]+\.[0-9]+\.[0-9]+' | head -1 | tr -d v); NKP_VERSION=${NKP_VERSION:-$TESTED_NKP}
+  save NKP_VERSION "$NKP_VERSION"
+  [ "$NKP_VERSION" = "$TESTED_NKP" ] && ok "NKP $NKP_VERSION (tested)" || warn "NKP $NKP_VERSION: tested is NKP $TESTED_NKP"
+
+  echo; echo "${c_b}This host${c_0}"; gpu_report
+  echo; echo "${c_b}AMD GPUs${c_0}"
+  local b i sel def=""; i=0
+  for b in "${AMD_BDFS[@]}"; do i=$((i + 1)); amd_supported "$b" && def="${def:+$def,}$i"; done
+  [ -n "$def" ] || die "no supported AMD compute GPU found (device ids: $AMD_SUPPORTED_IDS)"
+  sel=$(ask "   AMD GPUs for Kubernetes (numbers from the list above)" "$def")
+  AMD_TARGETS=""; AMD_OTHERS=""; AMD_OTHER_POLICY=none
+  i=0; for b in "${AMD_BDFS[@]}"; do i=$((i + 1))
+    if [[ ",$sel," == *",$i,"* ]]; then amd_supported "$b" || warn "$b is not a tested compute GPU"; AMD_TARGETS="${AMD_TARGETS:+$AMD_TARGETS }$b"
+    else AMD_OTHERS="${AMD_OTHERS:+$AMD_OTHERS }$b"; fi
+  done
+  [ -n "$AMD_TARGETS" ] || die "no AMD GPU chosen"
+  if [ -n "$AMD_OTHERS" ]; then
+    echo "   Other AMD GPUs ($AMD_OTHERS) must stay away from Kubernetes (the stock device plugin advertises every AMD GPU):"
+    echo "     vfio   bind them to vfio-pci at boot (they stop driving displays; one reboot, asked first)  [tested]"
+    echo "     filter keep them on amdgpu, hide them from Kubernetes with a PCI-filtered device plugin built from this kit"
+    AMD_OTHER_POLICY=$(ask "   vfio or filter" vfio); [[ $AMD_OTHER_POLICY =~ ^(vfio|filter)$ ]] || die "answer vfio or filter"
+  fi
+  ok "AMD for Kubernetes: $AMD_TARGETS${AMD_OTHERS:+; isolated ($AMD_OTHER_POLICY): $AMD_OTHERS}"
+  save AMD_TARGETS "$AMD_TARGETS"; save AMD_OTHERS "$AMD_OTHERS"; save AMD_OTHER_POLICY "$AMD_OTHER_POLICY"
+
+  echo; echo "${c_b}Storage${c_0}"
+  local base; base=$(largest_fs); base=${base%/}
+  echo "   Installation folder: the bundle and its unpacked copy, the local image registry, build space and the"
+  echo "   local volumes for NKP platform apps. Wiped by --uninstall."
+  ask_dir INSTALL_DIR "   Installation folder" "$base/nkp-amd" 300
+  [ "$(free_gb /var/lib)" -ge 150 ] || warn "only $(free_gb /var/lib) GB free for /var/lib (container images of the cluster need ~150 GB)"
+
+  echo; echo "${c_b}Network${c_0}"
+  HOST_IP=$(ask "   This host's IP (cluster endpoint and registry)" "$(host_ip)"); valid_ip "$HOST_IP" || die "not an IPv4 address"
+  HOST_IFACE=$(ip -4 -o addr show | awk -v ip="$HOST_IP" '$4 ~ "^"ip"/" {print $2; exit}'); [ -n "$HOST_IFACE" ] || die "$HOST_IP is not on this host"
+  local pfx; pfx=$(ip -4 -o addr show dev "$HOST_IFACE" | awk -v ip="$HOST_IP" '$4 ~ "^"ip"/" {print $4; exit}')
+  echo "   MetalLB hands out service IPs on $pfx; the Kommander dashboard takes the first."
+  local r first last n
+  while :; do
+    r=$(ask "   Free address range for MetalLB (first-last, or one address)"); first=${r%-*}; last=${r#*-}
+    n=$(python3 -c "import ipaddress as a,sys;f,l,net=a.ip_address(sys.argv[1]),a.ip_address(sys.argv[2]),a.ip_network(sys.argv[3],strict=False);print(int(l)-int(f)+1 if f in net and l in net and l>=f else 0)" "$first" "$last" "$pfx" 2>/dev/null || echo 0)
+    [ "$n" -ge 1 ] && break; echo "   give addresses in $pfx, e.g. A.B.C.240-A.B.C.242" >/dev/tty
+  done
+  local used; used=$(python3 -c "import ipaddress as a,sys;f=int(a.ip_address(sys.argv[1]));print(' '.join(str(a.ip_address(f+i)) for i in range(int(sys.argv[2]))))" "$first" "$n" \
+    | tr ' ' '\n' | while read -r ip; do ping -c1 -W1 "$ip" >/dev/null 2>&1 && echo -n "$ip "; done || true)
+  [ -z "$used" ] && ok "MetalLB range $first-$last ($n address(es), none answering ping)" || warn "these answer ping and may be in use: $used"
+  METALLB_RANGE="$first-$last"
+  CLUSTER_NAME=$(ask "   Cluster name" nkp-amd); [[ $CLUSTER_NAME =~ ^[a-z0-9-]+$ ]] || die "lowercase letters, digits and '-' only"
+  for v in HOST_IP HOST_IFACE METALLB_RANGE CLUSTER_NAME; do save $v "${!v}"; done
+
+  REBOOT_OK=no; local vneed=no
+  for b in $AMD_OTHERS; do [ "$AMD_OTHER_POLICY" = vfio ] && [ "$(drv "$b")" != vfio-pci ] && vneed=yes; done
+  if [ $vneed = yes ]; then
+    echo; echo "${c_b}Reboot${c_0}: isolating $AMD_OTHERS with vfio-pci needs one reboot, before the cluster is built."
+    yesno "   May the setup reboot this host by itself when that point comes (it then continues on its own)" y && REBOOT_OK=yes
+  fi
+  save REBOOT_OK "$REBOOT_OK"
+
+  echo; echo "${c_b}Summary${c_0}"
+  echo "   NKP $NKP_VERSION: single node '$CLUSTER_NAME' on $HOST_IP, SSH user $INSTALL_USER, MetalLB $METALLB_RANGE"
+  echo "   AMD GPU Operator $AMD_OPERATOR_VERSION from a Kommander catalog: $AMD_TARGETS${AMD_OTHERS:+ (isolate $AMD_OTHERS via $AMD_OTHER_POLICY)}"
+  echo "   Installation folder: $INSTALL_DIR"
+  echo "   Host changes are recorded for --uninstall. Expect 1.5-3 h (download, image pushes, NKP, Kommander)."
+  yesno "Start the installation with these settings" y || { rm -f "$CONF"; echo "Nothing changed. Run again to answer anew."; exit 0; }
+}
+
+# ---------------------------------------------------------------- 2. host
+set_paths() {
+  DL=$INSTALL_DIR/downloads; NKP_X=$INSTALL_DIR/nkp
+  WORK=$INSTALL_DIR/work; CL=$WORK/cluster; BUILD=$WORK/build
+  REG=${HOST_IP:-127.0.0.1}:$REG_PORT; KCFG=$CL/${CLUSTER_NAME:-nkp}.conf
+  PODMAN_BUILD=(podman --root "$INSTALL_DIR/podman-build/storage" --runroot /run/nkp-amd-podman)   # builds off the root disk
+  UHOME=$(user_home "${INSTALL_USER:-root}")
+  export PATH="/usr/local/bin:$PATH"
+}
+nkp_dir() { { ls -d "$NKP_X"/nkp-v*/ 2>/dev/null || true; } | sort -V | tail -1 | sed 's:/$::'; }   # empty (not an error) before the bundle is unpacked
+
+download_all() {   # right after the questions: the bundle on disk before the host is changed
+  mkdir -p "$DL"; rec "DATADIR $INSTALL_DIR"
+  if [[ ! $NKP_SRC =~ ^https?:// ]]; then NKP_FILE=$NKP_SRC; save NKP_FILE "$NKP_FILE"; return 0; fi
+  local f=$DL/$(basename "${NKP_SRC%%\?*}")
+  [ "$(free_gb "$DL")" -gt $((${NKP_SRC_BYTES:-0} / 1000000000 + 5)) ] || die "not enough space in $DL for the download ($(human "${NKP_SRC_BYTES:-0}"))"
+  if [ ! -s "$f" ]; then echo "  downloading $(basename "$f") ($(human "${NKP_SRC_BYTES:-0}"))" | tee -a "$TLOG"; download "$NKP_SRC" "$f" || die "download failed; run again to resume (a fresh link may be needed)"; fi
+  ok "$(basename "$f")"; NKP_FILE=$f; save NKP_FILE "$f"
+}
+
+check() {
+  log "host check"
+  . /etc/os-release; echo "  OS: $PRETTY_NAME, kernel $(uname -r)"
+  [[ $VERSION_ID =~ ^(22.04|24.04|26.04)$ ]] || die "$PRETTY_NAME: NKP 2.18 needs Ubuntu 22.04/24.04 (26.04 with this script's workarounds)"
+  gpu_report
+  [ "$(nproc --all)" -ge 16 ] || warn "$(nproc --all) CPU threads: the NKP platform needs about 16"
+  [ "$(free -g | awk '/Mem:/{print $2}')" -ge 64 ] || warn "less than 64 GB memory: the NKP platform needs about 48 GB"
+  [ -e /dev/kfd ] && ok "/dev/kfd present (amdgpu compute driver loaded)" || warn "/dev/kfd missing: the amdgpu kernel driver is not loaded for a compute GPU"
+  [ -n "${INSTALL_DIR:-}" ] && ok "installation folder $INSTALL_DIR: $(free_gb "$INSTALL_DIR") GB free"
+  return 0
+}
+
+host_packages() {
+  # prerequisites konvoy installs itself from Ubuntu 22.04/24.04 repos: pre-installed so it finds them present on 26.04
+  apt_install podman skopeo chrony nfs-common rpcbind keyutils python3-cryptography python3-pip \
+    python3-wheel ipvsadm lvm2 open-iscsi xfsprogs lsscsi wget curl ca-certificates pciutils patch
+  ok "host packages installed ($(grep -c '^PKG ' "$MANIFEST") recorded for uninstall)"
+}
+
+amd_host() {   # ROCm tools for host checks, GPU groups, and vfio isolation of the AMD GPUs not given to Kubernetes
+  local why=() b f
+  apt_install rocminfo rocm-smi amd-smi 2>/dev/null || warn "ROCm tools not in this Ubuntu release's archive (host checks only; Kubernetes is unaffected)"
+  for g in render video; do id -nG "$INSTALL_USER" | grep -qw $g || { usermod -aG $g "$INSTALL_USER"; rec "GROUP $INSTALL_USER $g"; }; done
+  if [ "$AMD_OTHER_POLICY" = vfio ] && [ -n "$AMD_OTHERS" ]; then
+    local ids="" all=true
+    for b in $AMD_OTHERS; do for f in $(slot_functions "$b"); do ids="${ids:+$ids,}$(pci_ids "$f")"; [ "$(drv "$f")" = vfio-pci ] || all=false; done; done
+    ids=$(echo "$ids" | tr ',' '\n' | awk '!s[$0]++' | paste -sd,)
+    if ! $all; then
+      [ -n "$(ls /sys/kernel/iommu_groups 2>/dev/null)" ] || die "IOMMU is off: enable it in the BIOS (AMD-Vi/VT-d) to isolate $AMD_OTHERS, or re-run with 'filter'"
+      if [ ! -f /etc/modprobe.d/90-nkp-amd-vfio.conf ]; then
+        printf '# nkp-amd-gpu: AMD GPU(s) %s kept away from amdgpu and Kubernetes\noptions vfio-pci ids=%s\nsoftdep amdgpu pre: vfio-pci\nsoftdep snd_hda_intel pre: vfio-pci\n' \
+          "$AMD_OTHERS" "$ids" > /etc/modprobe.d/90-nkp-amd-vfio.conf
+        printf 'vfio\nvfio_iommu_type1\nvfio_pci\n' > /etc/modules-load.d/90-nkp-amd-vfio.conf
+        rec "FILE /etc/modprobe.d/90-nkp-amd-vfio.conf"; rec "FILE /etc/modules-load.d/90-nkp-amd-vfio.conf"; rec "INITRAMFS"
+        update-initramfs -u -k "$(uname -r)" >/dev/null
+        cat /proc/sys/kernel/random/boot_id > "$DONE/reboot-vfio"
+      elif [ "$(cat "$DONE/reboot-vfio" 2>/dev/null)" != "$(cat /proc/sys/kernel/random/boot_id)" ]; then
+        die "$AMD_OTHERS still not on vfio-pci after the reboot (lspci -nnk -s ${AMD_OTHERS%% *}); not rebooting again"
+      fi
+      why+=("isolate $AMD_OTHERS with vfio-pci")
+    fi
+  fi
+  if [ ${#why[@]} -gt 0 ]; then local msg; msg=$(printf '%s; ' "${why[@]}"); reboot_ask "${msg%; }"; fi
+  for b in $AMD_TARGETS; do [ "$(drv "$b")" = amdgpu ] || die "$b is on driver '$(drv "$b")', not amdgpu: the operator in this kit uses the in-kernel amdgpu driver"; done
+  ok "AMD GPUs on amdgpu: $AMD_TARGETS"
+}
+
+os_prep() {
+  local f=/etc/sudoers.d/90-nkp-amd-$INSTALL_USER
+  if ! sudo -u "$INSTALL_USER" sudo -n true 2>/dev/null; then
+    echo "$INSTALL_USER ALL=(ALL) NOPASSWD:ALL" > "$f"; chmod 440 "$f"; visudo -cf "$f" >/dev/null || { rm -f "$f"; die "sudoers check failed"; }; rec "FILE $f"
+  fi
+  if swapon --noheadings | grep -q .; then
+    backup_file /etc/fstab; swapoff -a; sed -i -E 's|^([^#].*[[:space:]]swap[[:space:]].*)$|# disabled by nkp-amd-gpu: \1|' /etc/fstab; rec "SWAP"
+  fi
+  local s=$UHOME/.ssh k=$UHOME/.ssh/nkp_ed25519
+  install -d -m 700 -o "$INSTALL_USER" -g "$(id -gn "$INSTALL_USER")" "$s"
+  if [ ! -f "$k" ]; then sudo -u "$INSTALL_USER" ssh-keygen -q -t ed25519 -N "" -C nkp-amd-gpu -f "$k"; rec "FILE $k"; rec "FILE $k.pub"; fi
+  grep -qF "$(cat "$k.pub")" "$s/authorized_keys" 2>/dev/null || { cat "$k.pub" >> "$s/authorized_keys"; rec "AUTHKEY $s/authorized_keys $(awk '{print $3}' "$k.pub")"; }
+  chown "$INSTALL_USER" "$s/authorized_keys"; chmod 600 "$s/authorized_keys"
+  sudo -u "$INSTALL_USER" ssh -i "$k" -o StrictHostKeyChecking=accept-new -o BatchMode=yes "$INSTALL_USER@$HOST_IP" sudo -n true \
+    || die "NKP's SSH login $INSTALL_USER@$HOST_IP with the key failed (sshd running? key auth allowed?)"
+  if ! grep -qs '^pids_limit *= *0' /etc/containers/containers.conf; then
+    backup_file /etc/containers/containers.conf; mkdir -p /etc/containers
+    printf '[containers]\n# nkp-amd-gpu: the NKP bootstrap (kind in podman) needs more than the default 2048 processes\npids_limit = 0\n' > /etc/containers/containers.conf
+  fi
+  printf 'fs.inotify.max_user_instances = 8192\nfs.inotify.max_user_watches = 1048576\n' > /etc/sysctl.d/90-nkp-amd.conf; rec "FILE /etc/sysctl.d/90-nkp-amd.conf"
+  sysctl -q --system
+  if [ "$(systemctl show -p LoadState --value cloud-init.service)" != loaded ]; then   # 26.04 split cloud-init.service; NKP's playbook expects it
+    printf '# nkp-amd-gpu: compatibility shim for NKP image-builder on Ubuntu 26.04\n[Unit]\nDescription=Compat shim for cloud-init.service\nAfter=cloud-init-network.service\n[Service]\nType=oneshot\nExecStart=/bin/true\nRemainAfterExit=yes\n[Install]\nWantedBy=cloud-init.target\n' \
+      > /etc/systemd/system/cloud-init.service; rec "FILE /etc/systemd/system/cloud-init.service"; systemctl daemon-reload
+  fi
+  systemctl enable --now chrony >/dev/null 2>&1 || true
+  ok "OS prepared for NKP (sudo, swap off, SSH key, podman and inotify limits)"
+}
+
+tools() {
+  local nd; nd=$(nkp_dir)
+  if [ -z "$nd" ] || [ ! -x "$nd/cli/nkp" ]; then
+    mkdir -p "$NKP_X"; echo "  unpacking the NKP bundle (10-20 min)" | tee -a "$TLOG"; tar -xzf "$NKP_FILE" -C "$NKP_X"; nd=$(nkp_dir)
+  fi
+  [ -x "$nd/cli/nkp" ] || die "the NKP bundle has no cli/nkp"
+  for f in nkp kubectl helm; do [ -e /usr/local/bin/$f ] || rec "FILE /usr/local/bin/$f"; done
+  install -m 755 "$nd/cli/nkp" /usr/local/bin/nkp; install -m 755 "$nd/kubectl" /usr/local/bin/kubectl
+  if ! helm version >/dev/null 2>&1; then
+    mkdir -p "$WORK"; download "https://get.helm.sh/helm-$HELM_VERSION-linux-amd64.tar.gz" "$WORK/helm.tgz" || die "cannot download helm"
+    tar -xzf "$WORK/helm.tgz" -C "$WORK"; install -m 755 "$WORK/linux-amd64/helm" /usr/local/bin/helm
+  fi
+  ok "nkp $(nkp version 2>/dev/null | awk '/nkp:/{print $2}'), kubectl, helm $(helm version --short)"
+}
+
+# ---------------------------------------------------------------- 3. NKP
+REG_UNIT=/etc/systemd/system/nkp-registry.service
+registry() {   # air-gap registry for NKP and AMD GPU Operator images; host network (no NAT rules a firewall reload could wipe)
+  # Runs as its own systemd service. Started with `podman run -d` from this script it lived in the
+  # install job's cgroup, and systemd killed it whenever the job exited (e.g. on a failed stage),
+  # leaving the cluster unable to pull images. Idempotent: also replaces such an old container.
+  if [ ! -f "$REG_UNIT" ] || ! curl -fsS -m 5 "http://$REG/v2/" >/dev/null 2>&1; then
+    mkdir -p "$INSTALL_DIR/registry"
+    podman image exists docker.io/library/registry:2 || retry podman pull -q docker.io/library/registry:2 >/dev/null || die "cannot pull docker.io/library/registry:2 (check DNS / internet access to Docker Hub)"
+    systemctl stop nkp-registry.service >/dev/null 2>&1 || true
+    podman rm -f nkp-registry >/dev/null 2>&1 || true
+    port_free "$REG_PORT" || die "port $REG_PORT is in use by something else (set REG_PORT=...)"
+    [ -f "$REG_UNIT" ] || rec "FILE $REG_UNIT"
+    cat > "$REG_UNIT" <<EOF
+[Unit]
+Description=Air-gap image registry for NKP (nkp-amd-gpu)
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+ExecStartPre=-$(command -v podman) rm -f nkp-registry
+ExecStart=$(command -v podman) run --rm --name nkp-registry --network host -e REGISTRY_HTTP_ADDR=0.0.0.0:$REG_PORT -v $INSTALL_DIR/registry:/var/lib/registry:Z docker.io/library/registry:2
+ExecStop=$(command -v podman) stop -t 10 nkp-registry
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+EOF
+    systemctl daemon-reload
+    systemctl is-enabled -q nkp-registry.service 2>/dev/null || rec "SERVICE nkp-registry.service"
+    systemctl enable --now nkp-registry.service >/dev/null 2>&1 || die "cannot start nkp-registry.service (journalctl -u nkp-registry)"
+    grep -qx "CONTAINER nkp-registry" "$MANIFEST" || rec "CONTAINER nkp-registry"
+    wait_for "registry answering" 60 2 "curl -fsS -m 3 http://$REG/v2/ >/dev/null" || true
+  fi
+  curl -fsS -m 5 "http://$REG/v2/" >/dev/null || die "registry $REG not reachable (journalctl -u nkp-registry)"
+  ok "registry http://$REG ($INSTALL_DIR/registry, nkp-registry.service)"
+}
+
+nkp_images() {
+  local nd A f kimg bundles; nd=$(nkp_dir); A=$nd/image-artifacts
+  bundles=$(ls "$nd"/container-images/{konvoy-image-bundle,kommander-image-bundle}-v*.tar "$nd"/container-images/nutanix-product-catalog-v*-airgapped.tar 2>/dev/null | paste -sd,)
+  [ -n "$bundles" ] || die "NKP container image bundles not found in $nd/container-images"
+  echo "  pushing NKP images to $REG (20-40 min)" | tee -a "$TLOG"
+  nkp push bundle --bundle "$bundles" --to-registry "http://$REG" --to-registry-insecure-skip-tls-verify --image-push-concurrency 4 >> "$LOG" 2>&1 \
+    || die "nkp push bundle failed (see $LOG)"
+  . /etc/os-release
+  if [ "$VERSION_ID" = 26.04 ]; then   # NKP 2.18 ships OS artifacts for 22.04/24.04 only: build 24.04's, alias them as 26.04
+    ls "$A"/*_ubuntu_24.04_x86_64.tar.gz >/dev/null 2>&1 || { echo "  building the Ubuntu 24.04 OS package bundle (internet)" | tee -a "$TLOG"
+      nkp create package-bundle ubuntu-24.04 --artifacts-directory "$A" >> "$LOG" 2>&1 || die "nkp create package-bundle failed"; }
+    for f in "$A"/*24.04*; do [ -e "${f//24.04/26.04}" ] || ln -sf "$(basename "$f")" "${f//24.04/26.04}"; done
+  fi
+  kimg=$(ls "$A"/images/kubernetes-images-*.tar | grep -v -- -fips | head -1)   # the standard set, not the FIPS one
+  [ -n "$kimg" ] || die "no non-FIPS kubernetes-images-*.tar in $A/images"
+  ( cd "$nd" && rm -rf .nkp-image-builder-* )
+  echo "  uploading containerd and Kubernetes packages to the host" | tee -a "$TLOG"
+  nkp upload image-artifacts --artifacts-directory "$A" --ssh-host "$HOST_IP" --ssh-username "$INSTALL_USER" \
+    --ssh-private-key-file "$UHOME/.ssh/nkp_ed25519" --bundle "$kimg" >> "$LOG" 2>&1 || die "nkp upload image-artifacts failed (see $LOG)"
+  rec "NKPHOST"   # from here konvoy changes the host (apt offline repo, containerd, kubelet...): full teardown on uninstall
+  local nrepo; nrepo=$(curl -fsS "http://$REG/v2/_catalog?n=1000" 2>/dev/null | python3 -c 'import json,sys;print(len(json.load(sys.stdin)["repositories"]))' 2>/dev/null) || nrepo="?"   # registry:2 rejects n > 1000
+  ok "NKP images ($nrepo repositories) and OS artifacts in place"
+}
+
+host_storage() {
+  local i s d fst=""
+  for i in $(seq -w 1 "$LOCAL_PV_COUNT"); do s=$INSTALL_DIR/local-pv/vol$i; d=/mnt/disks/vol$i; mkdir -p "$s" "$d"; fst+="$s $d none bind 0 0"$'\n'; done
+  rec "DIR /mnt/disks"
+  block_set /etc/fstab volumes "${fst%$'\n'}"; systemctl daemon-reload; mount -a
+  ok "$LOCAL_PV_COUNT local volumes for NKP platform apps (/mnt/disks)"
+}
+
+write_inventory() {
+  mkdir -p "$CL"; local n
+  for n in control-plane md-0; do cat <<EOF
+---
+apiVersion: infrastructure.cluster.konvoy.d2iq.io/v1alpha1
+kind: PreprovisionedInventory
+metadata:
+  name: ${CLUSTER_NAME}-$n
+  namespace: default
+  labels: {cluster.x-k8s.io/cluster-name: ${CLUSTER_NAME}, clusterctl.cluster.x-k8s.io/move: ""}
+spec:
+  hosts: $([ $n = control-plane ] && echo "[{address: $HOST_IP}]" || echo "[]")
+  sshConfig: {port: 22, user: ${INSTALL_USER}, privateKeyRef: {name: ${CLUSTER_NAME}-ssh-key, namespace: default}}
+EOF
+  done > "$CL/inventory.yaml"   # NKP expects an md-0 inventory even with 0 workers
+}
+
+cluster() {
+  local nd boot; nd=$(nkp_dir); boot=$(ls "$nd"/konvoy-bootstrap-image-v*.tar | head -1); write_inventory
+  if [ ! -s "$KCFG" ] || ! kc get nodes >/dev/null 2>&1; then
+    rec "NKPCLUSTER $CLUSTER_NAME"
+    # single node: make the control plane schedulable as soon as the API answers. Every command may fail
+    # (API not up yet, taint already gone) and must not end the loop under set -e: the CAPI operator job
+    # inside the new cluster stays Pending, and nkp create cluster times out after 20 min, until it's gone.
+    ( set +e; for i in $(seq 1 720); do
+        [ -f /etc/kubernetes/admin.conf ] && kubectl --kubeconfig /etc/kubernetes/admin.conf taint nodes --all node-role.kubernetes.io/control-plane:NoSchedule- >/dev/null 2>&1
+        pgrep -f "nkp create cluster preprovisioned" >/dev/null || break; sleep 10; done; true ) &
+    local w=$! rc=0
+    log "creating NKP cluster $CLUSTER_NAME (30-60 min; detail in $LOG)"
+    ( cd "$CL" && nkp create cluster preprovisioned --cluster-name "$CLUSTER_NAME" --control-plane-endpoint-host "$HOST_IP" \
+        --control-plane-replicas 1 --worker-replicas 0 --pre-provisioned-inventory-file inventory.yaml \
+        --ssh-private-key-file "$UHOME/.ssh/nkp_ed25519" --ssh-username "$INSTALL_USER" --registry-mirror-url "http://$REG" \
+        --bootstrap-cluster-image "$boot" --self-managed --timeout 120m ) >> "$LOG" 2>&1 || rc=$?
+    kill $w 2>/dev/null || true
+    [ -s "$CL/$CLUSTER_NAME.conf" ] || nkp get kubeconfig -c "$CLUSTER_NAME" > "$KCFG" 2>>"$LOG" || true
+    [ $rc = 0 ] || warn "nkp create cluster ended with $rc"
+  fi
+  # Self-managed: the CAPI objects must live in the new cluster before the bootstrap cluster is deleted.
+  # Checked on every run (not only when the cluster was just created), so a re-run after a failed move
+  # finishes it instead of deleting the bootstrap cluster that still holds them.
+  if ! kc get clusters.cluster.x-k8s.io -A --no-headers 2>/dev/null | grep -q "$CLUSTER_NAME"; then
+    warn "completing the self-managed move (CAPI controllers can be slow on one node)"
+    kc get nodes >/dev/null 2>&1 || die "the cluster API is not reachable (see $LOG)"
+    kc taint nodes --all node-role.kubernetes.io/control-plane:NoSchedule- >/dev/null 2>&1 || true
+    kc delete namespace capi-stack-operator-installer --ignore-not-found --wait=true >> "$LOG" 2>&1 || true   # leftovers of a timed-out attempt
+    nkp create capi-components --kubeconfig "$KCFG" >> "$LOG" 2>&1 || die "nkp create capi-components failed (see $LOG)"
+    [ -s "$CL/$CLUSTER_NAME-bootstrap.conf" ] || die "bootstrap kubeconfig missing: cannot move the CAPI objects"
+    nkp move capi-resources --from-kubeconfig "$CL/$CLUSTER_NAME-bootstrap.conf" --to-kubeconfig "$KCFG" >> "$LOG" 2>&1 \
+      || nkp move capi-resources --to-kubeconfig "$KCFG" >> "$LOG" 2>&1 || die "nkp move capi-resources failed (see $LOG)"
+    kc get clusters.cluster.x-k8s.io -A --no-headers 2>/dev/null | grep -q "$CLUSTER_NAME" || die "CAPI cluster object not in the new cluster after the move"
+  fi
+  nkp delete bootstrap --kubeconfig "$CL/$CLUSTER_NAME-bootstrap.conf" >> "$LOG" 2>&1 || nkp delete bootstrap >> "$LOG" 2>&1 || true
+  chmod 600 "$KCFG"
+  local uk=$UHOME/.kube/config; mkdir -p "$UHOME/.kube"; [ -e "$uk" ] && backup_file "$uk" || rec "FILE $uk"
+  cp "$KCFG" "$uk"; chown -R "$INSTALL_USER" "$UHOME/.kube"; chmod 600 "$uk"
+  kc taint nodes --all node-role.kubernetes.io/control-plane:NoSchedule- >/dev/null 2>&1 || true
+  local F=/var/lib/kubelet/config.yaml   # one node runs every platform pod: 110 is too few (Kommander install hangs)
+  if ! grep -q "^maxPods: $KUBELET_MAX_PODS" $F; then
+    if grep -q '^maxPods:' $F; then sed -i "s/^maxPods:.*/maxPods: $KUBELET_MAX_PODS/" $F; else echo "maxPods: $KUBELET_MAX_PODS" >> $F; fi
+    systemctl restart kubelet; sleep 20
+  fi
+  wait_for "node Ready" 600 10 "kubectl --kubeconfig $KCFG get nodes --no-headers | grep -q ' Ready '" || die "node not Ready"
+  kc get clusters -A --no-headers 2>/dev/null | grep -q "$CLUSTER_NAME" || warn "CAPI cluster object not found (cluster still works; NKP lifecycle commands may not)"
+  ok "NKP cluster $CLUSTER_NAME: $(kc get nodes --no-headers | awk '{print $1, $2, $5}'), maxPods $KUBELET_MAX_PODS"
+}
+
+kommander() {
+  wait_for "MetalLB ready" 900 10 "kubectl --kubeconfig $KCFG get crd ipaddresspools.metallb.io" || die "MetalLB CRDs missing"
+  kc apply -f - >/dev/null <<EOF
+apiVersion: metallb.io/v1beta1
+kind: IPAddressPool
+metadata: {name: nkp-amd-pool, namespace: metallb-system}
+spec: {addresses: [${METALLB_RANGE}]}
+---
+apiVersion: metallb.io/v1beta1
+kind: L2Advertisement
+metadata: {name: nkp-amd-l2, namespace: metallb-system}
+spec: {ipAddressPools: [nkp-amd-pool], interfaces: [${HOST_IFACE}]}
+EOF
+  cat > "$CL/kommander.yaml" <<EOF
+apiVersion: config.kommander.mesosphere.io/v1alpha1
+kind: Installation
+# single bare-metal node without object storage: rook-ceph, velero, logging and insights are off
+apps:
+  cloudnative-pg: {enabled: true}
+  dex: {enabled: true}
+  dex-k8s-authenticator: {enabled: true}
+  external-secrets: {enabled: true}
+  gatekeeper: {enabled: true}
+  git-operator: {enabled: true}
+  kommander: {enabled: true}
+  kommander-ui: {enabled: true}
+  kube-prometheus-stack: {enabled: true}
+  kubefed: {enabled: true}
+  kubernetes-dashboard: {enabled: true}
+  kubetunnel: {enabled: true}
+  prometheus-adapter: {enabled: true}
+  reloader: {enabled: true}
+  traefik: {enabled: true}
+  traefik-forward-auth-mgmt: {enabled: true}
+  nvidia-gpu-operator: {enabled: false}   # AMD only: the AMD GPU Operator comes from the custom catalog
+ageEncryptionSecretName: sops-age
+clusterHostname: ""
+airgapped:
+  enabled: true
+EOF
+  local A; A=$(ls "$(nkp_dir)"/application-repositories/kommander-applications-v*.tar.gz | head -1)
+  log "installing Kommander (30-90 min)"
+  nkp install kommander --installer-config "$CL/kommander.yaml" --kommander-applications-repository "$A" --kubeconfig "$KCFG" \
+    --wait-timeout 2h >> "$LOG" 2>&1 || die "Kommander install failed (see $LOG; kubectl get helmreleases -A)"
+  # Grafana's datasource sidecar reload gets 401 (auth.proxy): reload once from inside the pod
+  wait_for "Grafana running" 900 15 "kubectl --kubeconfig $KCFG -n kommander get deploy kube-prometheus-stack-grafana -o jsonpath='{.status.readyReplicas}' | grep -q 1" \
+    && kc -n kommander exec deploy/kube-prometheus-stack-grafana -c grafana -- wget -qO- --post-data='' --header='X-Forwarded-User: admin' \
+       http://localhost:3000/api/admin/provisioning/datasources/reload >/dev/null 2>&1 || warn "Grafana datasource reload skipped"
+  KOMMANDER_IP=$(kc -n kommander get svc kommander-traefik -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null); save KOMMANDER_IP "$KOMMANDER_IP"
+  ok "Kommander dashboard https://$KOMMANDER_IP/dkp/kommander/dashboard (login: nkp get dashboard)"
+}
+
+# ---------------------------------------------------------------- 4. AMD GPU Operator as a Kommander catalog app
+amd_operator() {
+  local V=$AMD_OPERATOR_VERSION img
+  registry_ensure; mkdir -p "$WORK"
+  if ! reg_has "charts/gpu-operator-charts:$V"; then
+    mkdir -p "$BUILD"; ( cd "$BUILD" && rm -f gpu-operator-charts-*.tgz
+      retry hl repo add --force-update rocm https://rocm.github.io/gpu-operator >/dev/null && retry hl pull rocm/gpu-operator-charts --version "$V" ) \
+      || die "cannot fetch the AMD GPU Operator chart $V (check internet access to rocm.github.io)"
+    hl push "$BUILD/gpu-operator-charts-$V.tgz" "oci://$REG/charts" --plain-http >/dev/null || die "chart push failed"
+  fi
+  for img in docker.io/rocm/gpu-operator:$V docker.io/rocm/k8s-device-plugin:latest docker.io/rocm/k8s-device-plugin:labeller-latest \
+             docker.io/rocm/device-metrics-exporter:$V docker.io/rocm/gpu-operator-utils:$V docker.io/rocm/test-runner:$V \
+             docker.io/library/busybox:1.36 quay.io/brancz/kube-rbac-proxy:v0.18.1; do mirror_image "$img" || die "mirror failed: $img"; done
+  local filter=0 b; [ "$AMD_OTHER_POLICY" = filter ] && [ -n "$AMD_OTHERS" ] && filter=1
+  if [ $filter = 1 ]; then   # stock plugin cannot exclude a device: build the PCI-filtered plugin and write the node's filter
+    if ! reg_has rocm/k8s-device-plugin:pcifilter; then
+      local B=$BUILD/amd-device-plugin src; rm -rf "$B"; mkdir -p "$B"; tar -xzf "$ASSETS/amd-device-plugin/k8s-device-plugin-src.tgz" -C "$B"
+      src=$(ls -d "$B"/*/ | head -1); ( cd "$src" && patch -p1 < "$ASSETS/amd-device-plugin/amd-dp-pcifilter.patch" ) >> "$LOG" 2>&1 || die "device plugin patch did not apply"
+      "${PODMAN_BUILD[@]}" build -q -t docker.io/rocm/k8s-device-plugin:pcifilter "$src" >> "$LOG" 2>&1 || die "device plugin build failed"
+      "${PODMAN_BUILD[@]}" push -q --tls-verify=false docker.io/rocm/k8s-device-plugin:pcifilter "docker://$REG/rocm/k8s-device-plugin:pcifilter" >> "$LOG" 2>&1
+    fi
+    mkdir -p /var/lib/kubelet/device-plugins
+    printf '# nkp-amd-gpu: AMD device plugin PCI filter\nallow=%s\ndeny=%s\n' "$(echo $AMD_TARGETS | tr ' ' ,)" "$(echo $AMD_OTHERS | tr ' ' ,)" \
+      > /var/lib/kubelet/device-plugins/amd-gpu-pci-filter.conf
+  fi
+  local C=$WORK/amd-gpu-catalog R tag
+  rm -rf "$C"; mkdir -p "$C"; cp -r "$ASSETS/amd-catalog/applications" "$C/"; R=$C/applications/amd-gpu-operator/1.5.1/release
+  sed -i "s#__REGISTRY__#$REG#" "$R/amd-gpu-operator.yaml"; sed -i "s#__AMD_ECC_UMC_THRESHOLD__#$AMD_ECC_UMC_THRESHOLD#" "$R/amd-metrics-config.yaml"
+  [ $filter = 1 ] || sed -i '/Lab-patched plugin/d; /allow=\/deny= PCI addresses/d; /devicePluginImage: docker.io\/rocm\/k8s-device-plugin:pcifilter/d; /devicePluginImagePullPolicy: Always/d' "$R/cm.yaml"
+  ( cd "$C" && nkp validate catalog-repository --repo-dir . ) >> "$LOG" 2>&1 || die "AMD catalog validation failed (see $LOG)"
+  tag=v1.0.$(date +%s)
+  ( cd "$C" && rm -f ./*.tar && nkp create catalog-bundle --repo-dir . --collection-tag "$tag" ) >> "$LOG" 2>&1 || die "catalog bundle failed"
+  nkp push bundle --bundle "$C/amd-gpu-catalog-$tag.tar" --to-registry "http://$REG" --to-registry-insecure-skip-tls-verify >> "$LOG" 2>&1 || die "catalog push failed"
+  if kc -n kommander get ocirepository amd-gpu-catalog-collection >/dev/null 2>&1; then
+    kc -n kommander patch ocirepository amd-gpu-catalog-collection --type merge -p "{\"spec\":{\"ref\":{\"tag\":\"$tag\"}}}" >/dev/null
+  else nkp create catalog-collection --url "oci://$REG/amd-gpu-catalog/collection" --tag "$tag" --workspace kommander-workspace --insecure >> "$LOG" 2>&1 || die "catalog collection failed"; fi
+  wait_for "AMD GPU Operator app in the catalog" 600 10 "kubectl --kubeconfig $KCFG -n kommander get app amd-gpu-operator-1.5.1" || die "AMD app not visible"
+  kc -n kommander get appdeployment amd-gpu-operator >/dev/null 2>&1 || nkp create appdeployment amd-gpu-operator --app amd-gpu-operator-1.5.1 --workspace kommander-workspace >> "$LOG" 2>&1
+  wait_for "AMD GPU Operator running" 1200 15 "[ \"\$(kubectl --kubeconfig $KCFG -n kommander get helmrelease amd-gpu-operator -o jsonpath='{.status.conditions[?(@.type==\"Ready\")].status}')\" = True ]" || die "AMD GPU Operator HelmRelease not ready"
+  local want; want=$(echo $AMD_TARGETS | wc -w)
+  wait_for "amd.com/gpu allocatable: $want" 900 15 "[ \"\$(kubectl --kubeconfig $KCFG get node -o jsonpath='{.items[0].status.allocatable.amd\.com/gpu}')\" = $want ]" \
+    || die "amd.com/gpu is not $want (kubectl -n kommander get pods | grep amd)"
+}
+
+verify() {
+  local n
+  kc get nodes --no-headers | grep -q ' Ready ' && ok "node Ready" || die "node not Ready"
+  n=$(kc get node -o jsonpath='{.items[0].status.allocatable.amd\.com/gpu}'); [ "${n:-0}" -ge 1 ] && ok "amd.com/gpu allocatable: $n" || die "no AMD GPU allocatable"
+  kc get node -o json | python3 -c 'import json,sys; l=json.load(sys.stdin)["items"][0]["metadata"]["labels"]; [print("  label", k + "=" + l[k]) for k in ("amd.com/gpu.product-name", "amd.com/gpu.vram") if k in l]' | tee -a "$TLOG" || true
+  kc -n kommander get pods --no-headers 2>/dev/null | grep -E 'default-(device-plugin|node-labeller|metrics-exporter)' | awk '{print "  pod   " $1 "  " $3}' | tee -a "$TLOG" || true
+  local dash; dash=$(kc -n kommander get cm -l grafana_dashboard -o name 2>/dev/null | grep -c amd-gpu || true)
+  [ "${dash:-0}" -ge 1 ] && ok "AMD GPU Grafana dashboard installed" || warn "AMD GPU Grafana dashboard not found"
+}
+
+finish() {
+  systemctl disable nkp-amd-resume.service >/dev/null 2>&1 || true
+  { echo
+    echo "======================================== ready ========================================"
+    echo "NKP $NKP_VERSION cluster '$CLUSTER_NAME' on $HOST_IP, AMD GPU Operator $AMD_OPERATOR_VERSION from the 'amd-gpu-catalog' collection"
+    echo "Kommander        : https://${KOMMANDER_IP:-?}/dkp/kommander/dashboard"
+    echo "   user and password: sudo nkp get dashboard --kubeconfig $KCFG"
+    echo "   apply the NKP licence there (Settings > Licensing); the AMD GPU Operator card shows in"
+    echo "   Management Cluster Workspace > Applications once licensed"
+    echo "Grafana          : https://${KOMMANDER_IP:-?}/dkp/grafana  (dashboard: AMD GPU Device Metrics Exporter)"
+    echo "kubectl          : kubeconfig $KCFG (also ~$INSTALL_USER/.kube/config)"
+    echo "Use the GPU      : request 'amd.com/gpu: 1' in a pod's resources.limits"
+    echo "Remove everything: sudo $SELF --uninstall"; } | tee -a "$TLOG"
+}
+
+# ---------------------------------------------------------------- uninstall (back to the OS default)
+nkp_teardown() {   # everything NKP's provisioning (konvoy) put on the host
+  log "removing the NKP cluster from this host"
+  systemctl stop kubelet >/dev/null 2>&1 || true
+  command -v kubeadm >/dev/null && kubeadm reset -f >> "$LOG" 2>&1 || true
+  systemctl disable --now kubelet containerd >/dev/null 2>&1 || true
+  pkill -f containerd-shim 2>/dev/null || true; sleep 2
+  # detach every mount below these trees first (pod volumes, NFS/local PVs, netns, Calico's cgroup2 mount), deepest first;
+  # deletes then stay on their own filesystem, so nothing outside is ever reached through a mount
+  local t; findmnt -rn -o TARGET | grep -E '^/(var/lib/kubelet|run/containerd|var/lib/containerd|run/netns|run/calico|var/lib/calico)(/|$)' | sort -r \
+    | while read -r t; do umount "$t" 2>/dev/null || umount -l "$t" 2>/dev/null || true; done
+  rm -rf --one-file-system /etc/kubernetes /var/lib/etcd /var/lib/kubelet /var/lib/containerd /run/containerd /etc/containerd /opt/containerd \
+         /etc/cni /opt/cni /var/lib/cni /var/lib/calico /run/calico /var/log/calico /etc/konvoy /etc/crictl.yaml /run/cdi /etc/cdi \
+         /usr/local/nvidia /opt/dkp /var/log/pods /var/log/containers 2>>"$LOG" || warn "some NKP runtime files could not be removed (see $LOG; a reboot clears /run)"
+  rm -rf /etc/systemd/system/containerd.service /etc/systemd/system/containerd.service.d /etc/systemd/system/kubelet.service.d \
+         /etc/systemd/system/multi-user.target.wants/containerd.service /etc/systemd/system/multi-user.target.wants/kubelet.service \
+         /etc/systemd/system/cloud-config.service.d/boot-order.conf /etc/systemd/system/cloud-final.service.d/boot-order.conf
+  rm -f /usr/local/bin/containerd /usr/local/bin/containerd-shim-runc-v2 /usr/local/bin/containerd-stress /usr/local/bin/ctr /usr/local/sbin/runc
+  rm -f /etc/sysctl.d/bridge-nf-call.conf /etc/sysctl.d/ipv4-ip_forward.conf /etc/sysctl.d/ipv6-forwarding.conf \
+        /etc/modules-load.d/konvoy-br_netfilter.conf /etc/NetworkManager/conf.d/calico.conf
+  sed -i '/^fs.inotify.max_user_instances=8192$/d; /^fs.inotify.max_user_watches=524288$/d' /etc/sysctl.conf 2>/dev/null || true
+  rm -f "$UHOME/kubeadm-conf.yaml" /etc/apt/sources.list.d/offline.list               # konvoy's apt switch to its offline repo
+  [ -f /etc/apt/sources.list.d/ubuntu.sources.disabled ] && [ ! -f /etc/apt/sources.list.d/ubuntu.sources ] \
+    && mv /etc/apt/sources.list.d/ubuntu.sources.disabled /etc/apt/sources.list.d/ubuntu.sources
+  local l; for l in $(ip -o link show | awk -F': ' '{print $2}' | cut -d@ -f1 | grep -E '^(cali|vxlan.calico|tunl0|kube-ipvs0|nodelocaldns)'); do ip link delete "$l" 2>/dev/null || true; done
+  apt-mark unhold kubelet kubeadm kubectl cri-tools >/dev/null 2>&1 || true
+  systemctl daemon-reload; ok "NKP removed from the host (Kubernetes, containerd, CNI, NKP's apt offline repo; Ubuntu sources restored)"
+}
+
+safe_purge() {   # purge recorded packages, but never one whose removal would also take a package the OS had before
+  local want=() keep=() p extra
+  for p in $(awk '$1=="PKG"{print $2}' "$MANIFEST" | sort -u); do dpkg -s "$p" >/dev/null 2>&1 && want+=("$p"); done
+  [ ${#want[@]} = 0 ] && return 0
+  echo "  checking ${#want[@]} recorded packages against the OS's own (simulated removal)" | tee -a "$TLOG"
+  local set=" ${want[*]} " final=()
+  for p in "${want[@]}"; do
+    extra=$({ apt-get -s --allow-change-held-packages purge "$p" 2>/dev/null || true; } | awk '/^Purg /{print $2}' | while read -r x; do [[ $set == *" $x "* ]] || echo "$x"; done | head -3)
+    if [ -n "$extra" ]; then keep+=("$p"); echo "    keeping $p (removing it would also remove: $(echo $extra))" >> "$LOG"; else final+=("$p"); fi
+  done
+  if [ "${PLAN:-0}" = 1 ]; then echo "  would remove ${#final[@]}: ${final[*]}"; [ ${#keep[@]} = 0 ] || { echo "  would keep ${#keep[@]} (the OS depends on them):"; grep "^    keeping" "$LOG" | tail -n ${#keep[@]}; }; return 0; fi
+  [ ${#final[@]} -gt 0 ] && { DEBIAN_FRONTEND=noninteractive apt-get purge -y -qq --allow-change-held-packages "${final[@]}" >> "$LOG" 2>&1 || warn "some packages could not be removed (see $LOG)"; }
+  ok "removed ${#final[@]} packages this setup installed"
+  [ ${#keep[@]} = 0 ] || warn "kept ${#keep[@]} package(s) that packages from the OS install depend on: ${keep[*]}"
+}
+
+uninstall() {
+  local yes=no; [ "${1:-}" = --yes ] && yes=yes
+  [ -s "$MANIFEST" ] || { echo "nothing recorded by this script (no manifest in $STATE)"; exit 0; }
+  echo "${c_b}Uninstall${c_0}: returns this host to its OS default. It removes NKP (Kubernetes, containerd, registry), the"
+  echo "AMD GPU Operator, the GPU isolation and tools this setup added, the local volumes, the installation folder and"
+  echo "the packages recorded below - never a package the OS had before. Files you keep elsewhere are not touched."
+  echo "Recorded changes:"; sed 's/^/   /' "$MANIFEST" | grep -v '^   PKG ' ; echo "   ... and $(grep -c '^PKG ' "$MANIFEST") packages"
+  if [ $yes = no ]; then local a; a=$(ask "Type 'wipe' to continue"); [ "$a" = wipe ] || { echo "aborted"; exit 1; }; fi
+  local reboot=no
+  [ $yes = no ] && yesno "Reboot automatically when the uninstall is done (unloads removed drivers, clears Kubernetes network rules)" y && reboot=yes
+  printf 'UN_REBOOT=%s\n' "$reboot" > "$STATE/uninstall.conf"
+  # the rest runs as a background system job: stopping Kubernetes' networking can drop this SSH session
+  UNLOG=/var/log/nkp-amd-uninstall.log; : > "$UNLOG"
+  systemctl reset-failed nkp-amd-uninstall >/dev/null 2>&1 || true
+  systemd-run -q --unit nkp-amd-uninstall --collect "$SELF" --uninstall-worker || die "could not start the uninstall job"
+  echo "Uninstall running as a background job (survives a dropped SSH session). Follow it any time with:"
+  echo "   sudo tail -f $UNLOG"
+  follow_job nkp-amd-uninstall "$UNLOG"
+}
+
+follow_job() {   # unit log: show the job's log until it ends (Ctrl+C or a dropped session stops only the viewing)
+  tail -n +"${3:-1}" -f "$2" & local t=$!
+  while systemctl is-active -q "$1" 2>/dev/null || [ "$(systemctl show -p ActiveState --value "$1" 2>/dev/null)" = activating ]; do sleep 3; done
+  sleep 2; kill $t 2>/dev/null || true
+}
+
+uninstall_run() {   # the job started by uninstall()
+  local reboot; . "$STATE/uninstall.conf"; reboot=$UN_REBOOT
+  log "uninstall"
+  systemctl disable --now nkp-amd-resume.service >/dev/null 2>&1 || true
+  grep -qE '^(NKPHOST|NKPCLUSTER)' "$MANIFEST" && nkp_teardown
+  local kind rest redo=no datadirs=""
+  while read -r kind rest; do
+    case $kind in
+      CONTAINER)   podman rm -f "$rest" >/dev/null 2>&1 || true; ok "container $rest removed" ;;
+      ENABLED)     systemctl disable "$rest" >/dev/null 2>&1 || true ;;
+      SERVICE)     systemctl disable --now "$rest" >/dev/null 2>&1 || true; ok "service $rest stopped" ;;
+      BLOCK)       local bf=${rest%% *} bt=${rest#* }
+                   [ "$bf" = /etc/fstab ] && sed -n "\|^# BEGIN $MARK $bt\$|,\|^# END $MARK $bt\$|p" /etc/fstab | awk '$1 !~ /^#/ {print $2}' | sort -r | xargs -r -n1 umount -l 2>/dev/null || true
+                   sed -i "\|^# BEGIN $MARK $bt\$|,\|^# END $MARK $bt\$|d" "$bf" ;;
+      FSTABLINE)   umount -l "$(echo "$rest" | awk '{print $2}')" 2>/dev/null || true; grep -vxF "$rest" /etc/fstab > /etc/fstab.nkp-amd.tmp || true
+                   cat /etc/fstab.nkp-amd.tmp > /etc/fstab; rm -f /etc/fstab.nkp-amd.tmp ;;
+      EXPORTLINE)  grep -vxF "$rest" /etc/exports > /etc/exports.nkp-amd.tmp || true; cat /etc/exports.nkp-amd.tmp > /etc/exports; rm -f /etc/exports.nkp-amd.tmp ;;
+      SWAP)        sed -i -E 's/^# disabled (by nkp-amd-gpu|for kubernetes): //' /etc/fstab; swapon -a 2>/dev/null || true; ok "swap re-enabled" ;;
+      ENVLINE)     local ef=${rest%% *} el=${rest#* }; grep -vxF "$el" "$ef" > "$ef.nkp-amd.tmp" || true; cat "$ef.nkp-amd.tmp" > "$ef"; rm -f "$ef.nkp-amd.tmp" ;;
+      RESTORE)     local rb=${rest%% *} rd=${rest#* }; [ -f "$rb" ] && cp -p "$rb" "$rd" ;;
+      FILE)        rm -f "$rest" ;;
+      DIR)         datadirs="$datadirs $rest" ;;
+      AUTHKEY)     local af=${rest%% *} ac=${rest#* }; [ -f "$af" ] && sed -i "/ $ac\$/d" "$af" ;;
+      GROUP)       gpasswd -d ${rest% *} ${rest#* } >/dev/null 2>&1 || true ;;
+      INITRAMFS)   redo=yes ;;
+      DATADIR)     datadirs="$datadirs $rest" ;;
+    esac
+  done < <(tac "$MANIFEST")
+  exportfs -ra 2>/dev/null || true; systemctl daemon-reload
+  if grep -qx "PKG podman" "$MANIFEST" && command -v podman >/dev/null; then podman system reset -f >/dev/null 2>&1 || true
+    findmnt -rn -o TARGET | grep -E "^/var/lib/containers(/|$)" | sort -r | xargs -r -n1 umount -l 2>/dev/null || true; rm -rf --one-file-system /var/lib/containers /etc/containers/networks; fi
+  safe_purge
+  command -v podman >/dev/null || { [ -d /var/lib/containers ] && grep -qx "PKG podman" "$MANIFEST" && rm -rf --one-file-system /var/lib/containers /etc/containers 2>/dev/null; true; }
+  [ $redo = yes ] && { update-initramfs -u -k "$(uname -r)" >/dev/null 2>&1; ok "boot image rebuilt (GPU isolation removed)"; }
+  local d; for d in $datadirs; do   # never delete through a mount that is still attached
+    [ -n "$d" ] && [ "$d" != / ] && [ -e "$d" ] || continue
+    if findmnt -rn -o TARGET | grep -q "^$d\(/\|$\)"; then warn "$d still has a mount under it - left in place"; continue; fi
+    rm -rf --one-file-system "$d"; ok "removed $d"; done
+  rm -rf "$STATE"
+  echo "Uninstall complete. This log stays at /var/log/nkp-amd-uninstall.log."
+  if [ "$reboot" = yes ]; then echo "Rebooting in 10 s (as agreed) to unload the removed drivers and clear Kubernetes network rules."; sleep 10; systemctl reboot
+  else echo "Reboot when convenient (sudo reboot): it unloads the removed drivers and clears Kubernetes network rules."; fi
+}
+
+status() {
+  echo "State: $STATE"
+  [ -f "$CONF" ] && echo "NKP ${NKP_VERSION:-?} '${CLUSTER_NAME:-?}', AMD GPUs ${AMD_TARGETS:-?}, install ${INSTALL_DIR:-?}"
+  echo "Finished stages:"; ls -1tr "$DONE" 2>/dev/null | sed 's/^/  /'
+  [ -s "$MANIFEST" ] && { echo "Recorded changes:"; grep -v '^PKG ' "$MANIFEST" | sed 's/^/  /'; echo "  + $(grep -c '^PKG ' "$MANIFEST") packages"; }
+  [ -n "${KCFG:-}" ] && [ -f "$KCFG" ] && kc get nodes 2>/dev/null || true
+}
+
+# ---------------------------------------------------------------- main
+[ "$(id -u)" = 0 ] || { echo "run with sudo"; exit 1; }
+mkdir -p "$STATE" "$DONE"; chmod 700 "$STATE"; touch "$MANIFEST"
+[ -f "$CONF" ] && source "$CONF"
+[ -n "${INSTALL_DIR:-}" ] && set_paths || UHOME=$(user_home "${SUDO_USER:-root}")
+case "${1:-}" in
+  --uninstall) uninstall "${2:-}"; exit 0 ;;
+  --status)    status; exit 0 ;;
+  --plan)      [ -s "$MANIFEST" ] || { echo "nothing recorded (nothing was installed with this script)"; exit 0; }
+               echo "Read-only preview of --uninstall:"; grep -v '^PKG ' "$MANIFEST" | sed 's/^/   /'
+               grep -qE '^(NKPHOST|NKPCLUSTER)' "$MANIFEST" && echo "   + full NKP teardown (Kubernetes, containerd, CNI, NKP apt offline repo -> Ubuntu sources)"
+               PLAN=1 safe_purge; exit 0 ;;
+  --check)     check; exit 0 ;;
+  --uninstall-worker) INTERACTIVE=0; LOG=/var/log/nkp-amd-uninstall.log; exec >>"$LOG" 2>&1; TLOG=/dev/null; uninstall_run; exit 0 ;;
+  --resume|--worker) INTERACTIVE=0; exec >>"$LOG" 2>&1; TLOG=/dev/null ;;
+  -h|--help)   sed -n '2,24p' "$SELF"; exit 0 ;;
+  "") ;;
+  *) echo "unknown option $1 (see --help)"; exit 1 ;;
+esac
+if [ "${1:-}" = "" ]; then   # interactive: questions here, then the long run continues as a background job
+  exec 9>"$STATE/lock"; flock -n 9 || die "another run of this script is active (follow it: sudo tail -f $LOG)"
+  stage inputs inputs
+  exec 9>&-
+  systemctl reset-failed nkp-amd-install >/dev/null 2>&1 || true
+  local_start=$(( $(wc -l < "$LOG") + 1 ))
+  systemd-run -q --unit nkp-amd-install --collect "$SELF" --worker || die "could not start the installation job"
+  echo; echo "Installation running as a background job (survives a dropped SSH session). Follow it any time with:"
+  echo "   sudo tail -f $LOG        (status: sudo $SELF --status)"
+  follow_job nkp-amd-install "$LOG" "$local_start"
+  exit 0
+fi
+exec 9>"$STATE/lock"; flock -n 9 || die "another run of this script is active"
+log "nkp-amd-gpu setup (state in $STATE)"
+stage inputs inputs
+source "$CONF"; set_paths; export KUBECONFIG=$KCFG
+stage download       download_all
+source "$CONF"
+stage host-check     check
+stage host-packages  host_packages
+stage amd-host       amd_host
+stage os-prep        os_prep
+stage tools          tools
+stage registry       registry
+[ -f "$REG_UNIT" ] && curl -fsS -m 5 "http://$REG/v2/" >/dev/null 2>&1 || { log "registry not running as a service: repairing"; registry; }
+[ -f "$STATE/pkgs.pre-nkp" ] || pkg_list > "$STATE/pkgs.pre-nkp"
+stage nkp-images     nkp_images
+stage host-storage   host_storage
+stage cluster        cluster
+record_nkp_pkgs() { pkg_new "$STATE/pkgs.pre-nkp" | while read -r p; do rec "PKG $p"; done; }   # kubelet, kubeadm, ... from NKP's provisioning
+stage nkp-packages   record_nkp_pkgs
+stage kommander      kommander
+stage amd-operator   amd_operator
+stage verify         verify
+source "$CONF"; finish
