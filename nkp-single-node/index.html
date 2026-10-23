@@ -1,0 +1,373 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Installing Single-Node NKP and the AMD GPU Operator Catalog App</title><meta name="description" content="Step-by-step install of a single-node, air-gapped Nutanix Kubernetes Platform 2.18 cluster, and publishing the AMD GPU Operator as a custom catalog app in Kommander.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@600;700&family=Source+Sans+3:wght@400;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: single reading column (~72ch) with a sticky step index on wide screens; code and logs scroll inside their own boxes */
+:root {
+  --bg: #f6f7f8; --surface: #ffffff; --fg: #1b2228; --muted: #5a6670; --line: #d9dee2;
+  --accent: #0b7a75; --accent-soft: #e2f2f0; --warn: #9a5b00; --warn-soft: #fbf0dc; --bad: #a1262c;
+  --code-bg: #0f1a20; --code-fg: #d7e3e8; --code-dim: #7f939c; --code-ok: #6fd1a4; --code-warn: #f0c36a; --code-err: #ff8f8f;
+  --f-display: "Barlow Semi Condensed", "Arial Narrow", Arial, sans-serif;
+  --f-body: "Source Sans 3", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --f-mono: "JetBrains Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0e1418; --surface: #151d22; --fg: #e3e9ec; --muted: #9aa8b0; --line: #2a353c;
+  --accent: #4fc1b8; --accent-soft: #15302e; --warn: #f0b85a; --warn-soft: #33270f; --bad: #ff8a8f;
+  --code-bg: #091014; --code-fg: #d7e3e8; --code-dim: #7f939c; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #0e1418; --surface: #151d22; --fg: #e3e9ec; --muted: #9aa8b0; --line: #2a353c;
+  --accent: #4fc1b8; --accent-soft: #15302e; --warn: #f0b85a; --warn-soft: #33270f; --bad: #ff8a8f;
+  --code-bg: #091014; --code-fg: #d7e3e8; --code-dim: #7f939c; color-scheme: dark }
+* { box-sizing: border-box }
+body { background: var(--bg); color: var(--fg); font: 17px/1.6 var(--f-body); margin: 0; padding-inline: 16px; padding-block: 0 64px }
+.wrap { max-width: 1120px; margin: 0 auto; display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 48px }
+@media (max-width: 900px) { .wrap { grid-template-columns: minmax(0, 1fr) } nav.toc { display: none } }
+nav.toc { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 24px); align-self: start; padding-top: 40px; font-size: 14px }
+nav.toc ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; counter-reset: s }
+nav.toc a { color: var(--muted); text-decoration: none; display: block; padding: 2px 0 2px 10px; border-left: 2px solid var(--line) }
+nav.toc a:hover, nav.toc a:focus-visible { color: var(--accent); border-left-color: var(--accent); outline: none }
+main { min-width: 0; padding-top: 40px }
+header.doc { border-bottom: 1px solid var(--line); padding-bottom: 24px; margin-bottom: 8px }
+.eyebrow { font: 600 13px/1 var(--f-body); letter-spacing: .12em; text-transform: uppercase; color: var(--accent) }
+h1, h2, h3 { font-family: var(--f-display); text-wrap: balance; line-height: 1.15; margin: 0 }
+h1 { font-size: clamp(32px, 5vw, 46px); font-weight: 700; margin-top: 10px }
+h2 { font-size: 28px; font-weight: 600; margin: 56px 0 12px; scroll-margin-top: 20px }
+h2 .n { color: var(--accent); margin-right: 10px; font-variant-numeric: tabular-nums }
+h3 { font-size: 20px; font-weight: 600; margin: 28px 0 8px }
+p, li { max-width: 72ch }
+p { margin: 10px 0 }
+.meta { display: flex; flex-wrap: wrap; gap: 8px 24px; color: var(--muted); font-size: 15px; margin-top: 14px }
+.meta b { color: var(--fg); font-weight: 600 }
+.lede { font-size: 19px; color: var(--fg); margin-top: 14px }
+a { color: var(--accent) }
+code { font: 0.86em var(--f-mono); background: var(--accent-soft); padding: 1px 5px; border-radius: 4px; overflow-wrap: anywhere }
+.cmd, pre.log { position: relative; background: var(--code-bg); color: var(--code-fg); border-radius: 8px; margin: 12px 0; font: 13.5px/1.55 var(--f-mono) }
+.cmd pre, pre.log { margin: 0; padding: 14px 16px; overflow-x: auto; white-space: pre }
+pre.log { max-height: 460px; overflow: auto }
+.cmd .c { color: var(--code-dim) }
+.copy { position: absolute; top: 8px; right: 8px; font: 600 12px var(--f-body); color: var(--code-fg); background: transparent; border: 1px solid #3a4a52; border-radius: 6px; padding: 3px 9px; cursor: pointer }
+.copy:hover, .copy:focus-visible { border-color: var(--accent); color: #fff; outline: none }
+.log .ok { color: var(--code-ok) } .log .w { color: var(--code-warn) } .log .e { color: var(--code-err) } .log .s { color: #9cc7ff; font-weight: 600 }
+.table { overflow-x: auto; margin: 12px 0; border: 1px solid var(--line); border-radius: 8px; background: var(--surface) }
+table { border-collapse: collapse; width: 100%; font-size: 15px }
+th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); vertical-align: top }
+th { font: 600 13px var(--f-body); letter-spacing: .04em; text-transform: uppercase; color: var(--muted); background: var(--bg) }
+tr:last-child td { border-bottom: 0 }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap }
+.facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin: 18px 0 }
+.fact { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; min-width: 0 }
+.fact .k { font-size: 13px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em }
+.fact .v { font: 600 22px/1.2 var(--f-display); margin-top: 4px; font-variant-numeric: tabular-nums }
+.note { background: var(--warn-soft); border-radius: 8px; padding: 12px 16px; margin: 14px 0; max-width: 78ch }
+.note b { color: var(--warn) }
+.qa { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 0.8fr); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: var(--surface); margin: 12px 0 }
+.qa > div { padding: 8px 12px; border-bottom: 1px solid var(--line); min-width: 0; overflow-wrap: anywhere }
+.qa > div:nth-child(odd) { color: var(--muted) }
+.qa > div:nth-child(even) { font-family: var(--f-mono); font-size: 14px }
+.qa > div:nth-last-child(-n+2) { border-bottom: 0 }
+@media (max-width: 560px) { .qa { grid-template-columns: minmax(0, 1fr) } .qa > div:nth-child(odd) { border-bottom: 0; padding-bottom: 0 } }
+details { border: 1px solid var(--line); border-radius: 8px; background: var(--surface); margin: 12px 0 }
+details > summary { cursor: pointer; padding: 10px 14px; font-weight: 600 }
+details[open] > summary { border-bottom: 1px solid var(--line) }
+details .inner { padding: 4px 14px 14px; min-width: 0 }
+ol.steps li { margin: 6px 0 }
+@media (prefers-reduced-motion: no-preference) { nav.toc a { transition: color .15s, border-color .15s } }
+</style>
+<style>ul.check{list-style:none;padding-left:4px} ul.check li::before{content:"±0";margin-right:8px;color:var(--muted)}</style></head><body>
+<div class="wrap">
+<nav class="toc" aria-label="Contents">
+  <ol>
+    <li><a href="#overview">Overview</a></li>
+    <li><a href="#prereq">Before you start</a></li>
+    <li><a href="#host">Prepare the host</a></li>
+    <li><a href="#registry">Unpack the bundle and start a registry</a></li>
+    <li><a href="#storage">Local storage</a></li>
+    <li><a href="#cluster">Create the single-node cluster</a></li>
+    <li><a href="#kommander">Install Kommander</a></li>
+    <li><a href="#amd-host">Prepare the AMD GPU</a></li>
+    <li><a href="#catalog">Add the AMD GPU Operator to the catalog</a></li>
+    <li><a href="#verify">Verify</a></li>
+    <li><a href="#trouble">Troubleshooting</a></li>
+    <li><a href="#downloads">Downloads</a></li>
+  </ol>
+</nav>
+<main>
+<header class="doc">
+  <div class="eyebrow">Installation Guide</div>
+  <h1>Single-Node Nutanix Kubernetes Platform, with the AMD GPU Operator in the Catalog</h1>
+  <p class="lede">Build an air-gapped, self-managed NKP 2.18 cluster on one Ubuntu server, then package the AMD GPU Operator as a custom catalog application so it appears in Kommander's marketplace and can be enabled like any built-in app.</p>
+  <div class="meta"><span>Author <b>Manmohan Brahma</b></span><span>October <b>2026</b></span><span>NKP <b>2.18.0</b></span><span>Kubernetes <b>1.35.2</b></span><span>AMD GPU Operator <b>1.5.1</b></span><span><a href="../">All guides</a></span></div>
+</header>
+<h2 id="overview"><span class="n">1</span>Overview</h2>
+<p>This runbook builds a single-node, self-managed NKP 2.18 cluster from the air-gapped bundle on one Ubuntu server, then publishes the AMD GPU Operator as a custom application in Kommander's catalog, so it can be enabled from the NKP marketplace like any built-in app.</p>
+<div class="table"><table><thead><tr><th>Part</th><th>Result</th></tr></thead><tbody><tr><td>Single-node NKP</td><td>Kubernetes 1.35.2 on one host (control plane runs workloads), local image registry, local storage, MetalLB, Kommander UI, NVIDIA GPU Operator</td></tr><tr><td>AMD GPU Operator in the catalog</td><td>A catalog collection in the local registry, the app card "AMD GPU Operator" in Kommander, the operator running with device plugin, node labeller and metrics exporter</td></tr></tbody></table></div>
+<p>Every command below is what the <code>nai-on-nkp.sh</code> installer runs for these stages; run them by hand to learn or adapt the steps, or let the <a href="../nai-nkp/install-guide/">installer</a> do it. Placeholders: <code>&lt;host-ip&gt;</code> the server, <code>&lt;user&gt;</code> the SSH user, <code>&lt;cluster&gt;</code> the cluster name, <code>&lt;reg&gt;</code> the local registry (<code>&lt;host-ip&gt;:5000</code>).</p>
+<h2 id="prereq"><span class="n">2</span>Before you start</h2>
+<ul class="check"><li>Ubuntu 22.04, 24.04 or 26.04 on an x86-64 server (tested: 26.04.1, kernel 7.0); at least 32 CPU threads and 128 GB RAM</li><li>600 GB free on a data filesystem for the bundle, registry and local volumes; 200 GB free under /var/lib</li><li>A non-root user with sudo, reachable over SSH from the host itself</li><li>A free range of at least 2 IP addresses on the host's subnet for MetalLB</li><li>The NKP air-gapped bundle <code>nkp-air-gapped-bundle_v2.18.0_linux_amd64.tar.gz</code> (29.3 GB) from the Nutanix portal</li><li>An NKP licence (Pro or Ultimate); Kommander shows custom catalog apps only once licensed</li><li>For the AMD part: an AMD Radeon PRO W7900-class or Instinct GPU, and internet access from the host to rocm.github.io and Docker Hub</li></ul>
+<h2 id="host"><span class="n">3</span>Prepare the host</h2>
+<p>NKP's installer (konvoy) expects a few host settings that a fresh Ubuntu does not have.</p>
+<ol><li>Install the packages konvoy needs (on 26.04 it cannot fetch them itself):</li></ol>
+<div class="cmd"><button class="copy" type="button">Copy</button><pre>sudo apt-get install -y --no-install-recommends podman skopeo nfs-kernel-server chrony nfs-common rpcbind \
+  keyutils python3-cryptography python3-pip python3-wheel ipvsadm lvm2 open-iscsi xfsprogs lsscsi \
+  wget curl ca-certificates pciutils patch</pre></div>
+<ol start="2"><li>Passwordless sudo for the SSH user, and swap off:</li></ol>
+<div class="cmd"><button class="copy" type="button">Copy</button><pre>echo "&lt;user&gt; ALL=(ALL) NOPASSWD:ALL" | sudo tee /etc/sudoers.d/90-nkp-&lt;user&gt;
+sudo chmod 440 /etc/sudoers.d/90-nkp-&lt;user&gt;
+sudo swapoff -a &amp;&amp; sudo sed -i -E 's|^([^#].*[[:space:]]swap[[:space:]].*)$|# \1|' /etc/fstab</pre></div>
+<ol start="3"><li>An SSH key that NKP uses to log in to the host as <code>&lt;user&gt;</code>:</li></ol>
+<div class="cmd"><button class="copy" type="button">Copy</button><pre>ssh-keygen -q -t ed25519 -N "" -C nkp -f ~/.ssh/nkp_ed25519
+cat ~/.ssh/nkp_ed25519.pub &gt;&gt; ~/.ssh/authorized_keys
+ssh -i ~/.ssh/nkp_ed25519 -o BatchMode=yes &lt;user&gt;@&lt;host-ip&gt; sudo -n true &amp;&amp; echo ok</pre></div>
+<ol start="4"><li>Limits for the bootstrap cluster (kind runs inside podman) and for file watches:</li></ol>
+<div class="cmd"><button class="copy" type="button">Copy</button><pre>printf '[containers]\npids_limit = 0\n' | sudo tee /etc/containers/containers.conf
+printf 'fs.inotify.max_user_instances = 8192\nfs.inotify.max_user_watches = 1048576\n' | sudo tee /etc/sysctl.d/90-nkp.conf
+sudo sysctl -q --system
+sudo systemctl enable --now chrony</pre></div>
+<ol start="5"><li>Ubuntu 26.04 only: NKP's image builder expects a <code>cloud-init.service</code> unit, which 26.04 split up. Add a no-op shim:</li></ol>
+<div class="cmd"><button class="copy" type="button">Copy</button><pre>sudo tee /etc/systemd/system/cloud-init.service &gt;/dev/null &lt;&lt;'EOF'
+[Unit]
+Description=Compat shim for cloud-init.service
+After=cloud-init-network.service
+[Service]
+Type=oneshot
+ExecStart=/bin/true
+RemainAfterExit=yes
+[Install]
+WantedBy=cloud-init.target
+EOF
+sudo systemctl daemon-reload</pre></div>
+<h2 id="registry"><span class="n">4</span>Unpack the bundle and start a registry</h2>
+<p>The cluster pulls every image from a registry on the host. Run it as its own systemd service so it survives reboots and failed shell sessions.</p>
+<div class="cmd"><button class="copy" type="button">Copy</button><pre>cd /shared_storage/nkp
+tar -xzf nkp-air-gapped-bundle_v2.18.0_linux_amd64.tar.gz<span class="c">       # 10-20 min, creates nkp-v2.18.0/</span>
+sudo install -m 755 nkp-v2.18.0/cli/nkp /usr/local/bin/nkp
+sudo install -m 755 nkp-v2.18.0/kubectl /usr/local/bin/kubectl
+
+sudo podman pull docker.io/library/registry:2
+sudo tee /etc/systemd/system/nkp-registry.service &gt;/dev/null &lt;&lt;'EOF'
+[Unit]
+Description=Air-gap image registry for NKP
+Wants=network-online.target
+After=network-online.target
+[Service]
+ExecStartPre=-/usr/bin/podman rm -f nkp-registry
+ExecStart=/usr/bin/podman run --rm --name nkp-registry --network host -e REGISTRY_HTTP_ADDR=0.0.0.0:5000 -v /shared_storage/nkp/registry:/var/lib/registry:Z docker.io/library/registry:2
+ExecStop=/usr/bin/podman stop -t 10 nkp-registry
+Restart=always
+RestartSec=5
+[Install]
+WantedBy=multi-user.target
+EOF
+sudo mkdir -p /shared_storage/nkp/registry &amp;&amp; sudo systemctl daemon-reload &amp;&amp; sudo systemctl enable --now nkp-registry
+curl -fsS http://&lt;host-ip&gt;:5000/v2/ &amp;&amp; echo registry up</pre></div>
+<p>Push NKP's images (20 to 40 minutes) and give the host its containerd and Kubernetes packages:</p>
+<div class="cmd"><button class="copy" type="button">Copy</button><pre>cd /shared_storage/nkp/nkp-v2.18.0
+nkp push bundle --bundle container-images/konvoy-image-bundle-v2.18.0.tar,container-images/kommander-image-bundle-v2.18.0.tar,container-images/nutanix-product-catalog-v2.18.0-airgapped.tar \
+  --to-registry http://&lt;host-ip&gt;:5000 --to-registry-insecure-skip-tls-verify --image-push-concurrency 4
+
+<span class="c"># Ubuntu 26.04 only: NKP ships OS packages for 22.04 and 24.04; build the 24.04 set and alias it (needs internet)</span>
+nkp create package-bundle ubuntu-24.04 --artifacts-directory image-artifacts
+for f in image-artifacts/*24.04*; do ln -sf "$(basename "$f")" "${f//24.04/26.04}"; done
+
+nkp upload image-artifacts --artifacts-directory image-artifacts --ssh-host &lt;host-ip&gt; --ssh-username &lt;user&gt; \
+  --ssh-private-key-file ~/.ssh/nkp_ed25519 --bundle image-artifacts/images/kubernetes-images-1.35.2-d2iq.1.tar</pre></div>
+<p>The bundle also has a FIPS variant (<code>kubernetes-images-1.35.2-d2iq.1-fips.tar</code>); use it only for a FIPS cluster.</p>
+<h2 id="storage"><span class="n">5</span>Local storage</h2>
+<p>NKP's default storage class, <code>localvolumeprovisioner</code>, turns directories under <code>/mnt/disks</code> into persistent volumes. Bind-mount 20 directories from the data disk there:</p>
+<div class="cmd"><button class="copy" type="button">Copy</button><pre>for i in $(seq -w 1 20); do
+  sudo mkdir -p /shared_storage/nkp/local-pv/vol$i /mnt/disks/vol$i
+  echo "/shared_storage/nkp/local-pv/vol$i /mnt/disks/vol$i none bind 0 0" | sudo tee -a /etc/fstab &gt;/dev/null
+done
+sudo systemctl daemon-reload &amp;&amp; sudo mount -a &amp;&amp; findmnt -l | grep -c /mnt/disks/vol<span class="c">   # 20</span></pre></div>
+<p>Each volume reports the size of the whole data disk; watch real usage with <code>df -h /shared_storage</code>.</p>
+<h2 id="cluster"><span class="n">6</span>Create the single-node cluster</h2>
+<ol><li>Describe the host in a pre-provisioned inventory. NKP expects a worker inventory too, even when it is empty:</li></ol>
+<div class="cmd"><button class="copy" type="button">Copy</button><pre>mkdir -p ~/nkp-cluster &amp;&amp; cd ~/nkp-cluster
+for n in control-plane md-0; do cat &lt;&lt;EOF
+---
+apiVersion: infrastructure.cluster.konvoy.d2iq.io/v1alpha1
+kind: PreprovisionedInventory
+metadata:
+  name: &lt;cluster&gt;-$n
+  namespace: default
+  labels: {cluster.x-k8s.io/cluster-name: &lt;cluster&gt;, clusterctl.cluster.x-k8s.io/move: ""}
+spec:
+  hosts: $([ $n = control-plane ] &amp;&amp; echo "[{address: &lt;host-ip&gt;}]" || echo "[]")
+  sshConfig: {port: 22, user: &lt;user&gt;, privateKeyRef: {name: &lt;cluster&gt;-ssh-key, namespace: default}}
+EOF
+done &gt; inventory.yaml</pre></div>
+<ol start="2"><li>On a single node the control plane must accept workloads as soon as it exists, or Cluster API's own jobs stay Pending and the create times out. Start a helper in a second terminal that removes the taint every 10 seconds while the create runs:</li></ol>
+<div class="cmd"><button class="copy" type="button">Copy</button><pre>while true; do sudo kubectl --kubeconfig /etc/kubernetes/admin.conf taint nodes --all \
+  node-role.kubernetes.io/control-plane:NoSchedule- 2&gt;/dev/null; sleep 10; done<span class="c">      # stop with Ctrl+C afterwards</span></pre></div>
+<ol start="3"><li>Create the cluster (30 to 60 minutes):</li></ol>
+<div class="cmd"><button class="copy" type="button">Copy</button><pre>nkp create cluster preprovisioned --cluster-name &lt;cluster&gt; --control-plane-endpoint-host &lt;host-ip&gt; \
+  --control-plane-replicas 1 --worker-replicas 0 --pre-provisioned-inventory-file inventory.yaml \
+  --ssh-private-key-file ~/.ssh/nkp_ed25519 --ssh-username &lt;user&gt; --registry-mirror-url http://&lt;host-ip&gt;:5000 \
+  --bootstrap-cluster-image /shared_storage/nkp/nkp-v2.18.0/konvoy-bootstrap-image-v2.18.0.tar --self-managed --timeout 120m</pre></div>
+<ol start="4"><li>Check that the cluster now manages itself. If the Cluster API objects did not move from the temporary bootstrap cluster, finish the move, then delete the bootstrap cluster:</li></ol>
+<div class="cmd"><button class="copy" type="button">Copy</button><pre>export KUBECONFIG=~/nkp-cluster/&lt;cluster&gt;.conf
+kubectl get clusters.cluster.x-k8s.io -A<span class="c">          # must list &lt;cluster&gt;</span>
+<span class="c"># only if it does not:</span>
+kubectl delete namespace capi-stack-operator-installer --ignore-not-found
+nkp create capi-components --kubeconfig $KUBECONFIG
+nkp move capi-resources --from-kubeconfig ~/nkp-cluster/&lt;cluster&gt;-bootstrap.conf --to-kubeconfig $KUBECONFIG
+<span class="c"># then, in every case:</span>
+nkp delete bootstrap --kubeconfig ~/nkp-cluster/&lt;cluster&gt;-bootstrap.conf
+mkdir -p ~/.kube &amp;&amp; cp $KUBECONFIG ~/.kube/config &amp;&amp; chmod 600 ~/.kube/config</pre></div>
+<ol start="5"><li>One node runs every platform pod; the default limit of 110 pods per node makes the Kommander install hang. Raise it to 250:</li></ol>
+<div class="cmd"><button class="copy" type="button">Copy</button><pre>sudo sed -i 's/^maxPods:.*/maxPods: 250/' /var/lib/kubelet/config.yaml || true
+grep -q '^maxPods:' /var/lib/kubelet/config.yaml || echo 'maxPods: 250' | sudo tee -a /var/lib/kubelet/config.yaml
+sudo systemctl restart kubelet
+kubectl taint nodes --all node-role.kubernetes.io/control-plane:NoSchedule- 2&gt;/dev/null; kubectl get nodes<span class="c">   # Ready</span></pre></div>
+<h2 id="kommander"><span class="n">7</span>Install Kommander</h2>
+<ol><li>Give MetalLB an address pool on the host's interface (first address → Kommander, the rest for later services):</li></ol>
+<div class="cmd"><button class="copy" type="button">Copy</button><pre>kubectl apply -f - &lt;&lt;'EOF'
+apiVersion: metallb.io/v1beta1
+kind: IPAddressPool
+metadata: {name: nkp-pool, namespace: metallb-system}
+spec: {addresses: ["&lt;first-ip&gt;-&lt;last-ip&gt;"]}
+---
+apiVersion: metallb.io/v1beta1
+kind: L2Advertisement
+metadata: {name: nkp-l2, namespace: metallb-system}
+spec: {ipAddressPools: [nkp-pool], interfaces: [&lt;host-interface&gt;]}
+EOF</pre></div>
+<ol start="2"><li>Save the Kommander configuration below as <code>~/nkp-cluster/kommander.yaml</code>. Without object storage on a single host, leave Rook Ceph, Velero, logging and Insights off. The NVIDIA GPU Operator uses the driver already on the host, and CDI as its default, so containerd keeps runc as the default runtime for AMD and CPU pods:</li></ol>
+<div class="cmd"><button class="copy" type="button">Copy</button><pre>apiVersion: config.kommander.mesosphere.io/v1alpha1
+kind: Installation
+apps:
+  cloudnative-pg: {enabled: true}
+  dex: {enabled: true}
+  dex-k8s-authenticator: {enabled: true}
+  external-secrets: {enabled: true}
+  gatekeeper: {enabled: true}
+  git-operator: {enabled: true}
+  kommander: {enabled: true}
+  kommander-ui: {enabled: true}
+  kube-prometheus-stack: {enabled: true}
+  kubefed: {enabled: true}
+  kubernetes-dashboard: {enabled: true}
+  kubetunnel: {enabled: true}
+  prometheus-adapter: {enabled: true}
+  reloader: {enabled: true}
+  traefik: {enabled: true}
+  traefik-forward-auth-mgmt: {enabled: true}
+  nvidia-gpu-operator:
+    enabled: true            # false on a host without NVIDIA GPUs
+    values: |
+      driver:
+        enabled: false
+      toolkit:
+        enabled: true
+      cdi:
+        enabled: true
+        default: true
+ageEncryptionSecretName: sops-age
+clusterHostname: ""
+airgapped:
+  enabled: true</pre></div>
+<ol start="3"><li>Install it (30 to 90 minutes), then reload Grafana's data sources once (its sidecar's own reload is rejected with 401):</li></ol>
+<div class="cmd"><button class="copy" type="button">Copy</button><pre>nkp install kommander --installer-config kommander.yaml --kubeconfig $KUBECONFIG --wait-timeout 2h \
+  --kommander-applications-repository /shared_storage/nkp/nkp-v2.18.0/application-repositories/kommander-applications-v2.18.0.tar.gz
+kubectl -n kommander exec deploy/kube-prometheus-stack-grafana -c grafana -- \
+  wget -qO- --post-data='' --header='X-Forwarded-User: admin' http://localhost:3000/api/admin/provisioning/datasources/reload</pre></div>
+<ol start="4"><li>Log in and license:</li></ol>
+<div class="cmd"><button class="copy" type="button">Copy</button><pre>kubectl -n kommander get svc kommander-traefik -o jsonpath='{.status.loadBalancer.ingress[0].ip}'; echo<span class="c">   # &lt;kommander-ip&gt;</span>
+nkp get dashboard --kubeconfig $KUBECONFIG<span class="c">                                                               # user and password</span></pre></div>
+<p>Open <code>https://&lt;kommander-ip&gt;/dkp/kommander/dashboard</code>, then apply the licence under Settings → Licensing. With NVIDIA GPUs, <code>kubectl get node -o jsonpath='{.items[0].status.allocatable.nvidia\.com/gpu}'</code> returns 1 or more once the GPU Operator is up.</p>
+<h2 id="amd-host"><span class="n">8</span>Prepare the AMD GPU</h2>
+<p>The operator in this package uses the amdgpu driver already in the kernel; it does not build or load a driver.</p>
+<ol><li>Host tools and permissions (for checks such as <code>amd-smi</code>):</li></ol>
+<div class="cmd"><button class="copy" type="button">Copy</button><pre>sudo apt-get install -y rocminfo rocm-smi amd-smi libamdhip64-7 hip-utils
+sudo usermod -aG render,video &lt;user&gt;
+amd-smi list<span class="c">          # the W7900 is listed</span></pre></div>
+<ol start="2"><li>Keep any other AMD GPU (for example a small display card) away from Kubernetes. Bind it to <code>vfio-pci</code> at boot; this needs IOMMU enabled in the BIOS and one reboot. Use the vendor:device IDs of every function of that card from <code>lspci -nn</code>:</li></ol>
+<div class="cmd"><button class="copy" type="button">Copy</button><pre>echo "options vfio-pci ids=1002:7422,1002:ab28" | sudo tee /etc/modprobe.d/90-vfio.conf
+printf 'softdep amdgpu pre: vfio-pci\nsoftdep snd_hda_intel pre: vfio-pci\n' | sudo tee -a /etc/modprobe.d/90-vfio.conf
+printf 'vfio\nvfio_iommu_type1\nvfio_pci\n' | sudo tee /etc/modules-load.d/90-vfio.conf
+sudo update-initramfs -u &amp;&amp; sudo reboot</pre></div>
+<p>The stock AMD device plugin has no option to exclude one card, so vfio isolation is the tested route. A PCI allow/deny-list patch for the plugin is included in the <a href="#downloads">kit</a> for hosts where vfio is not possible.</p>
+<h2 id="catalog"><span class="n">9</span>Add the AMD GPU Operator to the catalog</h2>
+<p>A custom NKP catalog is a Git-style folder of applications, packed into a catalog bundle, pushed to a registry and registered as a catalog collection. Kommander then lists its apps next to the built-in ones.</p>
+<h3>1. Mirror the chart and images</h3>
+<div class="cmd"><button class="copy" type="button">Copy</button><pre>helm repo add rocm https://rocm.github.io/gpu-operator &amp;&amp; helm pull rocm/gpu-operator-charts --version v1.5.1
+helm push gpu-operator-charts-v1.5.1.tgz oci://&lt;host-ip&gt;:5000/charts --plain-http
+for img in docker.io/rocm/gpu-operator:v1.5.1 docker.io/rocm/k8s-device-plugin:latest \
+           docker.io/rocm/k8s-device-plugin:labeller-latest docker.io/rocm/device-metrics-exporter:v1.5.1 \
+           docker.io/rocm/gpu-operator-utils:v1.5.1 docker.io/rocm/test-runner:v1.5.1 \
+           docker.io/library/busybox:1.36 quay.io/brancz/kube-rbac-proxy:v0.18.1; do
+  skopeo copy --all --dest-tls-verify=false docker://$img docker://&lt;host-ip&gt;:5000/${img#*/}
+done</pre></div>
+<h3>2. The catalog application</h3>
+<p>Download <a href="amd-gpu-catalog.tar.gz">amd-gpu-catalog.tar.gz</a> and unpack it. It holds one application in NKP's catalog layout:</p>
+<div class="cmd"><button class="copy" type="button">Copy</button><pre>applications/amd-gpu-operator/1.5.1/
+  metadata.yaml                 # card in the Kommander catalog: name, icon, licences, cert-manager dependency
+  kustomization.yaml
+  .bloodhound.yml               # validation settings for nkp validate
+  release/
+    amd-gpu-operator.yaml       # Flux OCIRepository (chart in the local registry) + HelmRelease
+    cm.yaml                     # default Helm values (below)
+    amd-metrics-config.yaml     # metrics-exporter health thresholds
+    kustomization.yaml
+  grafana-dashboards/           # "AMD GPU Device Metrics" dashboard for Kommander's Grafana</pre></div>
+<p>Set the two placeholders before validating:</p>
+<div class="cmd"><button class="copy" type="button">Copy</button><pre>cd amd-gpu-catalog
+R=applications/amd-gpu-operator/1.5.1/release
+sed -i "s#__REGISTRY__#&lt;host-ip&gt;:5000#" $R/amd-gpu-operator.yaml
+sed -i "s#__AMD_ECC_UMC_THRESHOLD__#4000000000#" $R/amd-metrics-config.yaml</pre></div>
+<p>The default values in <code>cm.yaml</code> fit NKP:</p>
+<div class="table"><table><thead><tr><th>Setting</th><th>Value</th><th>Why</th></tr></thead><tbody><tr><td><code>node-feature-discovery.enabled</code></td><td>false</td><td>NKP already runs Node Feature Discovery; only AMD's rule is added (<code>installdefaultNFDRule: true</code>)</td></tr><tr><td><code>kmm.enabled</code>, <code>driver.enable</code></td><td>false</td><td>Use the in-kernel amdgpu driver; no Kernel Module Management</td></tr><tr><td><code>devicePlugin</code></td><td>device plugin + node labeller, <code>resource_naming_strategy: single</code></td><td>Advertises <code>amd.com/gpu</code> and labels nodes with product name and VRAM</td></tr><tr><td><code>metricsExporter</code></td><td>on, ServiceMonitor labelled for Kommander's Prometheus</td><td>GPU metrics in Kommander's Grafana</td></tr><tr><td><code>metricsExporter.config</code></td><td><code>amd-metrics-config</code></td><td>Kernel 7.0's inbox driver reports phantom ECC errors on the W7900; the raised threshold stops the exporter marking the GPU unhealthy</td></tr><tr><td><code>testRunner</code>, <code>configManager</code>, <code>remediation</code></td><td>off</td><td>Not needed on a single lab node</td></tr></tbody></table></div>
+<p>If you do not use the patched PCI-filter plugin, delete the four <code>devicePluginImage</code>/<code>devicePluginImagePullPolicy</code> lines and their comment from <code>cm.yaml</code> so the stock plugin is used.</p>
+<h3>3. Validate, bundle and push</h3>
+<div class="cmd"><button class="copy" type="button">Copy</button><pre>nkp validate catalog-repository --repo-dir .
+TAG=v1.0.$(date +%s)
+nkp create catalog-bundle --repo-dir . --collection-tag $TAG<span class="c">          # writes amd-gpu-catalog-$TAG.tar</span>
+nkp push bundle --bundle amd-gpu-catalog-$TAG.tar --to-registry http://&lt;host-ip&gt;:5000 --to-registry-insecure-skip-tls-verify</pre></div>
+<h3>4. Register the collection and deploy the app</h3>
+<div class="cmd"><button class="copy" type="button">Copy</button><pre>nkp create catalog-collection --url oci://&lt;host-ip&gt;:5000/amd-gpu-catalog/collection --tag $TAG \
+  --workspace kommander-workspace --insecure
+kubectl -n kommander get app amd-gpu-operator-1.5.1<span class="c">          # appears within a minute</span></pre></div>
+<p>The app now shows in Kommander under the workspace's Applications catalog as <b>AMD GPU Operator</b>. Enable it there, or from the command line:</p>
+<div class="cmd"><button class="copy" type="button">Copy</button><pre>nkp create appdeployment amd-gpu-operator --app amd-gpu-operator-1.5.1 --workspace kommander-workspace</pre></div>
+<p>To publish a changed version later, bundle and push with a new tag, then point the collection at it:</p>
+<div class="cmd"><button class="copy" type="button">Copy</button><pre>kubectl -n kommander patch ocirepository amd-gpu-catalog-collection --type merge -p "{\"spec\":{\"ref\":{\"tag\":\"$TAG\"}}}"</pre></div>
+<h2 id="verify"><span class="n">10</span>Verify</h2>
+<p>Output below is from the reference cluster.</p>
+<div class="cmd"><button class="copy" type="button">Copy</button><pre>kubectl -n kommander get app,appdeployment | grep amd
+kubectl -n kommander get helmrelease amd-gpu-operator
+kubectl get pods -A | grep -E 'default-(device-plugin|node-labeller|metrics-exporter)|gpu-operator-charts'
+kubectl get node -o jsonpath='{.items[0].status.allocatable}'; echo
+kubectl get node --show-labels | tr ',' '\n' | grep 'amd.com/gpu\.\(product-name\|vram\)'</pre></div>
+<div class="cmd"><button class="copy" type="button">Copy</button><pre>amd-gpu-operator-1.5.1   amd-gpu-operator   1.5.1
+amd-gpu-operator         amd-gpu-operator-1.5.1
+amd-gpu-operator   True    Helm install succeeded for release kommander/amd-gpu-operator.v1 with chart gpu-operator-charts@v1.5.1
+kommander   amd-gpu-operator-gpu-operator-charts-controller-manager-...   Running
+kommander   default-device-plugin-...       Running
+kommander   default-metrics-exporter-...    Running
+kommander   default-node-labeller-...       Running
+{"amd.com/gpu":"1","cpu":"192",...,"nvidia.com/gpu":"1","pods":"250"}
+amd.com/gpu.product-name=AMD_Radeon_Pro_W7900
+amd.com/gpu.vram=45G</pre></div>
+<p>A test pod requesting <code>amd.com/gpu: 1</code> should run <code>rocm-smi</code> and see exactly one GPU. In Kommander's Grafana, the "AMD GPU Device Metrics" dashboard shows utilisation, memory and temperature.</p>
+<h2 id="trouble"><span class="n">11</span>Troubleshooting</h2>
+<div class="table"><table><thead><tr><th>Symptom</th><th>Cause</th><th>Fix</th></tr></thead><tbody><tr><td><code>nkp create cluster</code> times out after about 20 min waiting for Cluster API</td><td>Control-plane taint blocks Cluster API's jobs on a single node</td><td>Keep the taint-removal loop running during the create; then finish the move as in step 4</td></tr><tr><td>Bootstrap cluster fails with process limits</td><td>Podman's default 2048-process limit</td><td><code>pids_limit = 0</code> in /etc/containers/containers.conf</td></tr><tr><td>Konvoy fails on Ubuntu 26.04 looking for cloud-init or packages</td><td>26.04 is newer than NKP 2.18's tested releases</td><td>The cloud-init shim, the pre-installed packages and the 24.04 OS bundle aliased as 26.04</td></tr><tr><td>Kommander install hangs</td><td>110-pod limit on the only node</td><td>kubelet <code>maxPods: 250</code></td></tr><tr><td>Registry gone after a shell session ended</td><td>A <code>podman run -d</code> container dies with its session's cgroup</td><td>Run the registry as the <code>nkp-registry</code> systemd service</td></tr><tr><td>Grafana shows "No data"</td><td>Datasource sidecar reload rejected (401)</td><td>The one-off reload with <code>X-Forwarded-User: admin</code></td></tr><tr><td>AMD app not visible in the Kommander catalog</td><td>NKP not licensed, or the collection not registered</td><td>Apply the licence; <code>kubectl -n kommander get ocirepository amd-gpu-catalog-collection</code></td></tr><tr><td>Catalog changes not picked up</td><td>The app's source refreshes only every few hours</td><td>New tag + patch the collection, then reconcile the app's OCIRepository</td></tr><tr><td><code>amd.com/gpu</code> drops to 0</td><td>Metrics exporter marks the W7900 unhealthy over phantom ECC errors</td><td>Raise <code>GPU_ECC_UNCORRECT_UMC</code> in <code>amd-metrics-config</code> (done in this package)</td></tr><tr><td>A display GPU appears as <code>amd.com/gpu</code></td><td>The stock device plugin advertises every AMD GPU</td><td>Bind it to vfio-pci, or use the PCI-filter plugin</td></tr></tbody></table></div>
+<h2 id="downloads"><span class="n">12</span>Downloads</h2>
+<div class="table"><table><thead><tr><th>File</th><th>Contents</th></tr></thead><tbody><tr><td><a href="amd-gpu-catalog.tar.gz">amd-gpu-catalog.tar.gz</a></td><td>The AMD GPU Operator 1.5.1 catalog application, ready for <code>nkp validate</code> and <code>nkp create catalog-bundle</code></td></tr><tr><td><a href="../nai-nkp/install-guide/nai-on-nkp-kit.tar.gz">nai-on-nkp-kit.tar.gz</a></td><td>The full installer (<code>nai-on-nkp.sh</code>), which automates every step on this page, plus the PCI-filter device-plugin patch</td></tr></tbody></table></div>
+<p>To go on and install Nutanix Enterprise AI on this cluster, see the <a href="../nai-nkp/install-guide/">NAI on NKP Installation Guide</a>.</p>
+</main>
+</div>
+<script>
+document.querySelectorAll('.copy').forEach(function (b) {
+  b.addEventListener('click', function () {
+    var pre = b.parentElement.querySelector('pre'), text = pre.innerText;
+    function done(msg) { b.textContent = msg; setTimeout(function () { b.textContent = 'Copy'; }, 1500); }
+    try {
+      navigator.clipboard.writeText(text).then(function () { done('Copied'); }, function () { select(pre); done('Select + Ctrl+C'); });
+    } catch (e) { select(pre); done('Select + Ctrl+C'); }
+  });
+});
+function select(el) { var r = document.createRange(); r.selectNodeContents(el); var s = window.getSelection(); s.removeAllRanges(); s.addRange(r); }
+</script>
+</body></html>
