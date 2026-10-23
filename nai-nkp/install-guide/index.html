@@ -1,0 +1,247 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Installation Guide: Nutanix Enterprise AI on NKP</title><meta name="description" content="Step-by-step installation of Nutanix Enterprise AI 2.8.1 on single-node NKP 2.18 with nai-on-nkp.sh, from an empty Ubuntu host to a model answering API calls.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@600;700&family=Source+Sans+3:wght@400;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: single reading column (~72ch) with a sticky step index on wide screens; code and logs scroll inside their own boxes */
+:root {
+  --bg: #f6f7f8; --surface: #ffffff; --fg: #1b2228; --muted: #5a6670; --line: #d9dee2;
+  --accent: #0b7a75; --accent-soft: #e2f2f0; --warn: #9a5b00; --warn-soft: #fbf0dc; --bad: #a1262c;
+  --code-bg: #0f1a20; --code-fg: #d7e3e8; --code-dim: #7f939c; --code-ok: #6fd1a4; --code-warn: #f0c36a; --code-err: #ff8f8f;
+  --f-display: "Barlow Semi Condensed", "Arial Narrow", Arial, sans-serif;
+  --f-body: "Source Sans 3", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --f-mono: "JetBrains Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0e1418; --surface: #151d22; --fg: #e3e9ec; --muted: #9aa8b0; --line: #2a353c;
+  --accent: #4fc1b8; --accent-soft: #15302e; --warn: #f0b85a; --warn-soft: #33270f; --bad: #ff8a8f;
+  --code-bg: #091014; --code-fg: #d7e3e8; --code-dim: #7f939c; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #0e1418; --surface: #151d22; --fg: #e3e9ec; --muted: #9aa8b0; --line: #2a353c;
+  --accent: #4fc1b8; --accent-soft: #15302e; --warn: #f0b85a; --warn-soft: #33270f; --bad: #ff8a8f;
+  --code-bg: #091014; --code-fg: #d7e3e8; --code-dim: #7f939c; color-scheme: dark }
+* { box-sizing: border-box }
+body { background: var(--bg); color: var(--fg); font: 17px/1.6 var(--f-body); margin: 0; padding-inline: 16px; padding-block: 0 64px }
+.wrap { max-width: 1120px; margin: 0 auto; display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 48px }
+@media (max-width: 900px) { .wrap { grid-template-columns: minmax(0, 1fr) } nav.toc { display: none } }
+nav.toc { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 24px); align-self: start; padding-top: 40px; font-size: 14px }
+nav.toc ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; counter-reset: s }
+nav.toc a { color: var(--muted); text-decoration: none; display: block; padding: 2px 0 2px 10px; border-left: 2px solid var(--line) }
+nav.toc a:hover, nav.toc a:focus-visible { color: var(--accent); border-left-color: var(--accent); outline: none }
+main { min-width: 0; padding-top: 40px }
+header.doc { border-bottom: 1px solid var(--line); padding-bottom: 24px; margin-bottom: 8px }
+.eyebrow { font: 600 13px/1 var(--f-body); letter-spacing: .12em; text-transform: uppercase; color: var(--accent) }
+h1, h2, h3 { font-family: var(--f-display); text-wrap: balance; line-height: 1.15; margin: 0 }
+h1 { font-size: clamp(32px, 5vw, 46px); font-weight: 700; margin-top: 10px }
+h2 { font-size: 28px; font-weight: 600; margin: 56px 0 12px; scroll-margin-top: 20px }
+h2 .n { color: var(--accent); margin-right: 10px; font-variant-numeric: tabular-nums }
+h3 { font-size: 20px; font-weight: 600; margin: 28px 0 8px }
+p, li { max-width: 72ch }
+p { margin: 10px 0 }
+.meta { display: flex; flex-wrap: wrap; gap: 8px 24px; color: var(--muted); font-size: 15px; margin-top: 14px }
+.meta b { color: var(--fg); font-weight: 600 }
+.lede { font-size: 19px; color: var(--fg); margin-top: 14px }
+a { color: var(--accent) }
+code { font: 0.86em var(--f-mono); background: var(--accent-soft); padding: 1px 5px; border-radius: 4px; overflow-wrap: anywhere }
+.cmd, pre.log { position: relative; background: var(--code-bg); color: var(--code-fg); border-radius: 8px; margin: 12px 0; font: 13.5px/1.55 var(--f-mono) }
+.cmd pre, pre.log { margin: 0; padding: 14px 16px; overflow-x: auto; white-space: pre }
+pre.log { max-height: 460px; overflow: auto }
+.cmd .c { color: var(--code-dim) }
+.copy { position: absolute; top: 8px; right: 8px; font: 600 12px var(--f-body); color: var(--code-fg); background: transparent; border: 1px solid #3a4a52; border-radius: 6px; padding: 3px 9px; cursor: pointer }
+.copy:hover, .copy:focus-visible { border-color: var(--accent); color: #fff; outline: none }
+.log .ok { color: var(--code-ok) } .log .w { color: var(--code-warn) } .log .e { color: var(--code-err) } .log .s { color: #9cc7ff; font-weight: 600 }
+.table { overflow-x: auto; margin: 12px 0; border: 1px solid var(--line); border-radius: 8px; background: var(--surface) }
+table { border-collapse: collapse; width: 100%; font-size: 15px }
+th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); vertical-align: top }
+th { font: 600 13px var(--f-body); letter-spacing: .04em; text-transform: uppercase; color: var(--muted); background: var(--bg) }
+tr:last-child td { border-bottom: 0 }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap }
+.facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin: 18px 0 }
+.fact { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; min-width: 0 }
+.fact .k { font-size: 13px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em }
+.fact .v { font: 600 22px/1.2 var(--f-display); margin-top: 4px; font-variant-numeric: tabular-nums }
+.note { background: var(--warn-soft); border-radius: 8px; padding: 12px 16px; margin: 14px 0; max-width: 78ch }
+.note b { color: var(--warn) }
+.qa { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 0.8fr); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: var(--surface); margin: 12px 0 }
+.qa > div { padding: 8px 12px; border-bottom: 1px solid var(--line); min-width: 0; overflow-wrap: anywhere }
+.qa > div:nth-child(odd) { color: var(--muted) }
+.qa > div:nth-child(even) { font-family: var(--f-mono); font-size: 14px }
+.qa > div:nth-last-child(-n+2) { border-bottom: 0 }
+@media (max-width: 560px) { .qa { grid-template-columns: minmax(0, 1fr) } .qa > div:nth-child(odd) { border-bottom: 0; padding-bottom: 0 } }
+details { border: 1px solid var(--line); border-radius: 8px; background: var(--surface); margin: 12px 0 }
+details > summary { cursor: pointer; padding: 10px 14px; font-weight: 600 }
+details[open] > summary { border-bottom: 1px solid var(--line) }
+details .inner { padding: 4px 14px 14px; min-width: 0 }
+ol.steps li { margin: 6px 0 }
+@media (prefers-reduced-motion: no-preference) { nav.toc a { transition: color .15s, border-color .15s } }
+</style>
+<style>ul.check{list-style:none;padding-left:4px} ul.check li::before{content:"\2610";margin-right:8px;color:var(--muted)}</style></head><body>
+<div class="wrap">
+<nav class="toc" aria-label="Contents">
+  <ol>
+    <li><a href="#prereq">Before you start</a></li>
+    <li><a href="#host">Prepare the host</a></li>
+    <li><a href="#run">Run the installer</a></li>
+    <li><a href="#progress">Follow progress</a></li>
+    <li><a href="#verify">Verify and log in</a></li>
+    <li><a href="#model">Serve a first model</a></li>
+    <li><a href="#call">Call the endpoint</a></li>
+    <li><a href="#optional">Optional features</a></li>
+    <li><a href="#trouble">Troubleshooting</a></li>
+    <li><a href="#uninstall">Uninstall and rollback</a></li>
+  </ol>
+</nav>
+<main>
+<header class="doc">
+  <div class="eyebrow">Installation Guide</div>
+  <h1>Nutanix Enterprise AI on Nutanix Kubernetes Platform</h1>
+  <p class="lede">One script, <code>nai-on-nkp.sh</code>, installs a single-node NKP 2.18 cluster and Nutanix Enterprise AI 2.8.1 on an Ubuntu server in 2 to 4 hours. This guide walks through it from an empty host to a model answering API calls; planning decisions are in the companion Deployment Guide.</p>
+  <div class="meta"><span>Author <b>Manmohan Brahma</b></span><span>October <b>2026</b></span><span>Script <b>nai-on-nkp.sh</b></span><span>NKP <b>2.18.0</b></span><span>NAI <b>2.8.1</b></span><span><a href="../deployment-guide/">Deployment Guide</a></span><span><a href="../../">All guides</a></span></div>
+</header>
+<h2 id="prereq"><span class="n">1</span>Before you start</h2>
+<p>Have every item below ready; the installer asks all its questions up front and then runs unattended.</p>
+<h3>Hardware and OS</h3>
+<ul class="check"><li>x86-64 server with Ubuntu 22.04, 24.04 or 26.04 installed (tested: 26.04.1, kernel 7.0), reachable over SSH</li><li>At least 32 CPU threads and 128 GB RAM (reference: 192 threads, 751 GB)</li><li>A large data filesystem: 600 GB free for the installation folder (900 GB for the Moded stack) plus at least 200 GB for models</li><li>At least 200 GB free under /var/lib for container images</li><li>NVIDIA GPU(s); for the Moded stack also an AMD Radeon PRO W7900-class GPU</li><li>IOMMU (AMD-Vi or VT-d) enabled in the BIOS if a GPU must be isolated with vfio</li></ul>
+<h3>Network values</h3>
+<ul class="check"><li>The host's IPv4 address, on the interface that clients reach</li><li>A range of at least 2 free addresses on the same subnet for MetalLB (reference: 5)</li><li>Internet access from the host to the Ubuntu archive, Docker Hub, GitHub and rocm.github.io during installation</li><li>Port 5000 free on the host (local registry)</li></ul>
+<h3>Software and access</h3>
+<ul class="check"><li>Download links or local copies of the three bundles from the Nutanix portal: NKP air-gapped bundle 2.18.0, NAI 2.8.1 image bundle, NAI 2.8.1 Helm charts. Portal links expire after about an hour, so download first if your connection is slow.</li><li>A non-root user with sudo on the host (the installer makes its sudo passwordless)</li><li>The installer <code>nai-on-nkp.sh</code></li><li>NKP and NAI licences, applied after installation</li><li>A Hugging Face token (and an NGC key for NVIDIA NIM models) if you will import catalog models</li></ul>
+<h2 id="host"><span class="n">2</span>Prepare the host</h2>
+<p>Start from a clean Ubuntu install with SSH enabled; the installer adds everything else.</p>
+<ol><li>Install Ubuntu Server and <code>openssh-server</code>. Create a non-root user with sudo rights, for example <code>nutanix</code>.</li><li>Mount the large data disk, for example at <code>/shared_storage</code>. The installer proposes folders on the largest filesystem by default.</li><li>If the host has a GPU that must not serve models (for example a small display card), enable IOMMU in the BIOS so the installer can bind it to <code>vfio-pci</code>.</li><li>Leave the NVIDIA driver out: the installer installs the newest open driver Ubuntu offers, or keeps a working one that is already installed.</li><li>Copy the installer to the host and make it executable:</li></ol>
+<div class="cmd"><button class="copy" type="button">Copy</button><pre>scp nai-on-nkp.sh nutanix@&lt;host-ip&gt;:~
+ssh nutanix@&lt;host-ip&gt;
+chmod +x nai-on-nkp.sh</pre></div>
+<ol start="6"><li>Optional, read-only checks before installing:</li></ol>
+<div class="cmd"><button class="copy" type="button">Copy</button><pre>sudo ./nai-on-nkp.sh --check<span class="c">   # host, CPU, memory, disks and GPU report</span>
+sudo ./nai-on-nkp.sh --help<span class="c">    # all options</span></pre></div>
+<h2 id="run"><span class="n">3</span>Run the installer</h2>
+<p>Run it as root in a terminal; it asks every question first, shows a summary, and only then changes the host.</p>
+<div class="cmd"><button class="copy" type="button">Copy</button><pre>sudo ./nai-on-nkp.sh</pre></div>
+<div class="table"><table><thead><tr><th>#</th><th>Question</th><th>Example answer</th><th>Notes</th></tr></thead><tbody><tr><td>1</td><td>NKP air-gapped bundle</td><td>portal link, or <code>/data/nkp-air-gapped-bundle_v2.18.0_linux_amd64.tar.gz</code></td><td>Links are tested at once; an expired link is reported immediately</td></tr><tr><td>2</td><td>NAI image bundle</td><td><code>nai-v2.8.1.tar</code> link or path</td><td></td></tr><tr><td>3</td><td>NAI Helm charts</td><td><code>nai-helm-charts-2.8.1.tar</code> link or path</td><td></td></tr><tr><td>4</td><td>Stack</td><td><code>1</code> Stock (NVIDIA) or <code>2</code> Moded (NVIDIA + AMD)</td><td>Shown after a report of the host's CPUs, memory and GPUs</td></tr><tr><td>5</td><td>AMD GPUs for endpoints (Moded)</td><td>the W7900's number from the list</td><td>Default: every supported AMD GPU</td></tr><tr><td>6</td><td>Other AMD GPUs (Moded)</td><td><code>vfio</code></td><td><code>vfio</code> isolates them at boot (one reboot, tested); <code>filter</code> hides them from Kubernetes only</td></tr><tr><td>7</td><td>Installation folder</td><td><code>/shared_storage/nai-nkp</code></td><td>Bundles, registry, local volumes; wiped by uninstall</td></tr><tr><td>8</td><td>Model folder</td><td><code>/shared_storage/nai-models</code></td><td>Becomes the NFS share for models; must be outside the installation folder</td></tr><tr><td>9</td><td>Host IP</td><td><code>&lt;host-ip&gt;</code></td><td>Default: the address of the default route</td></tr><tr><td>10</td><td>MetalLB range</td><td><code>&lt;first-ip&gt;-&lt;last-ip&gt;</code></td><td>First address → Kommander, second → NAI</td></tr><tr><td>11</td><td>Cluster name</td><td><code>nkp-gpu</code></td><td>Lower-case letters, digits, dashes; NAI's certificate becomes <code>nai.&lt;name&gt;.lab</code></td></tr><tr><td>12</td><td>Allow automatic reboots</td><td><code>y</code></td><td>Asked only if a driver or vfio change needs one</td></tr><tr><td>13</td><td>Start with these settings</td><td><code>y</code></td><td><code>n</code> discards the answers and changes nothing</td></tr></tbody></table></div>
+<p>If the SSH session drops, nothing is lost: the installation continues as the background service <code>nai-nkp-install</code>.</p>
+<h2 id="progress"><span class="n">4</span>Follow progress</h2>
+<p>The whole run takes 2 to 4 hours, most of it in four stages. Watch the log from any SSH session:</p>
+<div class="cmd"><button class="copy" type="button">Copy</button><pre>sudo tail -f /var/lib/nai-nkp/run.log<span class="c">      # installation log</span>
+sudo ./nai-on-nkp.sh --status<span class="c">              # answers, finished stages, recorded changes, nodes</span></pre></div>
+<div class="table"><table><thead><tr><th>Stage</th><th>What it does</th><th>Typical time</th></tr></thead><tbody><tr><td>download</td><td>Fetches the three bundles (resumable)</td><td>depends on the link</td></tr><tr><td>host-packages, gpu-drivers, os-prep</td><td>Host packages, NVIDIA driver, vfio isolation, swap off, SSH key, sysctls</td><td>5–15 min, plus a reboot if needed</td></tr><tr><td>tools</td><td>Unpacks the NKP bundle, NAI images and charts</td><td>10–20 min</td></tr><tr><td>registry, nkp-images</td><td>Starts the local registry and pushes NKP's images</td><td>20–40 min</td></tr><tr><td>host-storage</td><td>Local-volume bind mounts and the NFS export for models</td><td>1 min</td></tr><tr><td>cluster</td><td>Creates the single-node, self-managed NKP cluster</td><td>30–60 min</td></tr><tr><td>kommander</td><td>MetalLB pool, Kommander and its apps, NVIDIA GPU Operator</td><td>30–90 min</td></tr><tr><td>storage</td><td><code>nai-local</code> and <code>nai-nfs-storage</code> storage classes, NFS CSI driver</td><td>5 min</td></tr><tr><td>nai-images</td><td>Pushes every NAI image to the registry</td><td>10–30 min</td></tr><tr><td>amd-operator, rocm-image, nai-patches (Moded)</td><td>AMD GPU Operator, ROCm vLLM engine image (75 GB pull), NAI patches</td><td>45–120 min</td></tr><tr><td>nai-deps, nai-core</td><td>Gateway API, Envoy Gateway, KServe, LWS, OpenTelemetry, NAI</td><td>20–60 min</td></tr><tr><td>nai-amd (Moded), verify</td><td>AMD webhook and catalog runtimes, final checks</td><td>5–20 min</td></tr></tbody></table></div>
+<p><b>Reboots.</b> Before any reboot the installer enables <code>nai-nkp-resume.service</code>, which continues from the first unfinished stage after the host is back; follow it with <code>journalctl -fu nai-nkp-resume</code>. Without reboot consent it stops and asks you to reboot and re-run.</p>
+<p><b>Failures.</b> A failed stage prints the reason, failing pods and recent warning events. Fix the cause and run <code>sudo ./nai-on-nkp.sh</code> again: finished stages are skipped. Network downloads are retried automatically.</p>
+<h2 id="verify"><span class="n">5</span>Verify and log in</h2>
+<p>The installer ends with a "ready" banner listing both URLs. Confirm the cluster from the host, then log in to both UIs.</p>
+<h3>Check the cluster</h3>
+<div class="cmd"><button class="copy" type="button">Copy</button><pre>export KUBECONFIG=~/.kube/config<span class="c">            # also &lt;installation folder&gt;/work/cluster/&lt;cluster&gt;.conf</span>
+kubectl get nodes<span class="c">                            # one node, Ready</span>
+kubectl get node -o jsonpath='{.items[0].status.allocatable}'<span class="c">   # nvidia.com/gpu: 1 (and amd.com/gpu: 1 on Moded)</span>
+kubectl -n nai-system get pods<span class="c">               # all Running or Completed</span>
+kubectl -n envoy-gateway-system get svc<span class="c">      # NAI gateway EXTERNAL-IP = second MetalLB address</span></pre></div>
+<h3>Kommander (NKP)</h3>
+<ol><li>Get the login: <code>sudo nkp get dashboard --kubeconfig ~/.kube/config</code>.</li><li>Open <code>https://&lt;kommander-ip&gt;/dkp/kommander/dashboard</code> and accept the self-signed certificate.</li><li>Apply the NKP licence under Settings → Licensing. On the Moded stack, the AMD GPU Operator app appears only after this.</li></ol>
+<h3>NAI</h3>
+<ol><li>Read the initial admin password:</li></ol>
+<div class="cmd"><button class="copy" type="button">Copy</button><pre>kubectl -n nai-system get secret nai-default-user -o jsonpath='{.data.password}' | base64 -d; echo</pre></div>
+<ol start="2"><li>Open <code>https://&lt;nai-ip&gt;/nai</code>, log in as <code>admin</code>, and set a new password when asked.</li><li>Apply the NAI licence when the UI asks for it.</li><li>Under Infrastructure, check that every GPU is listed with its product name (for example NVIDIA-RTX-A6000 and AMD_Radeon_Pro_W7900).</li></ol>
+<h2 id="model"><span class="n">6</span>Serve a first model</h2>
+<p>Import one small catalog model, then create an endpoint for it; Llama-3.2-1B-Instruct is ready in about 2 minutes on either GPU.</p>
+<h3>Import the model (UI)</h3>
+<ol><li>Add your Hugging Face token once: Providers → Add Credential → platform Hugging Face.</li><li>Models → Import → NAI catalog → <code>meta-llama/Llama-3.2-1B-Instruct</code> (about 10 GB) → select the credential → Import.</li><li>Wait for status Active. NAI copies the model into its own volume on <code>nai-nfs-storage</code>.</li></ol>
+<p>To import a model that is already on the host instead, copy it to <code>&lt;model folder&gt;/import/&lt;name&gt;</code> and choose source NFS, server <code>&lt;host-ip&gt;</code>, share <code>&lt;model folder&gt;</code>, path <code>import/&lt;name&gt;</code>. For a custom model, tick only the capabilities it has (text-to-text, plus tool calling if supported); extra capabilities can make NAI start the wrong engine.</p>
+<h3>Create an endpoint (UI)</h3>
+<p>Local Endpoints → Create, then:</p>
+<div class="table"><table><thead><tr><th>Field</th><th>NVIDIA GPU</th><th>AMD GPU (Moded stack)</th></tr></thead><tbody><tr><td>Name</td><td><code>llama-3-2-1b</code></td><td><code>llama-3-2-1b-amd</code></td></tr><tr><td>Model</td><td>Llama-3.2-1B-Instruct</td><td>Llama-3.2-1B-Instruct</td></tr><tr><td>Accelerator</td><td>GPU, NVIDIA-RTX-A6000 × 1</td><td>GPU, AMD_Radeon_Pro_W7900 × 1</td></tr><tr><td>Engine</td><td>vLLM (NAI default)</td><td>vLLM (NAI picks the ROCm image)</td></tr><tr><td>CPU / memory</td><td>8 / 24 GiB</td><td>8 / 24 GiB</td></tr><tr><td>Instances</td><td>min 1, max 1</td><td>min 1, max 1</td></tr></tbody></table></div>
+<p>The endpoint turns Active when its pod is Ready. Follow it with <code>kubectl -n nai-admin get pods -w</code>.</p>
+<h3>The same through the API</h3>
+<p>Useful for automation; use the admin login, for example from a <code>.netrc</code> file kept with mode 600.</p>
+<div class="cmd"><button class="copy" type="button">Copy</button><pre>cat &gt; endpoint.json &lt;&lt;'EOF'
+{"name": "llama-3-2-1b-amd", "modelId": "&lt;model id from Models&gt;",
+ "purpose": "real-time", "platform": "amd-gpu-passthrough",
+ "acceleratorProduct": "AMD_Radeon_Pro_W7900", "acceleratorCount": 1, "nodeCount": 1,
+ "cpu": 8, "memoryInGi": 24, "minInstances": 1, "maxInstances": 1,
+ "engine": "vllm", "engineSource": "nai"}
+EOF
+curl -k --netrc-file ~/.nai-netrc -H 'Content-Type: application/json' \
+  -X POST -d @endpoint.json https://&lt;nai-ip&gt;/api/enterpriseai/v1/endpoints</pre></div>
+<p>For NVIDIA use <code>"platform": "nvidia-gpu-passthrough"</code> and <code>"acceleratorProduct": "NVIDIA-RTX-A6000"</code>. After deleting an endpoint, wait about a minute before creating one with the same name; an immediate retry can be refused with a misleading "Provide a valid registry URL".</p>
+<h2 id="call"><span class="n">7</span>Call the endpoint</h2>
+<p>Create an API key linked to the endpoint, then call NAI exactly like the OpenAI API.</p>
+<ol><li>API Client Keys → Create → name it and select the endpoints it may use → copy the key (shown once).</li><li>Check what the key can see:</li></ol>
+<div class="cmd"><button class="copy" type="button">Copy</button><pre>curl -sk https://&lt;nai-ip&gt;/enterpriseai/v1/models -H "Authorization: Bearer $NAI_API_KEY"</pre></div>
+<ol start="3"><li>Send a chat request; the model name is the endpoint name:</li></ol>
+<div class="cmd"><button class="copy" type="button">Copy</button><pre>curl -sk https://&lt;nai-ip&gt;/enterpriseai/v1/chat/completions \
+  -H "Authorization: Bearer $NAI_API_KEY" -H 'Content-Type: application/json' \
+  -d '{"model": "llama-3-2-1b", "messages": [{"role": "user", "content": "In two sentences, what is Nutanix?"}], "max_tokens": 200}'</pre></div>
+<ol start="4"><li>From Python, with the standard OpenAI client (<code>pip install openai httpx[socks]</code>):</li></ol>
+<div class="cmd"><button class="copy" type="button">Copy</button><pre>import httpx, os
+from openai import OpenAI
+
+ai = OpenAI(base_url="https://&lt;nai-ip&gt;/enterpriseai/v1", api_key=os.environ["NAI_API_KEY"],
+            http_client=httpx.Client(verify=False,                 # self-signed gateway certificate
+                                     proxy=os.environ.get("NAI_PROXY")))  # e.g. socks5://127.0.0.1:11080
+for chunk in ai.chat.completions.create(model="llama-3-2-1b", stream=True,
+        messages=[{"role": "user", "content": "In two sentences, what is Nutanix?"}]):
+    if chunk.choices:
+        print(chunk.choices[0].delta.content or "", end="", flush=True)</pre></div>
+<h3>From a laptop that cannot route to the MetalLB addresses</h3>
+<p>For example a VPN that routes only the host: open an SSH SOCKS tunnel through the host and send requests through it.</p>
+<div class="cmd"><button class="copy" type="button">Copy</button><pre>ssh -N -D 127.0.0.1:11080 nutanix@&lt;host-ip&gt;<span class="c">      # keep it open</span>
+export NAI_PROXY=socks5://127.0.0.1:11080
+curl -sk --socks5-hostname 127.0.0.1:11080 https://&lt;nai-ip&gt;/enterpriseai/v1/models -H "Authorization: Bearer $NAI_API_KEY"</pre></div>
+<p>For a browser, start Chrome with its own profile and <code>--proxy-server=socks5://127.0.0.1:11080</code>. On Windows, avoid ports 1024–1123 if Hyper-V has reserved them (<code>netsh int ipv4 show excludedportrange protocol=tcp</code>).</p>
+<p>If <code>/models</code> does not list an endpoint you expect, the key is not linked to it: API Client Keys → the key → Update → add the endpoint. Re-link keys after re-creating an endpoint.</p>
+<h2 id="optional"><span class="n">8</span>Optional features</h2>
+<p>Two features need extra configuration after installation: NAI Labs Chat and Talk to My Data, and a Remote NAI provider in the Agentic Gateway.</p>
+<h3>NAI Labs (Chat, Talk to My Data)</h3>
+<p>Agent is already on; turn on the other two with one Helm value, keeping all other settings:</p>
+<div class="cmd"><button class="copy" type="button">Copy</button><pre>KC=&lt;installation folder&gt;/work/cluster/&lt;cluster&gt;.conf
+sudo helm --kubeconfig $KC -n nai-system upgrade nai-core &lt;installation folder&gt;/charts/nai-core \
+  --reuse-values --set naiLabs.enabled=true --wait --timeout 10m
+kubectl -n nai-system get pods | grep nai-labs<span class="c">        # Running</span></pre></div>
+<p>The UI shows NAI Labs → Chat, Talk to My Data and Agent after a refresh. Chat needs an LLM endpoint that answers within 5 seconds; Talk to My Data also needs an embedding endpoint. Undo with <code>helm -n nai-system rollback nai-core &lt;previous revision&gt;</code>.</p>
+<h3>Remote NAI provider</h3>
+<p>The form accepts only a DNS name and verifies the certificate, so the gateway's name must resolve inside the cluster and its certificate must be trusted by nai-api. With a real DNS record and a CA-signed certificate, skip to item 3. For the self-signed lab certificate:</p>
+<ol><li>Add the gateway name to the cluster DNS (back up first):</li></ol>
+<div class="cmd"><button class="copy" type="button">Copy</button><pre>KC=&lt;installation folder&gt;/work/cluster/&lt;cluster&gt;.conf
+sudo kubectl --kubeconfig $KC -n kube-system get cm coredns -o yaml &gt; coredns-cm.before.yaml
+sudo kubectl --kubeconfig $KC -n kube-system get cm coredns -o jsonpath='{.data.Corefile}' \
+ | sed 's|^    forward \. /etc/resolv.conf {|    hosts {\n       &lt;nai-ip&gt; nai.&lt;cluster&gt;.lab\n       fallthrough\n    }\n&amp;|' &gt; /tmp/Corefile
+sudo kubectl --kubeconfig $KC -n kube-system create cm coredns --from-file=Corefile=/tmp/Corefile \
+  --dry-run=client -o yaml | sudo kubectl --kubeconfig $KC -n kube-system apply -f -</pre></div>
+<ol start="2"><li>Make nai-api trust the gateway certificate in addition to its normal trust store:</li></ol>
+<div class="cmd"><button class="copy" type="button">Copy</button><pre>sudo kubectl --kubeconfig $KC -n nai-system get secret ingress-certificate \
+  -o jsonpath='{.data.tls\.crt}' | base64 -d &gt; /tmp/nai-gateway.pem
+sudo kubectl --kubeconfig $KC -n nai-system create configmap nai-extra-ca --from-file=nai-gateway.pem=/tmp/nai-gateway.pem
+sudo kubectl --kubeconfig $KC -n nai-system patch deploy nai-api -p '{"spec":{"template":{"spec":{
+  "volumes":[{"name":"nai-extra-ca","configMap":{"name":"nai-extra-ca"}}],
+  "containers":[{"name":"nai-api",
+    "env":[{"name":"SSL_CERT_DIR","value":"/etc/ssl/certs:/etc/nai-extra-ca"}],
+    "volumeMounts":[{"name":"nai-extra-ca","mountPath":"/etc/nai-extra-ca","readOnly":true}]}]}}}}'
+sudo kubectl --kubeconfig $KC -n nai-system rollout status deploy/nai-api</pre></div>
+<ol start="3"><li>In NAI: Providers → Add Credential → Remote Nutanix Enterprise AI. Hostname <code>nai.&lt;cluster&gt;.lab</code> (no <code>https://</code>, no IP), port <code>443</code>, an API key from that NAI → Validate Credential → Add Credential.</li></ol>
+<p>CoreDNS picks up the change within about a minute. A Helm upgrade of nai-core removes the nai-api patch, and the self-signed certificate is renewed every 90 days; repeat item 2 after either.</p>
+<h2 id="trouble"><span class="n">9</span>Troubleshooting</h2>
+<p>Every row below was met on the reference deployment. Most installation failures are network hiccups: re-run the installer and it resumes at the failed stage.</p>
+<div class="table"><table><thead><tr><th>Symptom</th><th>Cause</th><th>Fix</th></tr></thead><tbody><tr><td>A stage fails pulling an image or chart (DNS errors, "awaiting headers" timeouts)</td><td>Short internet outages</td><td>Re-run <code>sudo ./nai-on-nkp.sh</code>; downloads and mirroring retry and skip finished work</td></tr><tr><td>Bundle link rejected as expired</td><td>Nutanix portal links last about an hour</td><td>Fetch a fresh link, or download the file and give its path</td></tr><tr><td>Cluster creation times out waiting for Cluster API</td><td>The self-managed move did not finish</td><td>Re-run; the installer detects the missing cluster object and completes the move</td></tr><tr><td>Kommander install hangs</td><td>Too few pods allowed on a single node</td><td>Handled: the installer sets kubelet <code>maxPods: 250</code></td></tr><tr><td>Grafana dashboards show "No data"</td><td>Datasource sidecar reload rejected (401)</td><td>Handled once by the installer; repeat its reload if Grafana is re-installed</td></tr><tr><td>AMD GPU allocatable drops to 0</td><td>Kernel 7.0 inbox driver reports phantom ECC errors on the W7900</td><td>Handled: the installer raises the exporter's ECC threshold</td></tr><tr><td>Pods evicted across the cluster</td><td>Boot disk full (DiskPressure), usually from large engine images</td><td>Free space under /var/lib; never pull large images into the host's default podman store</td></tr><tr><td>NVIDIA GPU throttles, very hot even when idle</td><td>A neighbouring card's fan forced to 100% starves it of air</td><td>Return the other card's fan to automatic; watch temperatures</td></tr><tr><td>Custom-model endpoint starts an image-generation server ("no model_index.json")</td><td>Text-to-image ticked when the model was imported</td><td>Delete the model and re-import with only text-to-text (+ tool calling)</td></tr><tr><td>Endpoint create refused: "Provide a valid registry URL"</td><td>Sent seconds after deleting an endpoint of the same name</td><td>Wait a minute and retry</td></tr><tr><td><code>/enterpriseai/v1/models</code> does not list an endpoint</td><td>API key not linked to it (links are lost when an endpoint is re-created)</td><td>API Client Keys → Update → add the endpoint</td></tr><tr><td>NAI Labs Chat: "Request to endpoint timed out"</td><td>Labs allows 5 s for its endpoint check</td><td>Use a faster model or endpoint for Labs</td></tr><tr><td>Long requests end after 5 minutes</td><td>NAI gateway route timeout of 300 s</td><td>Stream responses, or raise the route timeout</td></tr><tr><td>Remote NAI credential: hostname marked invalid</td><td>The field accepts only DNS names, not IP addresses</td><td>Use <code>nai.&lt;cluster&gt;.lab</code> plus the DNS and certificate steps above</td></tr><tr><td>Remote NAI credential: "Provider is unreachable"</td><td>Name not resolvable in the cluster, or certificate not trusted</td><td>Remote NAI items 1 and 2; nai-api's log names the exact cause</td></tr><tr><td>Windows SSH tunnel: "bind … Permission denied"</td><td>Port reserved by Hyper-V</td><td>Choose a port outside the reserved ranges (for example 11080)</td></tr><tr><td><code>gatekeeper-audit</code> pod restarts</td><td>Seen on the reference cluster</td><td>NAI is unaffected; no action taken</td></tr></tbody></table></div>
+<p>Useful logs: <code>/var/lib/nai-nkp/run.log</code> (installer), <code>kubectl -n nai-system logs deploy/nai-api</code> (NAI API), <code>kubectl -n nai-admin logs &lt;endpoint pod&gt;</code> (engines).</p>
+<h2 id="uninstall"><span class="n">10</span>Uninstall and rollback</h2>
+<p>The installer records every change it makes, so one command returns the host to its original Ubuntu install. Preview it first:</p>
+<div class="cmd"><button class="copy" type="button">Copy</button><pre>sudo ./nai-on-nkp.sh --plan<span class="c">         # read-only: what would be removed and what kept</span>
+sudo ./nai-on-nkp.sh --uninstall<span class="c">    # type 'wipe' to confirm</span></pre></div>
+<div class="table"><table><thead><tr><th>Removed</th><th>Kept</th></tr></thead><tbody><tr><td>The NKP cluster: kubeadm, kubelet, containerd, etcd, CNI, Kubernetes packages</td><td>Model folder, unless you type <code>delete-models</code> when asked</td></tr><tr><td>Local registry service, podman storage the installer created</td><td>Packages the operating system depends on (checked by a simulated purge)</td></tr><tr><td>Installation folder: bundles, registry data, local volumes</td><td>Files in your home folder</td></tr><tr><td>Host packages, NVIDIA driver and vfio settings the installer added</td><td>The uninstall log <code>/var/log/nai-nkp-uninstall.log</code></td></tr><tr><td>fstab, NFS export, sudoers, sysctl and swap changes (restored from backups)</td><td></td></tr></tbody></table></div>
+<p>The uninstall runs as the background service <code>nai-nkp-uninstall</code> and reboots at the end if you agree. <code>--uninstall --yes</code> skips the questions, keeps models and does not reboot. A host built by hand earlier can be brought under the uninstaller with <code>--adopt</code>.</p>
+<h3>Rolling back single changes</h3>
+<div class="table"><table><thead><tr><th>Change</th><th>Undo</th></tr></thead><tbody><tr><td>NAI Labs switched on, or another nai-core Helm change</td><td><code>helm -n nai-system history nai-core</code>, then <code>helm -n nai-system rollback nai-core &lt;revision&gt;</code></td></tr><tr><td>CoreDNS entry for the gateway name</td><td><code>kubectl apply -f coredns-cm.before.yaml</code></td></tr><tr><td>nai-api certificate trust</td><td><code>kubectl -n nai-system rollout undo deploy/nai-api</code> and <code>kubectl -n nai-system delete cm nai-extra-ca</code></td></tr><tr><td>An endpoint or model</td><td>Delete it in the NAI UI; deleting a model also deletes its NAI copy</td></tr></tbody></table></div>
+</main>
+</div>
+<script>
+document.querySelectorAll('.copy').forEach(function (b) {
+  b.addEventListener('click', function () {
+    var pre = b.parentElement.querySelector('pre'), text = pre.innerText;
+    function done(msg) { b.textContent = msg; setTimeout(function () { b.textContent = 'Copy'; }, 1500); }
+    try {
+      navigator.clipboard.writeText(text).then(function () { done('Copied'); }, function () { select(pre); done('Select + Ctrl+C'); });
+    } catch (e) { select(pre); done('Select + Ctrl+C'); }
+  });
+});
+function select(el) { var r = document.createRange(); r.selectNodeContents(el); var s = window.getSelection(); s.removeAllRanges(); s.addRange(r); }
+</script>
+</body></html>

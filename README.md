@@ -5,6 +5,8 @@ https://manmohanbrahma.github.io/ai/
 
 | Guide | Path |
 |---|---|
+| Nutanix Enterprise AI on NKP: Deployment Guide | [`nai-nkp/deployment-guide/`](https://manmohanbrahma.github.io/ai/nai-nkp/deployment-guide/) |
+| Nutanix Enterprise AI on NKP: Installation Guide | [`nai-nkp/install-guide/`](https://manmohanbrahma.github.io/ai/nai-nkp/install-guide/) |
 | Nutanix Enterprise AI on Red Hat OpenShift: Deployment Planning Guide | [`nai-openshift/planning-guide/`](https://manmohanbrahma.github.io/ai/nai-openshift/planning-guide/) |
 | Nutanix Enterprise AI on Red Hat OpenShift: Install Guide | [`nai-openshift/install-guide/`](https://manmohanbrahma.github.io/ai/nai-openshift/install-guide/) |
 

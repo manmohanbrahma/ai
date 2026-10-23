@@ -1,0 +1,195 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Deployment Guide: Nutanix Enterprise AI on NKP</title><meta name="description" content="Architecture, bill of materials, sizing, network, storage and operations for Nutanix Enterprise AI 2.8.1 on single-node NKP 2.18 with NVIDIA and AMD GPUs.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..100,500..800&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a printed technical paper - narrow reading column; tables, steps and figures may widen to 1040px */
+:root{
+  --paper:#fbfbfa; --ink:#18202a; --muted:#5b6672; --rule:#dee2e6; --panel:#f1f3f4;
+  --accent:#b8322a; --accent2:#2c5d8f; --ok:#2f7d32; --okbg:#e6f2e6; --warn:#8f5a00; --warnbg:#fbf1de;
+  --f-head:"Archivo","Arial Narrow","Helvetica Neue",Arial,sans-serif;
+  --f-body:"Source Serif 4",Georgia,"Times New Roman",serif;
+  --f-mono:"JetBrains Mono",ui-monospace,Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --paper:#13171c; --ink:#e5e9ed; --muted:#9ba6b1; --rule:#2d343c; --panel:#1b2128;
+  --accent:#ff7b6e; --accent2:#7fb2e5; --ok:#86d08a; --okbg:#1c311f; --warn:#f0b65c; --warnbg:#2e2413; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --paper:#13171c; --ink:#e5e9ed; --muted:#9ba6b1; --rule:#2d343c; --panel:#1b2128;
+  --accent:#ff7b6e; --accent2:#7fb2e5; --ok:#86d08a; --okbg:#1c311f; --warn:#f0b65c; --warnbg:#2e2413; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--paper);color:var(--ink);font:17px/1.62 var(--f-body);padding-inline:18px;padding-block:40px 80px;margin:0}
+.paper{max-width:1040px;margin:0 auto}
+.col{max-width:720px;margin-inline:auto}
+h1,h2,h3,.eyebrow,.meta,th,.fig figcaption,.step b.t{font-family:var(--f-head)}
+h1{font-size:clamp(34px,5.4vw,52px);font-stretch:85%;font-weight:750;line-height:1.05;letter-spacing:-.01em;margin:10px 0 18px;text-wrap:balance}
+h2{font-size:27px;font-stretch:88%;font-weight:700;margin:56px 0 12px;padding-top:18px;border-top:2px solid var(--ink);text-wrap:balance}
+h2 .n{color:var(--accent);margin-right:10px}
+h3{font-size:19px;font-weight:650;margin:28px 0 8px;text-wrap:balance}
+p{margin:0 0 14px} ul,ol{margin:0 0 16px;padding-left:22px} li{margin-bottom:6px}
+a{color:var(--accent2)}
+code{font-family:var(--f-mono);font-size:.82em;background:var(--panel);padding:1px 5px;border-radius:3px}
+pre{font-family:var(--f-mono);font-size:13px;line-height:1.5;background:var(--panel);border:1px solid var(--rule);padding:12px 14px;overflow-x:auto;margin:10px 0 16px}
+pre code{background:none;padding:0}
+.eyebrow{font-size:12.5px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--accent)}
+.lede{font-size:21px;line-height:1.5}
+.meta{display:flex;flex-wrap:wrap;gap:6px 26px;font-size:13.5px;color:var(--muted);margin:22px 0 0;padding-top:14px;border-top:1px solid var(--rule)}
+.meta b{color:var(--ink);font-weight:600}
+.note{background:var(--warnbg);border-left:3px solid var(--warn);padding:12px 16px;font-size:15px;margin:22px 0}
+.note b{color:var(--warn)}
+.wide{max-width:1040px;margin:22px auto}
+.tbl{overflow-x:auto;border-top:2px solid var(--ink);border-bottom:1px solid var(--ink)}
+table{border-collapse:collapse;width:100%;font-size:14.5px;font-variant-numeric:tabular-nums}
+th{font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);text-align:left;padding:9px 10px;border-bottom:1px solid var(--rule);vertical-align:bottom}
+td{padding:7px 10px;border-bottom:1px solid var(--rule);vertical-align:top}
+tr:last-child td{border-bottom:0}
+.pill{display:inline-block;font-family:var(--f-head);font-size:12px;font-weight:600;padding:1px 8px;border-radius:999px;white-space:nowrap}
+.pill.ok{background:var(--okbg);color:var(--ok)} .pill.todo{background:var(--warnbg);color:var(--warn)}
+.steps{list-style:none;padding:0;margin:18px 0;counter-reset:s}
+.step{display:grid;grid-template-columns:42px 1fr;gap:14px;padding:14px 0;border-top:1px solid var(--rule)}
+.step:first-child{border-top:0}
+.step::before{counter-increment:s;content:counter(s);font-family:var(--f-head);font-weight:750;font-size:26px;font-stretch:80%;color:var(--accent);line-height:1}
+.step>div{min-width:0}
+.step b.t{display:block;font-size:17px;font-weight:650;margin-bottom:4px}
+.step p{font-size:15.5px;margin-bottom:8px}
+.fig{margin:26px auto;max-width:1040px}
+.fig img{display:block;width:100%;height:auto;border:1px solid var(--rule)}
+.fig .slot{border:1.5px dashed var(--rule);background:var(--panel);aspect-ratio:16/8;display:flex;align-items:center;justify-content:center;padding:18px;text-align:center;color:var(--muted);font-family:var(--f-head);font-size:14px;max-width:100%}
+.fig figcaption{font-size:13.5px;color:var(--muted);margin-top:8px}
+.fig figcaption b{color:var(--ink)}
+pre.mermaid{background:var(--panel);padding:14px;overflow-x:auto;border:1px solid var(--rule);font-family:var(--f-head)}
+.two{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:22px}
+.two>*{min-width:0}
+footer{margin-top:60px;padding-top:14px;border-top:1px solid var(--rule);font-size:13.5px;color:var(--muted)}
+@media (max-width:520px){body{font-size:16px}.lede{font-size:18px}h2{font-size:23px}.step{grid-template-columns:30px 1fr}}
+</style>
+<style>
+.arch{display:block;width:100%;height:auto;font-family:var(--f-head);font-size:11.5px}
+.arch .t{fill:var(--ink)} .arch .q{fill:var(--muted)}
+.arch .bx{fill:none;stroke:var(--muted);stroke-width:1.25}
+.arch .bx.acc{fill:var(--accent2);fill-opacity:.12;stroke:var(--accent2);stroke-width:2}
+.arch .host{fill:var(--panel);stroke:var(--muted);stroke-width:1.25}
+.arch .ln path{fill:none;stroke:var(--muted);stroke-width:1.25} .arch .ah{fill:var(--muted)}
+ul.check{list-style:none;padding-left:4px} ul.check li::before{content:"\2610";margin-right:8px;color:var(--muted)}
+</style></head><body>
+<article class="paper">
+<header class="col">
+  <div class="eyebrow">Deployment Guide · October 2026</div>
+  <h1>Deploying Nutanix Enterprise AI on Nutanix Kubernetes Platform</h1>
+  <p class="lede">How to plan a single-node Nutanix Enterprise AI (NAI) 2.8.1 deployment on Nutanix Kubernetes Platform (NKP) 2.18 that serves models on both an NVIDIA and an AMD GPU: architecture, tested versions, sizing, network, storage, models and day-2 operations, from a real lab build.</p>
+  <div class="meta">
+    <span><b>Author</b> Manmohan Brahma</span>
+    <span><b>NAI</b> 2.8.1, air-gapped bundle</span>
+    <span><b>NKP</b> 2.18.0, single node</span>
+    <span><b>GPUs</b> NVIDIA RTX A6000 · AMD Radeon PRO W7900</span>
+    <span><a href="../install-guide/">Installation Guide</a></span>
+    <span><a href="../../">All guides</a></span>
+  </div>
+  <div class="note"><b>Two stacks.</b> The Stock stack is unmodified NAI on NVIDIA. The Moded stack adds AMD GPU support through lab patches that Nutanix has not validated; use it for evaluation, not where Nutanix support is required.</div>
+</header>
+<section class="col">
+<h2 id="architecture"><span class="n">1</span>Architecture</h2>
+<p>One server runs everything: a single-node NKP cluster, NAI on top of it, a local image registry and model storage. Requests enter through a load-balancer address, and NAI starts one engine pod per endpoint on one whole GPU.</p>
+<figure class="fig"><svg class="arch" viewBox="0 0 760 564" role="img" aria-label="One host runs NKP, NAI and both GPUs">
+<defs><marker id="arch-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path class="ah" d="M0 0L10 5L0 10z"/></marker></defs>
+<text class="t" x="24" y="30" font-size="15" font-weight="600">One host runs NKP, NAI and both GPUs</text>
+<rect class="bx" x="40" y="52" width="332" height="56" rx="8"/><text class="t" x="56" y="76" font-size="13" font-weight="600">Administrators and users</text><text class="q" x="56" y="96">Browser: NAI UI and Kommander UI</text>
+<rect class="bx" x="388" y="52" width="332" height="56" rx="8"/><text class="t" x="404" y="76" font-size="13" font-weight="600">Applications</text><text class="q" x="404" y="96">OpenAI-compatible API with an NAI API key</text>
+<rect class="host" x="24" y="132" width="712" height="408" rx="8"/>
+<g class="ln"><path d="M206 108V164" marker-end="url(#arch-arrow)"/><path d="M554 108V164" marker-end="url(#arch-arrow)"/><path d="M148 220V236" marker-end="url(#arch-arrow)"/><path d="M256 280H272" marker-end="url(#arch-arrow)"/><path d="M340 324V340" marker-end="url(#arch-arrow)"/><path d="M420 324V340" marker-end="url(#arch-arrow)"/></g>
+<rect class="bx" x="40" y="164" width="680" height="56" rx="8"/><text class="t" x="56" y="188" font-size="13" font-weight="600">MetalLB load balancer (HTTPS 443)</text><text class="q" x="56" y="208">1st pool address: Kommander (Traefik)  ·  2nd pool address: NAI gateway (Envoy, TLS)</text>
+<rect class="bx acc" x="40" y="236" width="216" height="88" rx="8"/><text class="t" x="56" y="260" font-size="13" font-weight="600">NAI platform</text><text class="t" x="56" y="276">UI, API, IAM, Labs, Agent</text><text class="t" x="56" y="292">Agentic Gateway</text><text class="t" x="56" y="308">PostgreSQL, ClickHouse, Valkey</text>
+<rect class="bx" x="272" y="236" width="216" height="88" rx="8"/><text class="t" x="288" y="260" font-size="13" font-weight="600">Model serving</text><text class="q" x="288" y="276">KServe + LeaderWorkerSet</text><text class="q" x="288" y="292">one engine pod per endpoint</text><text class="q" x="288" y="308">vLLM (NVIDIA), ROCm vLLM (AMD)</text>
+<rect class="bx" x="504" y="236" width="216" height="88" rx="8"/><text class="t" x="520" y="260" font-size="13" font-weight="600">NKP platform</text><text class="q" x="520" y="276">Kommander, Flux, cert-manager</text><text class="q" x="520" y="292">Prometheus, Grafana</text><text class="q" x="520" y="308">NVIDIA and AMD GPU operators</text>
+<rect class="bx" x="40" y="340" width="332" height="72" rx="8"/><text class="t" x="56" y="364" font-size="13" font-weight="600">NVIDIA RTX A6000, 48 GB</text><text class="q" x="56" y="380">nvidia.com/gpu, platform nvidia-gpu-passthrough</text><text class="q" x="56" y="396">Stock and Moded stack</text>
+<rect class="bx" x="388" y="340" width="332" height="72" rx="8"/><text class="t" x="404" y="364" font-size="13" font-weight="600">AMD Radeon PRO W7900, 48 GB</text><text class="q" x="404" y="380">amd.com/gpu, platform amd-gpu-passthrough</text><text class="q" x="404" y="396">Moded stack only</text>
+<rect class="bx" x="40" y="428" width="332" height="72" rx="8"/><text class="t" x="56" y="452" font-size="13" font-weight="600">Storage on the data disk</text><text class="q" x="56" y="468">nai-local: local volumes for NAI databases</text><text class="q" x="56" y="484">nai-nfs-storage: NFS, one volume per model</text>
+<rect class="bx" x="388" y="428" width="332" height="72" rx="8"/><text class="t" x="404" y="452" font-size="13" font-weight="600">Local registry, port 5000</text><text class="q" x="404" y="468">registry:2 as systemd service nkp-registry</text><text class="q" x="404" y="484">every NKP and NAI image, air-gapped</text>
+<text class="t" x="40" y="528" font-size="13" font-weight="600">Host: Ubuntu 26.04, single-node NKP 2.18 Kubernetes cluster</text>
+</svg><figcaption><b>Figure 1.</b> Reference architecture: one host, two GPUs. Requests enter through MetalLB; NAI starts one engine pod per endpoint on one whole GPU, and every image comes from the host's own registry.</figcaption></figure>
+<p>The installer offers two stacks. Choose Stock unless you need AMD GPUs.</p>
+<div class="wide"><div class="tbl"><table><thead><tr><th></th><th>Stock stack</th><th>Moded stack</th></tr></thead><tbody><tr><td>GPUs</td><td>x86-64 CPU + NVIDIA</td><td>NVIDIA and AMD: Radeon PRO W7900 tested; W7800, RX 7900, R9700 and MI300-class cards accepted but untested</td></tr><tr><td>NAI</td><td>Unmodified 2.8.1</td><td>2.8.1 with lab patches: nai-api and UI images, an AMD resource webhook, AMD runtimes in the catalog</td></tr><tr><td>Extra components</td><td>None</td><td>AMD GPU Operator 1.5.1, ROCm vLLM engine image</td></tr><tr><td>Supportability</td><td>Standard NAI</td><td>Lab use; patches are not validated by Nutanix</td></tr></tbody></table></div></div>
+</section>
+<section class="col">
+<h2 id="bill-of-materials"><span class="n">2</span>Bill of materials</h2>
+<p>Every version below was installed and verified together on the reference host. Treat other combinations as untested.</p>
+<div class="wide"><div class="tbl"><table><thead><tr><th>Layer</th><th>Component</th><th>Version</th></tr></thead><tbody><tr><td>Host OS</td><td>Ubuntu Server</td><td>26.04.1 LTS, kernel 7.0</td></tr><tr><td>NVIDIA</td><td>Data-centre driver (host-installed)</td><td>615.71</td></tr><tr><td>NVIDIA</td><td>GPU Operator (NKP app, driver and NFD disabled)</td><td>26.3.0</td></tr><tr><td>AMD</td><td>amdgpu (in-kernel) + ROCm userspace</td><td>kernel 7.0 inbox driver, ROCm 7.1</td></tr><tr><td>AMD</td><td>AMD GPU Operator (custom Kommander catalog app)</td><td>1.5.1</td></tr><tr><td>Kubernetes</td><td>NKP (self-managed, pre-provisioned)</td><td>2.18.0</td></tr><tr><td>Kubernetes</td><td>Kubernetes / containerd</td><td>1.35.2 / 2.1.6</td></tr><tr><td>Kubernetes</td><td>Kommander (cluster management UI)</td><td>2.18.0</td></tr><tr><td>Kubernetes</td><td>cert-manager</td><td>1.19.3</td></tr><tr><td>Storage</td><td>csi-driver-nfs</td><td>4.13.5</td></tr><tr><td>Networking</td><td>Envoy Gateway (with Envoy AI Gateway)</td><td>1.8.1</td></tr><tr><td>Serving</td><td>KServe (RawDeployment) + LLMInferenceService</td><td>0.19.0</td></tr><tr><td>Serving</td><td>LeaderWorkerSet</td><td>0.8.0</td></tr><tr><td>Observability</td><td>OpenTelemetry Operator</td><td>0.152.0</td></tr><tr><td>NAI</td><td>nai-operators, nai-core</td><td>2.8.1</td></tr><tr><td>Engines</td><td>vLLM for NVIDIA (NAI-provided)</td><td>per NAI 2.8.1 catalog</td></tr><tr><td>Engines</td><td>vLLM for AMD (rocm/nai-vllm-rocm)</td><td>0.29.0 on ROCm 10.1</td></tr></tbody></table></div></div>
+<p>The AMD rows apply only to the Moded stack; the Stock stack is NVIDIA-only. NAI's database uses the CloudNativePG operator that Kommander already ships (1.29.0). MetalLB, which hands out the load-balancer addresses, comes with NKP.</p>
+</section>
+<section class="col">
+<h2 id="hardware-and-sizing"><span class="n">3</span>Hardware and sizing</h2>
+<p>The platform itself reserves about 34 CPUs and 50 GiB of RAM before any model runs; everything else on the host is available to endpoints. Size the host for the largest models you plan to serve at the same time, one whole GPU per endpoint.</p>
+<h3>Reference host</h3>
+<div class="wide"><div class="tbl"><table><thead><tr><th>Resource</th><th>Reference configuration</th><th>Role</th></tr></thead><tbody><tr><td>CPU</td><td>1 × AMD EPYC 9684X, 96 cores / 192 threads, 4 NUMA nodes</td><td>Platform services, CPU endpoints</td></tr><tr><td>Memory</td><td>751 GiB DDR5</td><td>Platform, endpoint pods, page cache for model loads</td></tr><tr><td>Boot disk</td><td>466 GB NVMe</td><td>OS and containerd images (engine images are 20–75 GB each)</td></tr><tr><td>Data disk</td><td>14 TB NVMe (Micron 7450), mounted at /shared_storage</td><td>Install files, local registry, local volumes, model storage</td></tr><tr><td>GPU 1</td><td>NVIDIA RTX A6000, 48 GB (Ampere)</td><td>NVIDIA endpoints (<code>nvidia-gpu-passthrough</code>)</td></tr><tr><td>GPU 2</td><td>AMD Radeon PRO W7900, 48 GB (RDNA 3, gfx1100)</td><td>AMD endpoints (<code>amd-gpu-passthrough</code>), Moded stack only</td></tr></tbody></table></div></div>
+<p>A third, low-end AMD card in the reference host (Radeon PRO W6400) is bound to <code>vfio-pci</code> at boot so neither the driver nor Kubernetes uses it. Do the same for any GPU that should not serve models.</p>
+<h3>What the platform consumes (measured resource requests)</h3>
+<div class="wide"><div class="tbl"><table><thead><tr><th>Group</th><th>CPU</th><th>Memory</th></tr></thead><tbody><tr><td>NKP, Kommander and system pods</td><td>14.4</td><td>20 GiB</td></tr><tr><td>NAI platform (NAI services, KServe, Envoy Gateway, LWS, OpenTelemetry)</td><td>19.9</td><td>29 GiB</td></tr><tr><td>Left for endpoints on the reference host</td><td>about 158</td><td>about 700 GiB</td></tr></tbody></table></div></div>
+<h3>Sizing rules</h3>
+<ul><li>GPU memory: the model's weights plus its KV cache must fit on one GPU; NAI assigns whole GPUs, never a share. A 48 GB card serves models up to roughly 20–30B parameters at 8-bit or 4-bit precision, or smaller models at 16-bit.</li><li>Endpoint pods: start at 8 CPUs and 16–24 GiB of RAM for small models on a GPU; NAI's endpoint form sets both.</li><li>Boot disk: keep at least 150 GB free. Engine images are pulled onto it, and running out triggers kubelet DiskPressure, which evicts pods across the cluster.</li><li>Data disk: plan for every model at least twice — the source copy you import from and NAI's own copy in its model volume — plus about 100 GB for the registry.</li><li>Measured on the reference host: Llama-3.2-1B-Instruct (NAI catalog) on the W7900 answered with a 0.33 s first token at 184 tokens/s for one user. Throughput comparisons of the two GPUs under load are in the <a href="https://manmohanbrahma.github.io/gpu-benchmark/">GPU benchmark hub</a>.</li></ul>
+<p>The installer warns, but continues, below these minimums: 32 CPU threads, 128 GB of RAM, 600 GB free for the installation folder (900 GB for the Moded stack), 200 GB for the model folder and 200 GB under /var/lib for container images.</p>
+</section>
+<section class="col">
+<h2 id="network-dns-and-certificates"><span class="n">4</span>Network, DNS and certificates</h2>
+<p>Plan one host address, a small load-balancer pool on the same subnet, and a DNS name for the NAI gateway whose certificate your clients trust.</p>
+<div class="wide"><div class="tbl"><table><thead><tr><th>Item</th><th>Value</th><th>Notes</th></tr></thead><tbody><tr><td>Host / Kubernetes node</td><td><code>&lt;host-ip&gt;</code></td><td>SSH (22), NFS for models (2049), local registry (5000, HTTP)</td></tr><tr><td>Load-balancer pool (MetalLB)</td><td>at least 2 free addresses; the lab used 5</td><td>On the host's subnet, outside DHCP</td></tr><tr><td>Kommander UI</td><td><code>https://&lt;kommander-ip&gt;/dkp/kommander/dashboard</code></td><td>First pool address (Traefik)</td></tr><tr><td>NAI UI</td><td><code>https://&lt;nai-ip&gt;/nai</code></td><td>Second pool address (Envoy Gateway)</td></tr><tr><td>NAI inference API (OpenAI-compatible)</td><td><code>https://&lt;nai-ip&gt;/enterpriseai/v1</code></td><td>Bearer API key per request</td></tr><tr><td>NAI management API</td><td><code>https://&lt;nai-ip&gt;/api/enterpriseai/v1</code></td><td>Same address, admin login</td></tr><tr><td>Pod network / Service network</td><td>192.168.0.0/16 / 10.96.0.0/12</td><td>Must not overlap any network clients or the host use</td></tr></tbody></table></div></div>
+<p><b>Gateway certificate.</b> The installer turns on NAI's built-in cert-manager option, which gives the gateway a self-signed certificate for <code>nai.&lt;cluster-name&gt;.lab</code> (secret <code>nai-system/ingress-certificate</code>), valid for 90 days and renewed automatically. Browsers show a warning, and clients must skip verification or trust it explicitly. Each renewal produces a new self-signed certificate, so anything that trusts the old one must be updated.</p>
+<p><b>DNS.</b> That name is not registered anywhere by default, so users connect by IP. Two features need the name to resolve and the certificate to be trusted:</p>
+<ul><li>the <b>Remote NAI</b> provider in the Agentic Gateway, whose Hostname field accepts only a DNS name and verifies the certificate;</li><li>any client that verifies TLS properly.</li></ul>
+<p><b>Recommendation for production.</b> Create a DNS record for the gateway (for example <code>nai.example.com</code> → the second pool address) and replace the self-signed certificate with one from your corporate CA for that name. In a lab, a CoreDNS <code>hosts</code> entry plus trusting the self-signed certificate inside nai-api achieves the same; the Installation Guide has the commands.</p>
+<p><b>Remote access.</b> If users reach the host over a VPN that routes only the host's own address, the load-balancer addresses are unreachable from their laptops. Use an SSH SOCKS tunnel through the host, as described under Client access.</p>
+</section>
+<section class="col">
+<h2 id="storage"><span class="n">5</span>Storage</h2>
+<p>Put all persistent data on one large data disk: local volumes for platform databases, and an NFS share on the same host for models. Three storage classes result.</p>
+<div class="wide"><div class="tbl"><table><thead><tr><th>Storage class</th><th>Type</th><th>Backing (reference)</th><th>Used by</th></tr></thead><tbody><tr><td><code>localvolumeprovisioner</code> (default)</td><td>Local PVs, ReadWriteOnce</td><td>20 directories bind-mounted at /mnt/disks/vol01–20</td><td>NKP and Kommander: Prometheus, Grafana, OpenCost, Git operator</td></tr><tr><td><code>nai-local</code></td><td>Local PVs, ReadWriteOnce</td><td>8 directories at /mnt/nai-disks/vol1–8</td><td>NAI: PostgreSQL (nai-db), ClickHouse and its keeper, Valkey, NAI Labs data</td></tr><tr><td><code>nai-nfs-storage</code></td><td>NFS (csi-driver-nfs), ReadWriteMany</td><td>Host export of the model folder (/shared_storage/nai-models)</td><td>One volume per imported model</td></tr></tbody></table></div></div>
+<p><b>How model storage works.</b> When you import a model, NAI creates a ReadWriteMany volume on <code>nai-nfs-storage</code> and copies the model into it: a catalog model is downloaded from Hugging Face or NGC, and an NFS model is copied from a path you give, such as <code>/shared_storage/nai-models/import/&lt;model&gt;</code>. Every endpoint pod mounts that volume read-only at <code>/mnt/models</code>. The copy runs at about 25–30 GB per minute on the reference NVMe disk.</p>
+<h3>Capacity planning</h3>
+<ul><li>Models: their size on disk twice (the import source and NAI's copy), plus headroom for the versions you keep.</li><li>Platform databases on <code>nai-local</code>: tens of GB; logs and metrics in ClickHouse grow with traffic.</li><li>Local volumes report the size of the whole disk because they are directories, not partitions. Watch the disk's real usage instead (<code>df -h /shared_storage</code>).</li><li>The NFS export must allow the host address and the pod network (192.168.0.0/16 in the reference); endpoint pods mount it through the host.</li></ul>
+<p>For a multi-node cluster, replace both local classes with real shared storage, for example Nutanix Files or another ReadWriteMany NFS service, and a block CSI driver for ReadWriteOnce volumes.</p>
+</section>
+<section class="col">
+<h2 id="air-gapped-images"><span class="n">6</span>Air-gapped images</h2>
+<p>NKP and NAI are installed from Nutanix's air-gapped bundles, served to the cluster by a registry on the host itself. The host still needs limited internet access during installation.</p>
+<p>Bundles to download from the Nutanix portal (portal links expire after about an hour; the installer accepts a link or a local file):</p>
+<div class="wide"><div class="tbl"><table><thead><tr><th>Bundle</th><th>File name</th><th>Size</th></tr></thead><tbody><tr><td>NKP air-gapped bundle</td><td><code>nkp-air-gapped-bundle_v2.18.0_linux_amd64.tar.gz</code></td><td>29.3 GB</td></tr><tr><td>NAI image bundle</td><td><code>nai-v2.8.1.tar</code></td><td>70.1 GB</td></tr><tr><td>NAI Helm charts</td><td><code>nai-helm-charts-2.8.1.tar</code></td><td>under 0.1 GB</td></tr></tbody></table></div></div>
+<p><b>Local registry.</b> The installer runs <code>registry:2</code> as the systemd service <code>nkp-registry</code> on port 5000 of the host (plain HTTP, no authentication, data under the installation folder). It pushes the NKP, Kommander and catalog images and every image in the NAI bundle into it (106 GB on the reference host, Moded stack). The cluster is created with this registry as its mirror for all image pulls, so endpoints pull engine images from the host, not the internet.</p>
+<h3>Internet access still used during installation</h3>
+<ul><li>Ubuntu package archive, for host packages missing from the offline repository.</li><li>Docker Hub: <code>registry:2</code>, the NFS CSI driver images, the KServe storage initializer and, for the Moded stack, the AMD GPU Operator and ROCm vLLM base images (about 75 GB).</li><li>GitHub and rocm.github.io: the NFS CSI and AMD operator Helm charts.</li><li>Ubuntu 26.04 only: building NKP's OS package bundle.</li></ul>
+<p>Catalog models are downloaded later, at import time, from Hugging Face or NGC unless you import them from NFS. The registry has no authentication: keep port 5000 reachable only from the host and cluster networks.</p>
+</section>
+<section class="col">
+<h2 id="models-and-endpoints"><span class="n">7</span>Models and endpoints</h2>
+<p>A model is imported once and stored by NAI; an endpoint serves it on one GPU (or on CPUs) with an engine NAI picks from the GPU type. Applications reach an endpoint with an API key that must be linked to that endpoint.</p>
+<h3>Two kinds of model</h3>
+<div class="wide"><div class="tbl"><table><thead><tr><th></th><th>Catalog (validated) model</th><th>Custom model</th></tr></thead><tbody><tr><td>Source</td><td>NAI catalog: Hugging Face or NGC, needs a hub token</td><td>Any Hugging Face-format folder on NFS, or a hub repo</td></tr><tr><td>Engine</td><td>Chosen by NAI; image cannot be overridden</td><td>NAI default, or a custom engine image you supply</td></tr><tr><td>Typical use</td><td>Supported, tested models</td><td>Models outside the catalog, special builds</td></tr></tbody></table></div></div>
+<h3>Engine per GPU type</h3>
+<div class="wide"><div class="tbl"><table><thead><tr><th>Platform value</th><th>GPU</th><th>Engine NAI uses</th></tr></thead><tbody><tr><td><code>nvidia-gpu-passthrough</code></td><td>NVIDIA (reference: RTX A6000)</td><td>vLLM for NVIDIA, shipped with NAI</td></tr><tr><td><code>amd-gpu-passthrough</code></td><td>AMD (reference: Radeon PRO W7900)</td><td><code>rocm/nai-vllm-rocm:v0.29.0-rocm10.1.0</code>, Moded stack only</td></tr><tr><td><code>cpu</code></td><td>None</td><td>CPU engine for small models</td></tr></tbody></table></div></div>
+<h3>Rules to plan around</h3>
+<ul><li>Capabilities choose the engine. Tick only what the model really does when importing a custom model: ticking text-to-image makes NAI start its image-generation server instead of vLLM. For a chat model tick only text-to-text, plus tool calling if it supports it.</li><li>One endpoint, one whole GPU. With two GPUs, at most two GPU endpoints run at a time; a new one waits until a GPU is free.</li><li>API keys are linked to endpoints by name at the time you link them. Deleting and re-creating an endpoint, even with the same name, drops those links; re-link the keys afterwards.</li><li>Endpoint resources (CPU, memory) are Kubernetes requests and limits on the engine pod. Leave a margin: the pod is killed if it exceeds its memory limit while loading a model.</li><li>Readiness is a TCP check on port 8000. An endpoint shows Ready once the engine listens, which can be before a slow model has finished loading.</li></ul>
+<p><b>Bring your own engine (custom models).</b> A custom engine image is selected per endpoint (engine <code>vllm</code>, source <code>custom</code>, image name and tag). NAI starts it as <code>vllm serve /mnt/models --served-model-name &lt;endpoint&gt; …</code>, so the image must accept that command and serve the OpenAI API on port 8000. It runs as user 65534 with a read-only root filesystem, all capabilities dropped and only <code>/tmp</code>, <code>/dev/shm</code> and the home directory writable; point every cache at <code>/tmp</code>.</p>
+</section>
+<section class="col">
+<h2 id="nai-labs-and-the-agentic-gateway"><span class="n">8</span>NAI Labs and the Agentic Gateway</h2>
+<p>NAI 2.8.1 adds ready-made applications (NAI Labs) and an Agentic Gateway on top of the endpoints. Agent is on after installation; Chat and Talk to My Data must be switched on with one Helm value.</p>
+<div class="wide"><div class="tbl"><table><thead><tr><th>Feature</th><th>What it does</th><th>State after install</th><th>Needs</th></tr></thead><tbody><tr><td>Labs → Chat</td><td>Chat UI against any LLM endpoint</td><td>Off (<code>naiLabs.enabled: false</code>)</td><td>A fast LLM endpoint and an API key</td></tr><tr><td>Labs → Talk to My Data</td><td>Chat over uploaded documents (built-in vector store, or external Milvus)</td><td>Off (same switch)</td><td>An LLM endpoint plus an embedding endpoint</td></tr><tr><td>Labs → Agent</td><td>Agent builder that calls endpoints and MCP tools</td><td>On (<code>naiAgent.enabled: true</code>)</td><td>An LLM endpoint with tool calling</td></tr><tr><td>Agentic Gateway → Providers</td><td>Credentials for remote model providers (OpenAI, Anthropic, another NAI)</td><td>On</td><td>Provider API key; a DNS name and a trusted certificate for Remote NAI</td></tr><tr><td>Agentic Gateway → Unified Endpoints</td><td>One endpoint name that routes to local and provider models</td><td>On</td><td>At least one endpoint or provider</td></tr><tr><td>Agentic Gateway → MCP Servers</td><td>Registers MCP tool servers for agents</td><td>On</td><td>A reachable MCP server</td></tr></tbody></table></div></div>
+<h3>Plan for these limits</h3>
+<ul><li>Labs Chat checks an endpoint with a short test request that must answer within 5 seconds, and allows 60 seconds between streamed tokens. Very large or slow models fail that check; use a model that answers in a few seconds.</li><li>The NAI gateway ends inference requests after 300 seconds (route <code>nai-dataplane-httproute</code>). Long generations need streaming, or a higher timeout.</li><li>Talk to My Data stores documents in a 20 GiB volume on <code>nai-local</code> with the built-in ChromaDB. For larger collections, point it at an external Milvus.</li><li>A Remote NAI provider pointing at this same NAI is only useful for demonstrations; it is meant for reaching a different NAI cluster.</li></ul>
+</section>
+<section class="col">
+<h2 id="client-access"><span class="n">9</span>Client access</h2>
+<p>Applications use NAI like the OpenAI API: base URL <code>https://&lt;nai-ip&gt;/enterpriseai/v1</code>, an NAI API key as the Bearer token, and the endpoint name as the model. Any OpenAI-compatible SDK or tool works unchanged.</p>
+<div class="wide"><div class="tbl"><table><thead><tr><th>Who</th><th>Reaches</th><th>How</th></tr></thead><tbody><tr><td>Administrators</td><td>NAI UI, Kommander UI</td><td>Browser to the two load-balancer addresses</td></tr><tr><td>Applications</td><td><code>/enterpriseai/v1/models</code>, <code>/chat/completions</code>, <code>/completions</code>, <code>/embeddings</code></td><td>OpenAI-compatible HTTPS with <code>Authorization: Bearer &lt;API key&gt;</code></td></tr><tr><td>Automation</td><td><code>/api/enterpriseai/v1</code> (models, endpoints, API keys)</td><td>NAI management API with an admin login</td></tr></tbody></table></div></div>
+<p><b>API keys.</b> Create keys under API Client Keys and link each to the endpoints it may use; <code>GET /enterpriseai/v1/models</code> returns exactly those endpoints. A key that does not list an endpoint you expect is usually linked to a deleted copy of it.</p>
+<p><b>When the network does not route the load-balancer addresses.</b> In the reference lab the VPN routes only the host's own address. Users open an SSH SOCKS tunnel to the host (<code>ssh -D 11080 user@&lt;host-ip&gt;</code>) and point the browser or client at <code>socks5://127.0.0.1:11080</code>. On Windows, ports 1024–1123 may be reserved by Hyper-V, so choose a tunnel port outside that range. In production, route the pool addresses or publish the gateway behind a corporate load balancer instead.</p>
+<p><b>Certificates on clients.</b> Until the gateway has a CA-signed certificate, clients must either trust the self-signed one or disable verification (for example <code>verify=False</code> in Python). Disable verification only in test environments.</p>
+</section>
+<section class="col">
+<h2 id="operations"><span class="n">10</span>Operations</h2>
+<p>Most day-2 issues in the reference deployment came from heat, changes that a later Helm upgrade undoes, and the self-signed certificate. Plan for each.</p>
+<div class="wide"><div class="tbl"><table><thead><tr><th>Area</th><th>What to expect</th><th>What to do</th></tr></thead><tbody><tr><td>GPU thermals</td><td>Two workstation GPUs side by side in one chassis overheat under sustained load. A blower fan forced to 100% on one card starved the card next to it: the A6000 idled at 92 °C and throttled until the W7900 fan went back to automatic.</td><td>Watch GPU temperatures (<code>nvidia-smi</code>, <code>amd-smi metric --temperature</code>). Keep fans on automatic unless one card alone is under load. Prefer data-centre GPUs with passive cooling for production.</td></tr><tr><td>Helm upgrades</td><td><code>helm upgrade nai-core</code> re-renders NAI's deployments and drops hand-made changes such as an extra trusted certificate in nai-api.</td><td>Keep every change as a Helm value or a script, and re-apply after upgrades. Use <code>--reuse-values</code>.</td></tr><tr><td>Moded-stack patches</td><td>The AMD patches (patched nai-api and UI images, AMD runtimes in NAI's catalog, the GPU-resource webhook) are lab changes, not validated by Nutanix.</td><td>Re-run the installer's AMD steps after any NAI upgrade. Do not use the Moded stack where Nutanix support is required.</td></tr><tr><td>Gateway certificate</td><td>Renewed by cert-manager every 90 days as a new self-signed certificate.</td><td>Replace it with a CA-signed certificate, or refresh every copy you trust after each renewal.</td></tr><tr><td>Platform data</td><td>NAI's PostgreSQL, ClickHouse and Valkey live on local volumes on one disk.</td><td>Back up the data disk, or the <code>nai-local</code> volumes, regularly. Models can be re-imported from their source.</td></tr><tr><td>Kubernetes control plane</td><td>Single node: the control plane carries workloads (its taint is removed), with up to 250 pods.</td><td>Accept no high availability, or move to a three-node NKP cluster.</td></tr><tr><td>Disk space</td><td>Engine images land on the boot disk; models on the data disk.</td><td>Alert at 80% on both. Running the boot disk full evicts pods cluster-wide.</td></tr></tbody></table></div></div>
+<p><b>Licences.</b> Apply the NKP licence in Kommander (Settings → Licensing) and the NAI licence in the NAI UI after its first login. Kommander hides custom catalog applications, such as the AMD GPU Operator, until NKP is licensed.</p>
+<p><b>Removing the deployment.</b> <code>sudo ./nai-on-nkp.sh --uninstall</code> reverses every change the installer recorded and returns the host to its original OS. Model storage is deleted only if you confirm it separately.</p>
+</section>
+<footer class="col">Author: Manmohan Brahma · October 2026 · Written from a lab deployment; host addresses are shown as placeholders. Step-by-step commands: <a href="../install-guide/">Installation Guide</a>.</footer>
+</article>
+</body></html>
