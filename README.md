@@ -1,10 +1,12 @@
-# AI Deployment Guides
+# Bare Metal to Tokens
 
-Planning and install guides for enterprise AI platforms, published at
-https://manmohanbrahma.github.io/ai/
+Field-tested guides for running AI platforms on GPU servers, from an empty host to models answering requests.
+Every guide is written from a real lab deployment. Published at https://manmohanbrahma.github.io/ai/
 
 | Guide | Path |
 |---|---|
+| Run:ai: Single-Node Run:ai Deployment Guide | [`runai/deployment-guide/`](https://manmohanbrahma.github.io/ai/runai/deployment-guide/) |
+| Run:ai: Single-Node Run:ai Installation Guide | [`runai/install-guide/`](https://manmohanbrahma.github.io/ai/runai/install-guide/) |
 | Single-Node NKP, with the AMD GPU Operator in the Catalog | [`nkp-single-node/`](https://manmohanbrahma.github.io/ai/nkp-single-node/) |
 | Nutanix Enterprise AI on NKP: Deployment Guide | [`nai-nkp/deployment-guide/`](https://manmohanbrahma.github.io/ai/nai-nkp/deployment-guide/) |
 | Nutanix Enterprise AI on NKP: Installation Guide | [`nai-nkp/install-guide/`](https://manmohanbrahma.github.io/ai/nai-nkp/install-guide/) |
