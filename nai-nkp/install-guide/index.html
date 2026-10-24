@@ -287,15 +287,17 @@ sudo kubectl --kubeconfig $KC -n nai-system rollout status deploy/nai-api</pre><
 <p>The installer records every change it makes, so one command returns the host to its original Ubuntu install. Preview it first:</p>
 <div class="cmd"><button class="copy" type="button">Copy</button><pre>sudo ./nai-on-nkp.sh --plan<span class="c">         # read-only: what would be removed and what kept</span>
 sudo ./nai-on-nkp.sh --uninstall<span class="c">    # type 'wipe' to confirm</span></pre></div>
-<div class="table"><table><thead><tr><th>Removed</th><th>Kept</th></tr></thead><tbody><tr><td>The NKP cluster: kubeadm, kubelet, containerd, etcd, CNI, Kubernetes packages</td><td>Model folder, unless you type <code>delete-models</code> when asked</td></tr><tr><td>Local registry service, podman storage the installer created</td><td>Packages the operating system depends on (checked by a simulated purge)</td></tr><tr><td>Installation folder: bundles, registry data, local volumes</td><td>Files in your home folder</td></tr><tr><td>Host packages, NVIDIA driver and vfio settings the installer added</td><td>The uninstall log <code>/var/log/nai-nkp-uninstall.log</code></td></tr><tr><td>fstab, NFS export, sudoers, sysctl and swap changes (restored from backups)</td><td></td></tr></tbody></table></div>
+<div class="table"><table><thead><tr><th>Removed</th><th>Kept</th></tr></thead><tbody><tr><td>The NKP cluster: kubeadm, kubelet, containerd, etcd, CNI, Kubernetes packages</td><td>Model folder, unless you type <code>delete-models</code> when asked</td></tr><tr><td>Local registry service, podman storage the installer created</td><td>Packages the operating system depends on (checked by a simulated purge)</td></tr><tr><td>Installation folder: bundles, registry data, local volumes</td><td>Files in your home folder</td></tr><tr><td>Host packages, NVIDIA driver and vfio settings the installer added</td><td>The uninstall log <code>/var/log/nai-nkp-uninstall.log</code></td></tr><tr><td>fstab, NFS export, sudoers, sysctl and swap changes (restored from backups)</td><td>Ubuntu's own firmware, for example <code>/lib/firmware/nvidia</code></td></tr><tr><td>The NKP SSH key, and <code>~/.kube</code> with kubectl's cache when the installer created it</td><td>Any other files in your home folder</td></tr><tr><td>Python caches dpkg leaves behind in the purged ROCm tool folders</td><td></td></tr></tbody></table></div>
 <p>The uninstall runs as the background service <code>nai-nkp-uninstall</code> and reboots at the end if you agree. <code>--uninstall --yes</code> skips the questions, keeps models and does not reboot. A host built by hand earlier can be brought under the uninstaller with <code>--adopt</code>.</p>
+<p>While Kubernetes stops, <code>kubeadm reset</code> prints a long list of "failed to stop running pod … DeadlineExceeded" and Calico "connection refused" warnings, because the API server is already down. They are expected; the uninstall then removes the containers, mounts and network links itself.</p>
+<p>Afterwards, <code>sudo ./nai-on-nkp.sh --status</code> reports "Nothing installed by this script on this host" and leaves nothing behind (<code>--status</code>, <code>--plan</code> and <code>--check</code> never write to the host). On the reference host the uninstall removed 109 packages and left no Kubernetes services, mounts, network links or fstab and export entries; the A6000 returned to the in-box <code>nouveau</code> driver and both AMD cards to <code>amdgpu</code>.</p>
 <h3>Rolling back single changes</h3>
 <div class="table"><table><thead><tr><th>Change</th><th>Undo</th></tr></thead><tbody><tr><td>NAI Labs switched on, or another nai-core Helm change</td><td><code>helm -n nai-system history nai-core</code>, then <code>helm -n nai-system rollback nai-core &lt;revision&gt;</code></td></tr><tr><td>CoreDNS entry for the gateway name</td><td><code>kubectl apply -f coredns-cm.before.yaml</code></td></tr><tr><td>nai-api certificate trust</td><td><code>kubectl -n nai-system rollout undo deploy/nai-api</code> and <code>kubectl -n nai-system delete cm nai-extra-ca</code></td></tr><tr><td>An endpoint or model</td><td>Delete it in the NAI UI; deleting a model also deletes its NAI copy</td></tr></tbody></table></div>
 <h2 id="source"><span class="n">12</span>Installer source</h2>
 <p>The installer is one Bash script, plus an <code>assets/</code> folder for the Moded stack. Download both as <a href="nai-on-nkp-kit.tar.gz">nai-on-nkp-kit.tar.gz</a>, or the script alone as <a href="nai-on-nkp.sh">nai-on-nkp.sh</a>.</p>
 <div class="table"><table><thead><tr><th>Path in the kit</th><th>What it is</th><th>Used by</th></tr></thead><tbody><tr><td><code>nai-on-nkp.sh</code></td><td>The installer and uninstaller</td><td>Both stacks</td></tr><tr><td><code>assets/nai-values/</code></td><td>Helm values for Envoy Gateway, KServe, LWS and OpenTelemetry</td><td>Both stacks</td></tr><tr><td><code>assets/amd-catalog/</code></td><td>AMD GPU Operator 1.5.1 as a Kommander catalog app, with a Grafana dashboard</td><td>Moded</td></tr><tr><td><code>assets/amd-device-plugin/</code></td><td>Upstream AMD device-plugin source and a patch that adds a PCI allow/deny filter</td><td>Moded, <code>filter</code> policy</td></tr><tr><td><code>assets/rocm-vllm/</code></td><td>Wrapper that makes the ROCm vLLM image start the way NAI expects</td><td>Moded</td></tr><tr><td><code>assets/nai-chart-patch/</code>, <code>nai-api-patch/</code>, <code>nai-ui-patch/</code></td><td>Patches that add the AMD GPU platform to NAI 2.8.1's chart, API and UI</td><td>Moded</td></tr><tr><td><code>assets/nai-amd-shim/</code></td><td>Webhook that maps GPU requests to <code>amd.com/gpu</code>, plus a metrics mapping</td><td>Moded</td></tr><tr><td><code>assets/nai-catalog/</code></td><td>SQL adding AMD engine runtimes to NAI's model catalog</td><td>Moded</td></tr></tbody></table></div>
 <p>Run <code>sudo ./nai-on-nkp.sh --help</code> for every option. The full script follows; it is the same file as the download.</p>
-<details><summary>nai-on-nkp.sh (1192 lines, 84 KB)</summary><div class="inner"><div class="cmd"><button class="copy" type="button">Copy</button><pre>#!/bin/bash
+<details><summary>nai-on-nkp.sh (1205 lines, 86 KB)</summary><div class="inner"><div class="cmd"><button class="copy" type="button">Copy</button><pre>#!/bin/bash
 # =====================================================================================================================
 # nai-on-nkp.sh - single-node Nutanix Kubernetes Platform (NKP) + Nutanix Enterprise AI (NAI), air-gapped bundles.
 # Author: Manmohan Brahma
@@ -354,7 +356,7 @@ INTERACTIVE=1; [ -t 0 ] || INTERACTIVE=0
 
 # ---------------------------------------------------------------- output, prompts, state
 c_b=$'\e[1m'; c_g=$'\e[32m'; c_y=$'\e[33m'; c_r=$'\e[31m'; c_0=$'\e[0m'
-log()  { mkdir -p "$STATE"; echo "${c_b}$(date '+%F %T') == $*${c_0}" | tee -a "$TLOG"; }
+log()  { [ "$TLOG" = /dev/null ] || mkdir -p "$STATE"; echo "${c_b}$(date '+%F %T') == $*${c_0}" | tee -a "$TLOG"; }
 ok()   { echo "  ${c_g}[ok]${c_0} $*" | tee -a "$TLOG"; }
 warn() { echo "  ${c_y}[!]${c_0} $*" | tee -a "$TLOG"; }
 die()  { echo "${c_r}ERROR: $*${c_0}" | tee -a "$TLOG" &gt;&amp;2; exit 1; }
@@ -1357,9 +1359,16 @@ uninstall_run() {   # the job started by uninstall()
   if grep -qx "PKG podman" "$MANIFEST" &amp;&amp; command -v podman &gt;/dev/null; then podman system reset -f &gt;/dev/null 2&gt;&amp;1 || true
     findmnt -rn -o TARGET | grep -E "^/var/lib/containers(/|$)" | sort -r | xargs -r -n1 umount -l 2&gt;/dev/null || true; rm -rf --one-file-system /var/lib/containers /etc/containers/networks; fi
   safe_purge
+  # dpkg keeps folders that hold files it did not install: Python caches of the purged ROCm tools
+  local d; for d in /usr/share/amd_smi /usr/libexec/amdsmi_cli /usr/libexec/rocm_smi; do
+    [ -d "$d" ] &amp;&amp; ! dpkg -S "$d" &gt;/dev/null 2&gt;&amp;1 || continue
+    find "$d" -type d -name __pycache__ -prune -exec rm -rf {} + 2&gt;/dev/null; find "$d" -depth -type d -empty -delete 2&gt;/dev/null; done
+  # kubectl's cache in ~/.kube, when this setup created that folder (its config was a new file, not a restored one)
+  if grep -qx "FILE $UHOME/.kube/config" "$MANIFEST" &amp;&amp; [ -d "$UHOME/.kube" ]; then
+    rm -rf "$UHOME/.kube/cache" "$UHOME/.kube/http-cache"; rmdir "$UHOME/.kube" 2&gt;/dev/null &amp;&amp; ok "removed $UHOME/.kube" || true; fi
   command -v podman &gt;/dev/null || { [ -d /var/lib/containers ] &amp;&amp; grep -qx "PKG podman" "$MANIFEST" &amp;&amp; rm -rf --one-file-system /var/lib/containers /etc/containers 2&gt;/dev/null; true; }
   [ $redo = yes ] &amp;&amp; { update-initramfs -u -k "$(uname -r)" &gt;/dev/null 2&gt;&amp;1; ok "boot image rebuilt (GPU isolation removed)"; }
-  local d; for d in $datadirs; do   # never delete through a mount that is still attached (e.g. a kept model pool)
+  for d in $datadirs; do   # never delete through a mount that is still attached (e.g. a kept model pool)
     [ -n "$d" ] &amp;&amp; [ "$d" != / ] &amp;&amp; [ -e "$d" ] || continue
     if findmnt -rn -o TARGET | grep -q "^$d\(/\|$\)"; then warn "$d still has a mount under it - left in place"; continue; fi
     rm -rf --one-file-system "$d"; ok "removed $d"; done
@@ -1415,15 +1424,21 @@ adopt() {
 
 status() {
   echo "State: $STATE"
+  [ -d "$STATE" ] || { echo "Nothing installed by this script on this host."; return 0; }
   [ -f "$CONF" ] &amp;&amp; echo "Stack: ${STACK:-?}, NKP ${NKP_VERSION:-?} '${CLUSTER_NAME:-?}', NAI ${NAI_VERSION:-?}, install ${INSTALL_DIR:-?}, models ${MODEL_DIR:-?}"
-  echo "Finished stages:"; ls -1tr "$DONE" 2&gt;/dev/null | sed 's/^/  /'
+  echo "Finished stages:"; { ls -1tr "$DONE" 2&gt;/dev/null || true; } | sed 's/^/  /'
   [ -s "$MANIFEST" ] &amp;&amp; { echo "Recorded changes:"; grep -v '^PKG ' "$MANIFEST" | sed 's/^/  /'; echo "  + $(grep -c '^PKG ' "$MANIFEST") packages"; }
   [ -n "${KCFG:-}" ] &amp;&amp; [ -f "$KCFG" ] &amp;&amp; kc get nodes 2&gt;/dev/null || true
 }
 
 # ---------------------------------------------------------------- main
 [ "$(id -u)" = 0 ] || { echo "run with sudo"; exit 1; }
-mkdir -p "$STATE" "$DONE"; chmod 700 "$STATE"; touch "$MANIFEST"
+# read-only options (and an uninstall with nothing recorded) must not leave a state folder behind
+case "${1:-}" in
+  --status|--plan|--check|-h|--help) TLOG=/dev/null ;;
+  --uninstall) TLOG=/dev/null; [ -s "$MANIFEST" ] || { echo "nothing recorded by this script (no manifest in $STATE)"; exit 0; } ;;
+  *) mkdir -p "$STATE" "$DONE"; chmod 700 "$STATE"; touch "$MANIFEST" ;;
+esac
 [ -f "$CONF" ] &amp;&amp; source "$CONF"
 [ -n "${INSTALL_DIR:-}" ] &amp;&amp; set_paths || UHOME=$(user_home "${SUDO_USER:-root}")
 case "${1:-}" in

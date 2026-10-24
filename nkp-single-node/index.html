@@ -127,7 +127,7 @@ sudo ./nkp-amd-gpu.sh --check<span class="c">          # read-only: OS, CPU, mem
 <div class="cmd"><button class="copy" type="button">Copy</button><pre>sudo tail -f /var/lib/nkp-amd/run.log<span class="c">      # or: sudo ./nkp-amd-gpu.sh --status</span>
 sudo nkp get dashboard --kubeconfig &lt;install-folder&gt;/work/cluster/&lt;cluster&gt;.conf</pre></div>
 <p>The run ends by checking that <code>amd.com/gpu</code> is allocatable, the node carries the AMD product and VRAM labels and the operator pods are running, then prints the Kommander address. Apply the NKP licence in Kommander (Settings → Licensing) to see the AMD GPU Operator card.</p>
-<p>Every change to the host is recorded in <code>/var/lib/nkp-amd/manifest</code>. <code>sudo ./nkp-amd-gpu.sh --plan</code> previews and <code>--uninstall</code> reverses them: the cluster, registry, local volumes, GPU isolation and the packages the script added (never a package the OS had before).</p>
+<p>Every change to the host is recorded in <code>/var/lib/nkp-amd/manifest</code>. <code>sudo ./nkp-amd-gpu.sh --plan</code> previews and <code>--uninstall</code> reverses them: the cluster, registry, local volumes, GPU isolation, the packages the script added (never a package the OS had before), its SSH key and the <code>~/.kube</code> folder it created. <code>--status</code>, <code>--plan</code> and <code>--check</code> only read; after an uninstall, <code>--status</code> reports that nothing is installed.</p>
 <p>The rest of this page is the same procedure, step by step.</p>
 <h2 id="host"><span class="n">4</span>Prepare the host</h2>
 <p>NKP's installer (konvoy) expects a few host settings that a fresh Ubuntu does not have.</p>

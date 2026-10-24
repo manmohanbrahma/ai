@@ -57,7 +57,7 @@ INTERACTIVE=1; [ -t 0 ] || INTERACTIVE=0
 
 # ---------------------------------------------------------------- output, prompts, state
 c_b=$'\e[1m'; c_g=$'\e[32m'; c_y=$'\e[33m'; c_r=$'\e[31m'; c_0=$'\e[0m'
-log()  { mkdir -p "$STATE"; echo "${c_b}$(date '+%F %T') == $*${c_0}" | tee -a "$TLOG"; }
+log()  { [ "$TLOG" = /dev/null ] || mkdir -p "$STATE"; echo "${c_b}$(date '+%F %T') == $*${c_0}" | tee -a "$TLOG"; }
 ok()   { echo "  ${c_g}[ok]${c_0} $*" | tee -a "$TLOG"; }
 warn() { echo "  ${c_y}[!]${c_0} $*" | tee -a "$TLOG"; }
 die()  { echo "${c_r}ERROR: $*${c_0}" | tee -a "$TLOG" >&2; exit 1; }
@@ -1060,9 +1060,16 @@ uninstall_run() {   # the job started by uninstall()
   if grep -qx "PKG podman" "$MANIFEST" && command -v podman >/dev/null; then podman system reset -f >/dev/null 2>&1 || true
     findmnt -rn -o TARGET | grep -E "^/var/lib/containers(/|$)" | sort -r | xargs -r -n1 umount -l 2>/dev/null || true; rm -rf --one-file-system /var/lib/containers /etc/containers/networks; fi
   safe_purge
+  # dpkg keeps folders that hold files it did not install: Python caches of the purged ROCm tools
+  local d; for d in /usr/share/amd_smi /usr/libexec/amdsmi_cli /usr/libexec/rocm_smi; do
+    [ -d "$d" ] && ! dpkg -S "$d" >/dev/null 2>&1 || continue
+    find "$d" -type d -name __pycache__ -prune -exec rm -rf {} + 2>/dev/null; find "$d" -depth -type d -empty -delete 2>/dev/null; done
+  # kubectl's cache in ~/.kube, when this setup created that folder (its config was a new file, not a restored one)
+  if grep -qx "FILE $UHOME/.kube/config" "$MANIFEST" && [ -d "$UHOME/.kube" ]; then
+    rm -rf "$UHOME/.kube/cache" "$UHOME/.kube/http-cache"; rmdir "$UHOME/.kube" 2>/dev/null && ok "removed $UHOME/.kube" || true; fi
   command -v podman >/dev/null || { [ -d /var/lib/containers ] && grep -qx "PKG podman" "$MANIFEST" && rm -rf --one-file-system /var/lib/containers /etc/containers 2>/dev/null; true; }
   [ $redo = yes ] && { update-initramfs -u -k "$(uname -r)" >/dev/null 2>&1; ok "boot image rebuilt (GPU isolation removed)"; }
-  local d; for d in $datadirs; do   # never delete through a mount that is still attached (e.g. a kept model pool)
+  for d in $datadirs; do   # never delete through a mount that is still attached (e.g. a kept model pool)
     [ -n "$d" ] && [ "$d" != / ] && [ -e "$d" ] || continue
     if findmnt -rn -o TARGET | grep -q "^$d\(/\|$\)"; then warn "$d still has a mount under it - left in place"; continue; fi
     rm -rf --one-file-system "$d"; ok "removed $d"; done
@@ -1118,15 +1125,21 @@ adopt() {
 
 status() {
   echo "State: $STATE"
+  [ -d "$STATE" ] || { echo "Nothing installed by this script on this host."; return 0; }
   [ -f "$CONF" ] && echo "Stack: ${STACK:-?}, NKP ${NKP_VERSION:-?} '${CLUSTER_NAME:-?}', NAI ${NAI_VERSION:-?}, install ${INSTALL_DIR:-?}, models ${MODEL_DIR:-?}"
-  echo "Finished stages:"; ls -1tr "$DONE" 2>/dev/null | sed 's/^/  /'
+  echo "Finished stages:"; { ls -1tr "$DONE" 2>/dev/null || true; } | sed 's/^/  /'
   [ -s "$MANIFEST" ] && { echo "Recorded changes:"; grep -v '^PKG ' "$MANIFEST" | sed 's/^/  /'; echo "  + $(grep -c '^PKG ' "$MANIFEST") packages"; }
   [ -n "${KCFG:-}" ] && [ -f "$KCFG" ] && kc get nodes 2>/dev/null || true
 }
 
 # ---------------------------------------------------------------- main
 [ "$(id -u)" = 0 ] || { echo "run with sudo"; exit 1; }
-mkdir -p "$STATE" "$DONE"; chmod 700 "$STATE"; touch "$MANIFEST"
+# read-only options (and an uninstall with nothing recorded) must not leave a state folder behind
+case "${1:-}" in
+  --status|--plan|--check|-h|--help) TLOG=/dev/null ;;
+  --uninstall) TLOG=/dev/null; [ -s "$MANIFEST" ] || { echo "nothing recorded by this script (no manifest in $STATE)"; exit 0; } ;;
+  *) mkdir -p "$STATE" "$DONE"; chmod 700 "$STATE"; touch "$MANIFEST" ;;
+esac
 [ -f "$CONF" ] && source "$CONF"
 [ -n "${INSTALL_DIR:-}" ] && set_paths || UHOME=$(user_home "${SUDO_USER:-root}")
 case "${1:-}" in
