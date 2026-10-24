@@ -7,6 +7,8 @@ Every guide is written from a real lab deployment. Published at https://manmohan
 |---|---|
 | Run:ai: Single-Node Run:ai Deployment Guide | [`runai/deployment-guide/`](https://manmohanbrahma.github.io/ai/runai/deployment-guide/) |
 | Run:ai: Single-Node Run:ai Installation Guide | [`runai/install-guide/`](https://manmohanbrahma.github.io/ai/runai/install-guide/) |
+| Run:ai: Run:ai with NVIDIA and AMD GPUs, Deployment Guide | [`runai-amd/deployment-guide/`](https://manmohanbrahma.github.io/ai/runai-amd/deployment-guide/) |
+| Run:ai: Run:ai with NVIDIA and AMD GPUs, Installation Guide | [`runai-amd/install-guide/`](https://manmohanbrahma.github.io/ai/runai-amd/install-guide/) |
 | Single-Node NKP, with the AMD GPU Operator in the Catalog | [`nkp-single-node/`](https://manmohanbrahma.github.io/ai/nkp-single-node/) |
 | Nutanix Enterprise AI on NKP: Deployment Guide | [`nai-nkp/deployment-guide/`](https://manmohanbrahma.github.io/ai/nai-nkp/deployment-guide/) |
 | Nutanix Enterprise AI on NKP: Installation Guide | [`nai-nkp/install-guide/`](https://manmohanbrahma.github.io/ai/nai-nkp/install-guide/) |

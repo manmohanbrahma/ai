@@ -1,0 +1,227 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Installation Guide: Run:ai with NVIDIA and AMD GPUs</title><meta name="description" content="Add an AMD GPU to a single-node open-source Run:ai 3.0 installation with oif: AMD GPU Operator, quotas on both vendors, per-vendor caps and Grafana dashboards.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@600;700&family=Source+Sans+3:wght@400;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: single reading column (~72ch) with a sticky step index on wide screens; code and logs scroll inside their own boxes */
+:root {
+  --bg: #f6f7f8; --surface: #ffffff; --fg: #1b2228; --muted: #5a6670; --line: #d9dee2;
+  --accent: #0b7a75; --accent-soft: #e2f2f0; --warn: #9a5b00; --warn-soft: #fbf0dc; --bad: #a1262c;
+  --code-bg: #0f1a20; --code-fg: #d7e3e8; --code-dim: #7f939c; --code-ok: #6fd1a4; --code-warn: #f0c36a; --code-err: #ff8f8f;
+  --f-display: "Barlow Semi Condensed", "Arial Narrow", Arial, sans-serif;
+  --f-body: "Source Sans 3", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --f-mono: "JetBrains Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0e1418; --surface: #151d22; --fg: #e3e9ec; --muted: #9aa8b0; --line: #2a353c;
+  --accent: #4fc1b8; --accent-soft: #15302e; --warn: #f0b85a; --warn-soft: #33270f; --bad: #ff8a8f;
+  --code-bg: #091014; --code-fg: #d7e3e8; --code-dim: #7f939c; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #0e1418; --surface: #151d22; --fg: #e3e9ec; --muted: #9aa8b0; --line: #2a353c;
+  --accent: #4fc1b8; --accent-soft: #15302e; --warn: #f0b85a; --warn-soft: #33270f; --bad: #ff8a8f;
+  --code-bg: #091014; --code-fg: #d7e3e8; --code-dim: #7f939c; color-scheme: dark }
+* { box-sizing: border-box }
+body { background: var(--bg); color: var(--fg); font: 17px/1.6 var(--f-body); margin: 0; padding-inline: 16px; padding-block: 0 64px }
+.wrap { max-width: 1120px; margin: 0 auto; display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 48px }
+@media (max-width: 900px) { .wrap { grid-template-columns: minmax(0, 1fr) } nav.toc { display: none } }
+nav.toc { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 24px); align-self: start; padding-top: 40px; font-size: 14px }
+nav.toc ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; counter-reset: s }
+nav.toc a { color: var(--muted); text-decoration: none; display: block; padding: 2px 0 2px 10px; border-left: 2px solid var(--line) }
+nav.toc a:hover, nav.toc a:focus-visible { color: var(--accent); border-left-color: var(--accent); outline: none }
+main { min-width: 0; padding-top: 40px }
+header.doc { border-bottom: 1px solid var(--line); padding-bottom: 24px; margin-bottom: 8px }
+.eyebrow { font: 600 13px/1 var(--f-body); letter-spacing: .12em; text-transform: uppercase; color: var(--accent) }
+h1, h2, h3 { font-family: var(--f-display); text-wrap: balance; line-height: 1.15; margin: 0 }
+h1 { font-size: clamp(32px, 5vw, 46px); font-weight: 700; margin-top: 10px }
+h2 { font-size: 28px; font-weight: 600; margin: 56px 0 12px; scroll-margin-top: 20px }
+h2 .n { color: var(--accent); margin-right: 10px; font-variant-numeric: tabular-nums }
+h3 { font-size: 20px; font-weight: 600; margin: 28px 0 8px }
+p, li { max-width: 72ch }
+p { margin: 10px 0 }
+.meta { display: flex; flex-wrap: wrap; gap: 8px 24px; color: var(--muted); font-size: 15px; margin-top: 14px }
+.meta b { color: var(--fg); font-weight: 600 }
+.lede { font-size: 19px; color: var(--fg); margin-top: 14px }
+a { color: var(--accent) }
+code { font: 0.86em var(--f-mono); background: var(--accent-soft); padding: 1px 5px; border-radius: 4px; overflow-wrap: anywhere }
+.cmd, pre.log { position: relative; background: var(--code-bg); color: var(--code-fg); border-radius: 8px; margin: 12px 0; font: 13.5px/1.55 var(--f-mono) }
+.cmd pre, pre.log { margin: 0; padding: 14px 16px; overflow-x: auto; white-space: pre }
+pre.log { max-height: 460px; overflow: auto }
+.cmd .c { color: var(--code-dim) }
+.copy { position: absolute; top: 8px; right: 8px; font: 600 12px var(--f-body); color: var(--code-fg); background: transparent; border: 1px solid #3a4a52; border-radius: 6px; padding: 3px 9px; cursor: pointer }
+.copy:hover, .copy:focus-visible { border-color: var(--accent); color: #fff; outline: none }
+.log .ok { color: var(--code-ok) } .log .w { color: var(--code-warn) } .log .e { color: var(--code-err) } .log .s { color: #9cc7ff; font-weight: 600 }
+.table { overflow-x: auto; margin: 12px 0; border: 1px solid var(--line); border-radius: 8px; background: var(--surface) }
+table { border-collapse: collapse; width: 100%; font-size: 15px }
+th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); vertical-align: top }
+th { font: 600 13px var(--f-body); letter-spacing: .04em; text-transform: uppercase; color: var(--muted); background: var(--bg) }
+tr:last-child td { border-bottom: 0 }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap }
+.facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin: 18px 0 }
+.fact { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; min-width: 0 }
+.fact .k { font-size: 13px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em }
+.fact .v { font: 600 22px/1.2 var(--f-display); margin-top: 4px; font-variant-numeric: tabular-nums }
+.note { background: var(--warn-soft); border-radius: 8px; padding: 12px 16px; margin: 14px 0; max-width: 78ch }
+.note b { color: var(--warn) }
+.qa { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 0.8fr); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: var(--surface); margin: 12px 0 }
+.qa > div { padding: 8px 12px; border-bottom: 1px solid var(--line); min-width: 0; overflow-wrap: anywhere }
+.qa > div:nth-child(odd) { color: var(--muted) }
+.qa > div:nth-child(even) { font-family: var(--f-mono); font-size: 14px }
+.qa > div:nth-last-child(-n+2) { border-bottom: 0 }
+@media (max-width: 560px) { .qa { grid-template-columns: minmax(0, 1fr) } .qa > div:nth-child(odd) { border-bottom: 0; padding-bottom: 0 } }
+details { border: 1px solid var(--line); border-radius: 8px; background: var(--surface); margin: 12px 0 }
+details > summary { cursor: pointer; padding: 10px 14px; font-weight: 600 }
+details[open] > summary { border-bottom: 1px solid var(--line) }
+details .inner { padding: 4px 14px 14px; min-width: 0 }
+ol.steps li { margin: 6px 0 }
+@media (prefers-reduced-motion: no-preference) { nav.toc a { transition: color .15s, border-color .15s } }
+</style>
+<style>
+figure.shot{margin:20px 0 24px}
+figure.shot a{display:block;border:1px solid var(--line);border-radius:8px;overflow:hidden;box-shadow:0 1px 2px rgba(0,0,0,.06),0 6px 20px rgba(0,0,0,.08);cursor:zoom-in}
+figure.shot img{display:block;width:100%;height:auto}
+figure.shot figcaption{font-size:13.5px;color:var(--muted);margin-top:8px;line-height:1.45}
+figure.shot figcaption b{color:var(--fg)}
+ul.check{list-style:none;padding-left:4px} ul.check li::before{content:"\2610";margin-right:8px;color:var(--muted)}</style></head><body>
+<div class="wrap">
+<nav class="toc" aria-label="Contents">
+  <ol>
+    <li><a href="#overview">What you get</a></li>
+    <li><a href="#before">Before you start</a></li>
+    <li><a href="#stages">What oif adds</a></li>
+    <li><a href="#configure">Check the GPUs and settings</a></li>
+    <li><a href="#operator">Install the AMD GPU Operator</a></li>
+    <li><a href="#verify">Verify and the Run:ai quota test</a></li>
+    <li><a href="#devices">How the GPUs are visible</a></li>
+    <li><a href="#vendor">Per-vendor quotas</a></li>
+    <li><a href="#grafana">Dashboards for both vendors</a></li>
+    <li><a href="#runai">What Run:ai shows</a></li>
+    <li><a href="#troubleshooting">Troubleshooting</a></li>
+    <li><a href="#uninstall">Uninstall</a></li>
+  </ol>
+</nav>
+<main>
+<header class="doc">
+  <div class="eyebrow">Installation Guide</div>
+  <h1>Run:ai with NVIDIA and AMD GPUs</h1>
+  <p class="lede">Add an AMD GPU to a single-node Run:ai installation with the same command line, <code>oif</code>: the AMD GPU Operator on the kernel's own driver, Run:ai quotas proved on the AMD GPU, per-vendor caps inside a project, and Grafana dashboards with both vendors on the same panels. About 10 minutes on top of the first guide, with every screen and its real output.</p>
+  <div class="meta"><span>Author <b>Manmohan Brahma</b></span><span>October <b>2026</b></span><span>Run:ai <b>3.0.20</b></span><span>AMD GPU Operator <b>1.5.1</b></span><span>NVIDIA GPU Operator <b>26.7.1</b></span><span><a href="https://github.com/manmohanbrahma/open-inference-fabric">oif on GitHub</a></span><span><a href="../deployment-guide/">Deployment Guide</a></span><span><a href="../../">All guides</a></span></div>
+</header>
+<h2 id="overview"><span class="n">1</span>What you get</h2>
+<p>This guide adds an <b>AMD GPU</b> to the single-node Run:ai installation from the <a href="../../runai/install-guide/">Single-Node Run:ai Installation Guide</a>, so one Run:ai cluster schedules an NVIDIA and an AMD GPU side by side:</p>
+<ul><li>the <b>AMD GPU Operator 1.5.1</b> on the kernel's own <code>amdgpu</code> driver: device plugin, node labeller and device metrics exporter;</li><li>Run:ai projects whose GPU quotas apply to the AMD GPU, proved by a quota test;</li><li><b>per-vendor caps</b> inside a Run:ai project (for example 1 NVIDIA + 1 AMD GPU);</li><li><b>Grafana dashboards</b> that show both vendors on the same panels, and the scheduling state per vendor.</li></ul>
+<p>The same command line, <code>oif</code>, installs it: the AMD stages run as part of <code>sudo ./oif install</code> when the host has an AMD GPU on the <code>amdgpu</code> driver. Planning topics (architecture, how the two vendors share the node, what Run:ai counts, design decisions) are in the companion <a href="../deployment-guide/">Deployment Guide</a>.</p>
+<p>Everything shown here is from a real installation on the reference host: Ubuntu 26.04.1, an NVIDIA RTX A6000 and an AMD Radeon PRO W7900. Addresses and the host name are shown as placeholders.</p>
+<div class="table"><table><thead><tr><th>Step</th><th>Time</th></tr></thead><tbody><tr><td>AMD GPU Operator and its checks</td><td>2 to 5 minutes</td></tr><tr><td>Run:ai quota test on the AMD GPU</td><td>1 minute</td></tr><tr><td>Per-vendor quota test</td><td>1 minute</td></tr><tr><td>Recording rules, dashboards, Grafana address</td><td>2 minutes</td></tr></tbody></table></div>
+<h2 id="before"><span class="n">2</span>Before you start</h2>
+<ul class="check"><li>The <a href="../../runai/install-guide/">Single-Node Run:ai Installation Guide</a> is done: Run:ai is installed and its quota test passed</li><li>An AMD GPU in the server, on the <code>amdgpu</code> driver (not isolated for virtual machines)</li><li><code>/dev/kfd</code> exists on the host (the amdgpu driver enabled compute)</li><li>Outbound HTTPS to docker.io and rocm.github.io</li></ul>
+<p>Nothing on the host itself changes in this guide: no driver, no kernel module, no reboot. Every addition is a Kubernetes object.</p>
+<h2 id="stages"><span class="n">3</span>What oif adds</h2>
+<div class="table"><table><thead><tr><th>Stage</th><th>What it does</th></tr></thead><tbody><tr><td>amd-gpu-operator</td><td>checks the GPU is on <code>amdgpu</code> and <code>/dev/kfd</code> exists; creates namespace <code>kube-amd-gpu</code> and the metrics exporter's configuration; installs the pinned chart; waits for the node label and the device plugin</td></tr><tr><td>amd-gpu-verify</td><td>waits for <code>amd.com/gpu</code> on the node, runs a pod that requests the GPU and lists its devices, reads the metrics exporter</td></tr><tr><td>amd-quota</td><td>Run:ai quota test on <code>amd.com/gpu</code>: team-b (quota 0) waits on a free AMD GPU, team-a (quota 1) runs</td></tr><tr><td>vendor-quota</td><td>project team-c with a Run:ai quota of 2, capped at 1 NVIDIA + 1 AMD GPU; one pod per vendor runs, a second NVIDIA pod is refused</td></tr><tr><td>observability</td><td>recording rules that give both vendors one metric schema, the OIF Fleet and OIF Scheduling dashboards, Grafana on <code>https://grafana.runai.&lt;lb-ip&gt;.sslip.io</code></td></tr><tr><td>observability-verify</td><td>every GPU metric covers both vendors; Grafana answers over HTTPS with both dashboards</td></tr></tbody></table></div>
+<h2 id="configure"><span class="n">4</span>Check the GPUs and settings</h2>
+<div class="cmd"><button class="copy" type="button">Copy</button><pre>cd ~/open-inference-fabric
+./oif check</pre></div>
+<figure class="shot"><a href="img/a01.png" target="_blank" rel="noopener"><img src="img/a01.png" width="1520" height="668" loading="lazy" alt="oif check lists both compute GPUs: the RTX A6000 on the nvidia driver and the Radeon PRO W7900 on amdgpu. A second, display-only AMD card is kept away from Kubernetes with vfio."></a><figcaption><b>Figure 1.</b> oif check lists both compute GPUs: the RTX A6000 on the nvidia driver and the Radeon PRO W7900 on amdgpu. A second, display-only AMD card is kept away from Kubernetes with vfio.</figcaption></figure>
+<div class="table"><table><thead><tr><th>Setting in <code>.env</code></th><th>What to enter</th></tr></thead><tbody><tr><td><code>AMD_GPUS</code></td><td>empty for every supported AMD GPU, or PCI addresses from the <code>AMD ... compute</code> lines</td></tr><tr><td><code>ISOLATE_GPUS</code></td><td>AMD display cards to keep away from Kubernetes with vfio; <code>none</code> for none</td></tr></tbody></table></div>
+<p>If you change <code>.env</code>, run <code>sudo ./oif install --reconfigure</code>; only invalid or changed values are asked again.</p>
+<h2 id="operator"><span class="n">5</span>Install the AMD GPU Operator</h2>
+<div class="cmd"><button class="copy" type="button">Copy</button><pre>sudo ./oif install</pre></div>
+<p>Finished stages are skipped, so on a host from the first guide only the new stages run.</p>
+<figure class="shot"><a href="img/a02.png" target="_blank" rel="noopener"><img src="img/a02.png" width="1832" height="910" loading="lazy" alt="The amd-gpu-operator stage: the exporter&#x27;s health threshold for the workstation GPU, the chart, the node label from Node Feature Discovery, and the device plugin. The run shown was a rerun after the fix described under Troubleshooting, so Helm reports an upgrade; a first run reports an install."></a><figcaption><b>Figure 2.</b> The amd-gpu-operator stage: the exporter's health threshold for the workstation GPU, the chart, the node label from Node Feature Discovery, and the device plugin. The run shown was a rerun after the fix described under Troubleshooting, so Helm reports an upgrade; a first run reports an install.</figcaption></figure>
+<h3>Chart settings oif uses</h3>
+<div class="table"><table><thead><tr><th>Setting</th><th>Why</th></tr></thead><tbody><tr><td><code>node-feature-discovery.enabled: false</code>, <code>installdefaultNFDRule: true</code></td><td>Node Feature Discovery already runs, from the NVIDIA GPU Operator; only AMD's detection rule is added</td></tr><tr><td><code>kmm.enabled: false</code> <b>and</b> <code>kmm.watch: false</code></td><td>the kernel's own driver is used, nothing is built. Both are needed: with only the first, the operator's controller waits for resource types that are not installed and restarts every two minutes</td></tr><tr><td><code>crds.defaultCR.upgrade: true</code></td><td>a rerun re-applies oif's DeviceConfig</td></tr><tr><td><code>remediation.enabled: false</code>, <code>draDriver.deviceClass.create: false</code></td><td>no Argo remediation workflows; GPUs are handed out by the device plugin</td></tr><tr><td><code>resource_naming_strategy: single</code></td><td>every AMD GPU is <code>amd.com/gpu</code></td></tr><tr><td>exporter configuration <code>amd-metrics-config</code></td><td>kernel 7.0's in-box driver reports phantom memory ECC errors on the W7900 and W7800; without a raised threshold the exporter marks the GPU unhealthy</td></tr></tbody></table></div>
+<h3>Look at it</h3>
+<figure class="shot"><a href="img/a04.png" target="_blank" rel="noopener"><img src="img/a04.png" width="1536" height="1194" loading="lazy" alt="The operator&#x27;s four pods, the node offering amd.com/gpu next to nvidia.com/gpu, and the AMD labels from the node labeller: device id, GPU family, product name, VRAM."></a><figcaption><b>Figure 3.</b> The operator's four pods, the node offering amd.com/gpu next to nvidia.com/gpu, and the AMD labels from the node labeller: device id, GPU family, product name, VRAM.</figcaption></figure>
+<figure class="shot"><a href="img/a07.png" target="_blank" rel="noopener"><img src="img/a07.png" width="2160" height="748" loading="lazy" alt="The metrics exporter&#x27;s service and ServiceMonitor, and its health, temperature, power and memory readings for the W7900."></a><figcaption><b>Figure 4.</b> The metrics exporter's service and ServiceMonitor, and its health, temperature, power and memory readings for the W7900.</figcaption></figure>
+<h2 id="verify"><span class="n">6</span>Verify and the Run:ai quota test</h2>
+<p>The next two stages run in the same <code>oif install</code>.</p>
+<figure class="shot"><a href="img/a03.png" target="_blank" rel="noopener"><img src="img/a03.png" width="2040" height="1194" loading="lazy" alt="amd-gpu-verify: the node offers one AMD GPU, a pod receives /dev/kfd and the render device, and the exporter reports a healthy GPU. amd-quota: team-b, with a quota of 0, waits even though the AMD GPU is free; team-a, with a quota of 1, runs on it."></a><figcaption><b>Figure 5.</b> amd-gpu-verify: the node offers one AMD GPU, a pod receives /dev/kfd and the render device, and the exporter reports a healthy GPU. amd-quota: team-b, with a quota of 0, waits even though the AMD GPU is free; team-a, with a quota of 1, runs on it.</figcaption></figure>
+<p>The quota test proves that the Run:ai scheduler counts <code>amd.com/gpu</code> against project quotas, the same as <code>nvidia.com/gpu</code>. A workload asks for the AMD GPU like this:</p>
+<div class="cmd"><button class="copy" type="button">Copy</button><pre>apiVersion: v1
+kind: Pod
+metadata:
+  name: amd-quota-test
+  namespace: runai-team-a           # a Run:ai project's namespace
+spec:
+  schedulerName: runai-scheduler
+  restartPolicy: Never
+  containers:
+    - name: gpu
+      image: busybox:1.37.0
+      command: ["sh", "-c", "ls /dev/kfd /dev/dri &amp;&amp; sleep 600"]
+      resources:
+        limits:
+          amd.com/gpu: 1</pre></div>
+<p>No runtime class is needed for AMD: the device plugin mounts <code>/dev/kfd</code> and the GPU's render device into the container. NVIDIA pods keep <code>runtimeClassName: nvidia</code>.</p>
+<h2 id="devices"><span class="n">7</span>How the GPUs are visible</h2>
+<h3>On the host</h3>
+<p><code>nvidia-smi</code> comes with the NVIDIA host driver. <code>amd-smi</code> is not on the host: the AMD GPU runs on the kernel's own <code>amdgpu</code> driver and oif installs no ROCm packages. Each GPU has its own device files, found through its PCI address:</p>
+<figure class="shot"><a href="img/s01.png" target="_blank" rel="noopener"><img src="img/s01.png" width="1848" height="1640" loading="lazy" alt="On the host: nvidia-smi shows the RTX A6000; amd-smi is not installed; lspci lists all four display devices; /dev/dri/by-path maps each PCI address to its card and render nodes, and /dev/kfd is the AMD compute interface."></a><figcaption><b>Figure 6.</b> On the host: nvidia-smi shows the RTX A6000; amd-smi is not installed; lspci lists all four display devices; /dev/dri/by-path maps each PCI address to its card and render nodes, and /dev/kfd is the AMD compute interface.</figcaption></figure>
+<div class="table"><table><thead><tr><th>PCI address</th><th>GPU</th><th>Driver</th><th>Host device files</th><th>Given to a pod requesting</th></tr></thead><tbody><tr><td>82:00.0</td><td>NVIDIA RTX A6000</td><td>nvidia</td><td><code>/dev/nvidia0</code>, <code>nvidiactl</code>, <code>nvidia-uvm</code>, <code>/dev/dri/card2</code>, <code>renderD128</code></td><td><code>nvidia.com/gpu</code></td></tr><tr><td>c8:00.0</td><td>AMD Radeon PRO W7900</td><td>amdgpu</td><td><code>/dev/kfd</code>, <code>/dev/dri/card0</code>, <code>renderD129</code></td><td><code>amd.com/gpu</code></td></tr><tr><td>03:00.0</td><td>AMD Radeon PRO W6400</td><td>vfio-pci</td><td>none: isolated</td><td>never</td></tr><tr><td>ca:00.0</td><td>ASPEED server-management display</td><td>ast</td><td><code>/dev/dri/card1</code></td><td>never</td></tr></tbody></table></div>
+<h3>On the node, through the AMD GPU Operator</h3>
+<p>The AMD device metrics exporter image ships AMD's SMI tools (<code>amd-smi</code> 26.5, from ROCm 7.14). Run it in the exporter pod for the node's view:</p>
+<div class="cmd"><button class="copy" type="button">Copy</button><pre>kubectl -n kube-amd-gpu exec ds/default-metrics-exporter -- amd-smi</pre></div>
+<figure class="shot"><a href="img/s02.png" target="_blank" rel="noopener"><img src="img/s02.png" width="1520" height="910" loading="lazy" alt="amd-smi in the metrics exporter pod: the Radeon Pro W7900 at 0000:c8:00.0, 36 °C, 8 of 241 W, 92 of 46064 MB in use, no processes."></a><figcaption><b>Figure 7.</b> amd-smi in the metrics exporter pod: the Radeon Pro W7900 at 0000:c8:00.0, 36 °C, 8 of 241 W, 92 of 46064 MB in use, no processes.</figcaption></figure>
+<h3>In a workload</h3>
+<p>[<code>platform/runai/smi-pods.yaml</code>](https://github.com/manmohanbrahma/open-inference-fabric/blob/main/platform/runai/smi-pods.yaml) starts one pod per vendor in a Run:ai project; each runs its vendor's SMI tool and lists the device files it received. They stop after two minutes.</p>
+<div class="cmd"><button class="copy" type="button">Copy</button><pre>set -a; . ./versions.env; set +a
+NS=runai-team-c envsubst &lt; platform/runai/smi-pods.yaml | kubectl apply -f -
+kubectl -n runai-team-c logs smi-nvidia
+kubectl -n runai-team-c logs smi-amd
+kubectl -n runai-team-c delete pod -l app.kubernetes.io/part-of=oif-smi</pre></div>
+<figure class="shot"><a href="img/s03.png" target="_blank" rel="noopener"><img src="img/s03.png" width="1520" height="1882" loading="lazy" alt="The NVIDIA pod: nvidia-smi shows GPU 0, the RTX A6000, with the host&#x27;s driver 595.91.07 and CUDA 13.2; the pod has /dev/nvidia0, nvidiactl, nvidia-uvm and the GPU&#x27;s card2 and renderD128, and no /dev/kfd."></a><figcaption><b>Figure 8.</b> The NVIDIA pod: nvidia-smi shows GPU 0, the RTX A6000, with the host's driver 595.91.07 and CUDA 13.2; the pod has /dev/nvidia0, nvidiactl, nvidia-uvm and the GPU's card2 and renderD128, and no /dev/kfd.</figcaption></figure>
+<figure class="shot"><a href="img/s04.png" target="_blank" rel="noopener"><img src="img/s04.png" width="1520" height="1478" loading="lazy" alt="The AMD pod: amd-smi shows GPU 0, the Radeon Pro W7900 at 0000:c8:00.0; the pod has /dev/kfd, card0 and renderD129, and no /dev/nvidia devices."></a><figcaption><b>Figure 9.</b> The AMD pod: amd-smi shows GPU 0, the Radeon Pro W7900 at 0000:c8:00.0; the pod has /dev/kfd, card0 and renderD129, and no /dev/nvidia devices.</figcaption></figure>
+<p>Each workload sees exactly one GPU, its own, numbered 0 inside the container whatever the host numbering.</p>
+<h2 id="vendor"><span class="n">8</span>Per-vendor quotas</h2>
+<p>A Run:ai project has <b>one</b> GPU quota, counting both vendors together. Run:ai separates GPU types with node pools, but a node pool is a node label, and here both GPUs are in the same node. oif therefore keeps Run:ai's total quota and adds a Kubernetes <b>ResourceQuota</b> per vendor in the project's namespace:</p>
+<div class="cmd"><button class="copy" type="button">Copy</button><pre>apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: oif-gpu-vendor
+  namespace: runai-team-c
+spec:
+  hard:
+    requests.nvidia.com/gpu: "1"
+    requests.amd.com/gpu: "1"</pre></div>
+<figure class="shot"><a href="img/a05.png" target="_blank" rel="noopener"><img src="img/a05.png" width="1832" height="708" loading="lazy" alt="The vendor-quota stage: project team-c with a Run:ai quota of 2 GPUs and caps of 1 NVIDIA + 1 AMD; one pod per vendor runs, and a second NVIDIA pod is refused by the NVIDIA cap."></a><figcaption><b>Figure 10.</b> The vendor-quota stage: project team-c with a Run:ai quota of 2 GPUs and caps of 1 NVIDIA + 1 AMD; one pod per vendor runs, and a second NVIDIA pod is refused by the NVIDIA cap.</figcaption></figure>
+<figure class="shot"><a href="img/a08.png" target="_blank" rel="noopener"><img src="img/a08.png" width="2396" height="546" loading="lazy" alt="The cap in Kubernetes, and the Run:ai queues behind the projects: one GPU quota per project."></a><figcaption><b>Figure 11.</b> The cap in Kubernetes, and the Run:ai queues behind the projects: one GPU quota per project.</figcaption></figure>
+<div class="table"><table><thead><tr><th>Limit</th><th>Enforced by</th><th>A pod over the limit</th></tr></thead><tbody><tr><td>Project total (team-c: 2 GPUs)</td><td>Run:ai scheduler</td><td>waits in the queue (Pending)</td></tr><tr><td>Per vendor (team-c: 1 NVIDIA, 1 AMD)</td><td>Kubernetes ResourceQuota</td><td>is refused when it is created (<code>exceeded quota</code>)</td></tr></tbody></table></div>
+<p>To cap another project, apply the same object to its namespace, <code>runai-&lt;project&gt;</code>.</p>
+<h2 id="grafana"><span class="n">9</span>Dashboards for both vendors</h2>
+<figure class="shot"><a href="img/a06.png" target="_blank" rel="noopener"><img src="img/a06.png" width="1818" height="910" loading="lazy" alt="The observability stages: recording rules, dashboards and the Grafana address; then every GPU metric checked for both vendors, one line per GPU, and Grafana over HTTPS."></a><figcaption><b>Figure 12.</b> The observability stages: recording rules, dashboards and the Grafana address; then every GPU metric checked for both vendors, one line per GPU, and Grafana over HTTPS.</figcaption></figure>
+<p>Open <code>https://grafana.runai.&lt;lb-ip&gt;.sslip.io</code> in the browser that already trusts the oif CA, and log in as <code>admin</code> with the Grafana password from <code>.env</code>. To read it back:</p>
+<div class="cmd"><button class="copy" type="button">Copy</button><pre>kubectl -n monitoring get secret grafana-admin -o jsonpath='{.data.admin-password}' | base64 -d; echo</pre></div>
+<figure class="shot"><a href="img/g02-dashboards.png" target="_blank" rel="noopener"><img src="img/g02-dashboards.png" width="2160" height="1500" loading="lazy" alt="Grafana, Dashboards, tag oif: OIF Fleet and OIF Scheduling."></a><figcaption><b>Figure 13.</b> Grafana, Dashboards, tag oif: OIF Fleet and OIF Scheduling.</figcaption></figure>
+<p><b>OIF Fleet</b> shows every GPU on the same panels, NVIDIA in green and AMD in red: utilisation, memory (total dashed), power, temperature (AMD junction dashed), shader clock, and the host's CPU and memory.</p>
+<figure class="shot"><a href="img/g03-fleet.png" target="_blank" rel="noopener"><img src="img/g03-fleet.png" width="2160" height="1950" loading="lazy" alt="OIF Fleet with both GPUs idle: the A6000 at 34 W and 39 °C, the W7900 at 12 W and 31 °C. The W7900&#x27;s graphics clock reads 0 Hz at idle, when its graphics engine is switched off."></a><figcaption><b>Figure 14.</b> OIF Fleet with both GPUs idle: the A6000 at 34 W and 39 °C, the W7900 at 12 W and 31 °C. The W7900's graphics clock reads 0 Hz at idle, when its graphics engine is switched off.</figcaption></figure>
+<p><b>OIF Scheduling</b> shows GPUs offered, in use and waiting per vendor (from Kubernetes, so the AMD GPU is always counted), the Run:ai project quotas, and the per-vendor caps. Here with team-c running one pod per vendor and team-b's AMD pod waiting on its quota of 0:</p>
+<figure class="shot"><a href="img/g04-scheduling.png" target="_blank" rel="noopener"><img src="img/g04-scheduling.png" width="2160" height="2400" loading="lazy" alt="OIF Scheduling during the demo: 1 AMD and 1 NVIDIA GPU in use by runai-team-c, 1 AMD GPU waiting in runai-team-b; Run:ai reports team-c with 2 GPUs allocated and team-b with 1 pending; the per-vendor caps of team-c are used 1 of 1 each."></a><figcaption><b>Figure 15.</b> OIF Scheduling during the demo: 1 AMD and 1 NVIDIA GPU in use by runai-team-c, 1 AMD GPU waiting in runai-team-b; Run:ai reports team-c with 2 GPUs allocated and team-b with 1 pending; the per-vendor caps of team-c are used 1 of 1 each.</figcaption></figure>
+<p>Every panel uses the <code>oif:*</code> series from the recording rules, for example:</p>
+<div class="table"><table><thead><tr><th>Series</th><th>NVIDIA source</th><th>AMD source</th></tr></thead><tbody><tr><td><code>oif:gpu_util_ratio</code></td><td><code>DCGM_FI_DEV_GPU_UTIL / 100</code></td><td><code>gpu_gfx_activity / 100</code></td></tr><tr><td><code>oif:gpu_mem_used_bytes</code></td><td><code>DCGM_FI_DEV_FB_USED</code> (MiB)</td><td><code>gpu_used_vram</code> (MiB)</td></tr><tr><td><code>oif:gpu_power_watts</code></td><td><code>DCGM_FI_DEV_POWER_USAGE</code></td><td><code>gpu_average_package_power</code></td></tr><tr><td><code>oif:gpu_temp_celsius</code></td><td><code>DCGM_FI_DEV_GPU_TEMP</code></td><td><code>gpu_edge_temperature</code></td></tr></tbody></table></div>
+<p>The full schema is in the Deployment Guide.</p>
+<h2 id="runai"><span class="n">10</span>What Run:ai shows</h2>
+<p>The same demo, seen in Run:ai:</p>
+<figure class="shot"><a href="img/a09.png" target="_blank" rel="noopener"><img src="img/a09.png" width="2546" height="788" loading="lazy" alt="The demo pods: team-c runs one NVIDIA and one AMD pod; team-b&#x27;s AMD pod waits with NonPreemptibleOverQuota; team-c&#x27;s per-vendor caps are both used."></a><figcaption><b>Figure 16.</b> The demo pods: team-c runs one NVIDIA and one AMD pod; team-b's AMD pod waits with NonPreemptibleOverQuota; team-c's per-vendor caps are both used.</figcaption></figure>
+<figure class="shot"><a href="img/v05-workloads.png" target="_blank" rel="noopener"><img src="img/v05-workloads.png" width="2160" height="1350" loading="lazy" alt="Workload manager, Workloads: the AMD and NVIDIA pods of team-c Running with one GPU each, and team-b&#x27;s AMD pod Pending. The AMD pods have a generic icon, the NVIDIA pod the NVIDIA logo."></a><figcaption><b>Figure 17.</b> Workload manager, Workloads: the AMD and NVIDIA pods of team-c Running with one GPU each, and team-b's AMD pod Pending. The AMD pods have a generic icon, the NVIDIA pod the NVIDIA logo.</figcaption></figure>
+<figure class="shot"><a href="img/v02-nodes.png" target="_blank" rel="noopener"><img src="img/v02-nodes.png" width="2160" height="1350" loading="lazy" alt="Resources, Nodes: the node&#x27;s GPU type is the RTX A6000 only, yet 2 GPUs are allocated: Run:ai counts the AMD pod&#x27;s GPU but lists only NVIDIA GPUs in its inventory."></a><figcaption><b>Figure 18.</b> Resources, Nodes: the node's GPU type is the RTX A6000 only, yet 2 GPUs are allocated: Run:ai counts the AMD pod's GPU but lists only NVIDIA GPUs in its inventory.</figcaption></figure>
+<figure class="shot"><a href="img/v04-projects.png" target="_blank" rel="noopener"><img src="img/v04-projects.png" width="2160" height="1350" loading="lazy" alt="Organization, Projects: team-c with a GPU quota of 2 shows 1 allocated GPU, while Run:ai&#x27;s own metrics give it 2. Use the Grafana dashboards for per-vendor figures."></a><figcaption><b>Figure 19.</b> Organization, Projects: team-c with a GPU quota of 2 shows 1 allocated GPU, while Run:ai's own metrics give it 2. Use the Grafana dashboards for per-vendor figures.</figcaption></figure>
+<div class="table"><table><thead><tr><th>Run:ai view</th><th>Counts the AMD GPU</th></tr></thead><tbody><tr><td>Scheduling and quotas (KAI Scheduler)</td><td>yes</td></tr><tr><td>Workloads page</td><td>yes</td></tr><tr><td>Nodes page, allocated GPUs</td><td>yes</td></tr><tr><td>Nodes and Node pools pages, GPU type and device count</td><td>no: NVIDIA only</td></tr><tr><td>Projects page, allocated GPUs</td><td>not consistently</td></tr><tr><td>Run:ai metrics per project, queue, workload</td><td>yes, as one number with NVIDIA</td></tr></tbody></table></div>
+<h2 id="troubleshooting"><span class="n">11</span>Troubleshooting</h2>
+<figure class="shot"><a href="img/a10.png" target="_blank" rel="noopener"><img src="img/a10.png" width="2100" height="626" loading="lazy" alt="The one failure of the reference installation: the AMD GPU Operator&#x27;s controller restarting because it waited for kernel-module-management resource types that were not installed."></a><figcaption><b>Figure 20.</b> The one failure of the reference installation: the AMD GPU Operator's controller restarting because it waited for kernel-module-management resource types that were not installed.</figcaption></figure>
+<div class="table"><table><thead><tr><th>Problem</th><th>Cause and fix</th></tr></thead><tbody><tr><td><code>amd.com/gpu advertised: not reached</code>, no <code>default-device-plugin</code>, controller in CrashLoopBackOff with <code>no matches for kind "Module"</code></td><td><code>kmm.watch</code> was left on while <code>kmm.enabled</code> was off. Fixed in oif; run <code>sudo ./oif install</code> again, the stage reruns by itself.</td></tr><tr><td><code>&lt;address&gt; is on driver 'vfio-pci', not amdgpu</code></td><td>The GPU is isolated for virtual machines in <code>.env</code> (<code>ISOLATE_GPUS</code>); remove it there, <code>sudo ./oif install --reconfigure</code>, reboot when asked.</td></tr><tr><td><code>/dev/kfd is missing</code></td><td>The amdgpu driver did not enable compute: `sudo dmesg \</td><td>grep -i kfd`.</td></tr><tr><td><code>gpu_health</code> 0 on a Radeon PRO W7900 or W7800</td><td>Phantom memory ECC errors on kernel 7.0; check that configmap <code>amd-metrics-config</code> in <code>kube-amd-gpu</code> carries the raised threshold.</td></tr><tr><td>A pod is refused with <code>exceeded quota: oif-gpu-vendor</code></td><td>The project's per-vendor cap is used up; this is the cap working. Raise it in the ResourceQuota, or wait for the other pod to finish.</td></tr><tr><td>A Grafana panel shows only one vendor</td><td>That vendor's exporter is not scraped: <code>kubectl -n gpu-operator get pods -l app=nvidia-dcgm-exporter</code>, <code>kubectl -n kube-amd-gpu get pods,servicemonitor</code>.</td></tr><tr><td>Run:ai's Nodes page shows more GPUs allocated than the node has</td><td>Expected: Run:ai counts the AMD allocation but lists only NVIDIA GPUs.</td></tr></tbody></table></div>
+<h2 id="uninstall"><span class="n">12</span>Uninstall</h2>
+<p><code>sudo ./oif uninstall</code> removes the AMD GPU Operator, the quotas and the dashboards together with the rest of the cluster. The host keeps its <code>amdgpu</code> driver, which oif never changed.</p>
+</main>
+</div>
+<script>
+document.querySelectorAll('.copy').forEach(function (b) {
+  b.addEventListener('click', function () {
+    var pre = b.parentElement.querySelector('pre'), text = pre.innerText;
+    function done(msg) { b.textContent = msg; setTimeout(function () { b.textContent = 'Copy'; }, 1500); }
+    try {
+      navigator.clipboard.writeText(text).then(function () { done('Copied'); }, function () { select(pre); done('Select + Ctrl+C'); });
+    } catch (e) { select(pre); done('Select + Ctrl+C'); }
+  });
+});
+function select(el) { var r = document.createRange(); r.selectNodeContents(el); var s = window.getSelection(); s.removeAllRanges(); s.addRange(r); }
+</script>
+</body></html>
