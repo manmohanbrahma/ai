@@ -1,0 +1,295 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Installation Guide: Single-Node Run:ai</title><meta name="description" content="Step-by-step installation of open-source NVIDIA Run:ai 3.0 on one Ubuntu GPU server with oif, from an empty host to projects with GPU quotas.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@600;700&family=Source+Sans+3:wght@400;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: single reading column (~72ch) with a sticky step index on wide screens; code and logs scroll inside their own boxes */
+:root {
+  --bg: #f6f7f8; --surface: #ffffff; --fg: #1b2228; --muted: #5a6670; --line: #d9dee2;
+  --accent: #0b7a75; --accent-soft: #e2f2f0; --warn: #9a5b00; --warn-soft: #fbf0dc; --bad: #a1262c;
+  --code-bg: #0f1a20; --code-fg: #d7e3e8; --code-dim: #7f939c; --code-ok: #6fd1a4; --code-warn: #f0c36a; --code-err: #ff8f8f;
+  --f-display: "Barlow Semi Condensed", "Arial Narrow", Arial, sans-serif;
+  --f-body: "Source Sans 3", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --f-mono: "JetBrains Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0e1418; --surface: #151d22; --fg: #e3e9ec; --muted: #9aa8b0; --line: #2a353c;
+  --accent: #4fc1b8; --accent-soft: #15302e; --warn: #f0b85a; --warn-soft: #33270f; --bad: #ff8a8f;
+  --code-bg: #091014; --code-fg: #d7e3e8; --code-dim: #7f939c; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #0e1418; --surface: #151d22; --fg: #e3e9ec; --muted: #9aa8b0; --line: #2a353c;
+  --accent: #4fc1b8; --accent-soft: #15302e; --warn: #f0b85a; --warn-soft: #33270f; --bad: #ff8a8f;
+  --code-bg: #091014; --code-fg: #d7e3e8; --code-dim: #7f939c; color-scheme: dark }
+* { box-sizing: border-box }
+body { background: var(--bg); color: var(--fg); font: 17px/1.6 var(--f-body); margin: 0; padding-inline: 16px; padding-block: 0 64px }
+.wrap { max-width: 1120px; margin: 0 auto; display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 48px }
+@media (max-width: 900px) { .wrap { grid-template-columns: minmax(0, 1fr) } nav.toc { display: none } }
+nav.toc { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 24px); align-self: start; padding-top: 40px; font-size: 14px }
+nav.toc ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; counter-reset: s }
+nav.toc a { color: var(--muted); text-decoration: none; display: block; padding: 2px 0 2px 10px; border-left: 2px solid var(--line) }
+nav.toc a:hover, nav.toc a:focus-visible { color: var(--accent); border-left-color: var(--accent); outline: none }
+main { min-width: 0; padding-top: 40px }
+header.doc { border-bottom: 1px solid var(--line); padding-bottom: 24px; margin-bottom: 8px }
+.eyebrow { font: 600 13px/1 var(--f-body); letter-spacing: .12em; text-transform: uppercase; color: var(--accent) }
+h1, h2, h3 { font-family: var(--f-display); text-wrap: balance; line-height: 1.15; margin: 0 }
+h1 { font-size: clamp(32px, 5vw, 46px); font-weight: 700; margin-top: 10px }
+h2 { font-size: 28px; font-weight: 600; margin: 56px 0 12px; scroll-margin-top: 20px }
+h2 .n { color: var(--accent); margin-right: 10px; font-variant-numeric: tabular-nums }
+h3 { font-size: 20px; font-weight: 600; margin: 28px 0 8px }
+p, li { max-width: 72ch }
+p { margin: 10px 0 }
+.meta { display: flex; flex-wrap: wrap; gap: 8px 24px; color: var(--muted); font-size: 15px; margin-top: 14px }
+.meta b { color: var(--fg); font-weight: 600 }
+.lede { font-size: 19px; color: var(--fg); margin-top: 14px }
+a { color: var(--accent) }
+code { font: 0.86em var(--f-mono); background: var(--accent-soft); padding: 1px 5px; border-radius: 4px; overflow-wrap: anywhere }
+.cmd, pre.log { position: relative; background: var(--code-bg); color: var(--code-fg); border-radius: 8px; margin: 12px 0; font: 13.5px/1.55 var(--f-mono) }
+.cmd pre, pre.log { margin: 0; padding: 14px 16px; overflow-x: auto; white-space: pre }
+pre.log { max-height: 460px; overflow: auto }
+.cmd .c { color: var(--code-dim) }
+.copy { position: absolute; top: 8px; right: 8px; font: 600 12px var(--f-body); color: var(--code-fg); background: transparent; border: 1px solid #3a4a52; border-radius: 6px; padding: 3px 9px; cursor: pointer }
+.copy:hover, .copy:focus-visible { border-color: var(--accent); color: #fff; outline: none }
+.log .ok { color: var(--code-ok) } .log .w { color: var(--code-warn) } .log .e { color: var(--code-err) } .log .s { color: #9cc7ff; font-weight: 600 }
+.table { overflow-x: auto; margin: 12px 0; border: 1px solid var(--line); border-radius: 8px; background: var(--surface) }
+table { border-collapse: collapse; width: 100%; font-size: 15px }
+th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); vertical-align: top }
+th { font: 600 13px var(--f-body); letter-spacing: .04em; text-transform: uppercase; color: var(--muted); background: var(--bg) }
+tr:last-child td { border-bottom: 0 }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap }
+.facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin: 18px 0 }
+.fact { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; min-width: 0 }
+.fact .k { font-size: 13px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em }
+.fact .v { font: 600 22px/1.2 var(--f-display); margin-top: 4px; font-variant-numeric: tabular-nums }
+.note { background: var(--warn-soft); border-radius: 8px; padding: 12px 16px; margin: 14px 0; max-width: 78ch }
+.note b { color: var(--warn) }
+.qa { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 0.8fr); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: var(--surface); margin: 12px 0 }
+.qa > div { padding: 8px 12px; border-bottom: 1px solid var(--line); min-width: 0; overflow-wrap: anywhere }
+.qa > div:nth-child(odd) { color: var(--muted) }
+.qa > div:nth-child(even) { font-family: var(--f-mono); font-size: 14px }
+.qa > div:nth-last-child(-n+2) { border-bottom: 0 }
+@media (max-width: 560px) { .qa { grid-template-columns: minmax(0, 1fr) } .qa > div:nth-child(odd) { border-bottom: 0; padding-bottom: 0 } }
+details { border: 1px solid var(--line); border-radius: 8px; background: var(--surface); margin: 12px 0 }
+details > summary { cursor: pointer; padding: 10px 14px; font-weight: 600 }
+details[open] > summary { border-bottom: 1px solid var(--line) }
+details .inner { padding: 4px 14px 14px; min-width: 0 }
+ol.steps li { margin: 6px 0 }
+@media (prefers-reduced-motion: no-preference) { nav.toc a { transition: color .15s, border-color .15s } }
+</style>
+<style>
+figure.shot{margin:20px 0 24px}
+figure.shot a{display:block;border:1px solid var(--line);border-radius:8px;overflow:hidden;box-shadow:0 1px 2px rgba(0,0,0,.06),0 6px 20px rgba(0,0,0,.08);cursor:zoom-in}
+figure.shot img{display:block;width:100%;height:auto}
+figure.shot figcaption{font-size:13.5px;color:var(--muted);margin-top:8px;line-height:1.45}
+figure.shot figcaption b{color:var(--fg)}
+ul.check{list-style:none;padding-left:4px} ul.check li::before{content:"\2610";margin-right:8px;color:var(--muted)}</style></head><body>
+<div class="wrap">
+<nav class="toc" aria-label="Contents">
+  <ol>
+    <li><a href="#overview">What you get</a></li>
+    <li><a href="#before">Before you start</a></li>
+    <li><a href="#oif">How oif works</a></li>
+    <li><a href="#download">Download and configure</a></li>
+    <li><a href="#host">Install: host preparation</a></li>
+    <li><a href="#kubernetes">Install: Kubernetes</a></li>
+    <li><a href="#gpu">Install: NVIDIA GPU Operator</a></li>
+    <li><a href="#around">Install: Prometheus, ingress and certificates</a></li>
+    <li><a href="#runai">Install: Run:ai</a></li>
+    <li><a href="#ui">Open the Run:ai UI</a></li>
+    <li><a href="#tour">Tour of the Run:ai UI</a></li>
+    <li><a href="#quota">Projects and the quota test</a></li>
+    <li><a href="#troubleshooting">Troubleshooting</a></li>
+    <li><a href="#uninstall">Uninstall</a></li>
+  </ol>
+</nav>
+<main>
+<header class="doc">
+  <div class="eyebrow">Installation Guide</div>
+  <h1>Single-Node Run:ai Installation</h1>
+  <p class="lede">One command line, <code>oif</code>, installs open-source NVIDIA Run:ai 3.0 on an Ubuntu GPU server in about 30 minutes: Kubernetes, the NVIDIA GPU Operator, Prometheus, ingress, a domain, TLS, the Run:ai control plane and cluster, and a quota test. This guide walks through it from an empty host to the Run:ai UI; planning decisions are in the companion Deployment Guide.</p>
+  <div class="meta"><span>Author <b>Manmohan Brahma</b></span><span>October <b>2026</b></span><span>Run:ai <b>3.0.20</b></span><span>Kubernetes <b>1.35.9</b></span><span>GPU Operator <b>26.7.1</b></span><span><a href="https://github.com/manmohanbrahma/open-inference-fabric">oif on GitHub</a></span><span><a href="../deployment-guide/">Deployment Guide</a></span><span><a href="../../">All guides</a></span></div>
+</header>
+<h2 id="overview"><span class="n">1</span>What you get</h2>
+<p>From an empty Ubuntu server to open-source <b>Run:ai 3.0.20</b> scheduling GPU workloads, with one command line, <code>oif</code>:</p>
+<ul><li>single-node Kubernetes 1.35 with Calico, local-path storage and MetalLB;</li><li>the NVIDIA driver and the NVIDIA GPU Operator;</li><li>Prometheus, Grafana and Alertmanager;</li><li>the HAProxy ingress controller, a domain that needs no DNS server, and TLS from a private CA;</li><li>the Run:ai control plane and cluster, connected, with projects and GPU quotas.</li></ul>
+<p>Every change to the host is recorded, and <code>oif uninstall</code> reverses it. Planning topics (architecture, versions, sizing, network, security) are in the companion <a href="../deployment-guide/">Deployment Guide</a>.</p>
+<p>Everything shown here is from a real installation on the reference host: Ubuntu 26.04.1 and an NVIDIA RTX A6000. Addresses and the host name are shown as placeholders.</p>
+<div class="table"><table><thead><tr><th>Step</th><th>Time</th></tr></thead><tbody><tr><td>Host preparation, including one reboot</td><td>5 minutes</td></tr><tr><td>Kubernetes</td><td>7 minutes</td></tr><tr><td>NVIDIA GPU Operator</td><td>3 minutes</td></tr><tr><td>Prometheus, ingress, certificates</td><td>3 minutes</td></tr><tr><td>Run:ai</td><td>10 to 15 minutes</td></tr></tbody></table></div>
+<h2 id="before"><span class="n">2</span>Before you start</h2>
+<ul class="check"><li>Ubuntu 22.04, 24.04 or 26.04 on the server; at least 16 CPU threads, 64 GB memory and 150 GB free under <code>/var/lib</code></li><li>An NVIDIA GPU, Ampere or newer</li><li>A user with <code>sudo</code> that you log in as over SSH</li><li>2 to 5 free IP addresses on the server's subnet for MetalLB</li><li>Outbound HTTPS to the registries (registry.k8s.io, nvcr.io, ghcr.io, quay.io, docker.io), github.com, helm.ngc.nvidia.com and the Ubuntu archive</li><li>One reboot of the server is acceptable</li></ul>
+<p>No NVIDIA NGC key is needed: open-source Run:ai images and charts are public.</p>
+<h2 id="oif"><span class="n">3</span>How oif works</h2>
+<p><code>oif</code> is a Bash command line in the public repository <a href="https://github.com/manmohanbrahma/open-inference-fabric">manmohanbrahma/open-inference-fabric</a>. It installs in <b>stages</b>; each stage is skipped once done, so running <code>oif install</code> again continues where it stopped and changes nothing that is finished. A stage tied to a version in <code>versions.env</code> runs again when that version changes.</p>
+<div class="table"><table><thead><tr><th>Command</th><th>Changes the host</th><th>What it does</th></tr></thead><tbody><tr><td><code>./oif check</code></td><td>no</td><td>host and GPU report, DNS and registry reachability</td></tr><tr><td><code>sudo ./oif install</code></td><td>yes</td><td>asks the missing settings, shows a summary, then runs as a background job</td></tr><tr><td><code>sudo ./oif install --reconfigure</code></td><td>yes</td><td>asks again for settings that are invalid or changed in <code>.env</code></td></tr><tr><td><code>sudo ./oif status</code></td><td>no</td><td>finished stages and recorded host changes</td></tr><tr><td><code>sudo ./oif plan</code></td><td>no</td><td>what uninstall would remove and keep</td></tr><tr><td><code>sudo ./oif uninstall</code></td><td>yes</td><td>reverses every recorded change; asks you to type <code>wipe</code></td></tr></tbody></table></div>
+<p>The stages, in order:</p>
+<div class="table"><table><thead><tr><th>Group</th><th>Stages</th></tr></thead><tbody><tr><td>Host</td><td>preflight, host-packages, kernel, containerd, nvidia-driver, reboot, host-verify</td></tr><tr><td>Kubernetes</td><td>k8s-packages, kubernetes, k8s-tokens, calico, storage, metallb, k8s-verify</td></tr><tr><td>NVIDIA</td><td>gpu-operator, gpu-verify</td></tr><tr><td>Around Run:ai</td><td>prometheus, ingress, pki, runai-dns</td></tr><tr><td>Run:ai</td><td>runai, runai-fractions, runai-verify, runai-quota</td></tr></tbody></table></div>
+<h2 id="download"><span class="n">4</span>Download and configure</h2>
+<h3>1. Download the code</h3>
+<p>Git is not needed:</p>
+<div class="cmd"><button class="copy" type="button">Copy</button><pre>cd ~
+wget -qO oif.tar.gz https://github.com/manmohanbrahma/open-inference-fabric/archive/refs/heads/main.tar.gz
+tar -xzf oif.tar.gz &amp;&amp; mv open-inference-fabric-main open-inference-fabric &amp;&amp; rm oif.tar.gz
+cd ~/open-inference-fabric
+./oif version</pre></div>
+<h3>2. Check the host</h3>
+<p>The check only reads; it does not need <code>sudo</code>.</p>
+<div class="cmd"><button class="copy" type="button">Copy</button><pre>./oif check</pre></div>
+<figure class="shot"><a href="img/r01-check.png" target="_blank" rel="noopener"><img src="img/r01-check.png" width="1610" height="1396" loading="lazy" alt="The host check before anything is installed: hardware, the GPUs and what oif will do (replace the nouveau driver, turn swap off), and registry reachability. Newer versions also test every DNS server (see Troubleshooting)."></a><figcaption><b>Figure 1.</b> The host check before anything is installed: hardware, the GPUs and what oif will do (replace the nouveau driver, turn swap off), and registry reachability. Newer versions also test every DNS server (see Troubleshooting).</figcaption></figure>
+<div class="table"><table><thead><tr><th>GPU line</th><th>Meaning</th></tr></thead><tbody><tr><td><code>NVIDIA ... compute</code></td><td>used by Kubernetes from this guide on</td></tr><tr><td><code>other ... ignored</code></td><td>for example the server management controller's display chip; never touched</td></tr></tbody></table></div>
+<h3>3. Write the settings</h3>
+<div class="cmd"><button class="copy" type="button">Copy</button><pre>cp .env.example .env
+chmod 600 .env
+nano .env</pre></div>
+<div class="table"><table><thead><tr><th>Setting</th><th>What to enter</th></tr></thead><tbody><tr><td><code>HOST_IP</code></td><td>the server's main address</td></tr><tr><td><code>METALLB_RANGE</code></td><td>free addresses on the same subnet, first-last; the first one becomes the Run:ai address</td></tr><tr><td><code>INSTALL_DIR</code></td><td>data folder on a large disk, for example <code>/data/oif</code>; removed by uninstall</td></tr><tr><td><code>NVIDIA_GPUS</code></td><td>empty for all NVIDIA GPUs, or PCI addresses from the NVIDIA lines</td></tr><tr><td><code>RUNAI_DOMAIN</code></td><td>empty for <code>runai.&lt;first-MetalLB-address&gt;.sslip.io</code>, or your own domain</td></tr><tr><td><code>GRAFANA_ADMIN_PASSWORD</code></td><td>12 characters or more; or leave empty and type it at the prompt</td></tr><tr><td><code>HF_TOKEN</code></td><td>only for gated Hugging Face models; empty is fine</td></tr></tbody></table></div>
+<p>Values in <code>.env</code> are read as data, never run as a script. A GPU listed under the wrong vendor is refused with the reason.</p>
+<h2 id="host"><span class="n">5</span>Install: host preparation</h2>
+<div class="cmd"><button class="copy" type="button">Copy</button><pre>sudo ./oif install</pre></div>
+<p>oif asks for every missing setting first, with passwords hidden, shows a summary, and asks whether it may reboot the host by itself. Answer <code>y</code> to both. From then on the install runs as a background job: a dropped SSH session does not stop it.</p>
+<figure class="shot"><a href="img/r02-host.png" target="_blank" rel="noopener"><img src="img/r02-host.png" width="2040" height="1640" loading="lazy" alt="Host preparation: base packages, kernel settings, swap off, containerd with its data on the data disk, the NVIDIA 595 server driver from the Ubuntu archive, then the agreed reboot."></a><figcaption><b>Figure 2.</b> Host preparation: base packages, kernel settings, swap off, containerd with its data on the data disk, the NVIDIA 595 server driver from the Ubuntu archive, then the agreed reboot.</figcaption></figure>
+<p>The host reboots once. Log in again after about two minutes and follow the log; reading it needs no <code>sudo</code>:</p>
+<div class="cmd"><button class="copy" type="button">Copy</button><pre>tail -f /var/log/oif-install.log</pre></div>
+<figure class="shot"><a href="img/r03-host-verify.png" target="_blank" rel="noopener"><img src="img/r03-host-verify.png" width="1520" height="424" loading="lazy" alt="After the reboot the install continues by itself: the NVIDIA driver is loaded, swap is off and containerd runs."></a><figcaption><b>Figure 3.</b> After the reboot the install continues by itself: the NVIDIA driver is loaded, swap is off and containerd runs.</figcaption></figure>
+<div class="table"><table><thead><tr><th>Host change</th><th>Reversed by uninstall</th></tr></thead><tbody><tr><td>Packages: conntrack, curl, ipset, socat, containerd, runc, NVIDIA 595-server headless driver and utilities</td><td>purged, unless the OS depends on one</td></tr><tr><td><code>/etc/modules-load.d/90-oif.conf</code>, <code>/etc/sysctl.d/90-oif.conf</code></td><td>deleted</td></tr><tr><td>Swap line in <code>/etc/fstab</code> commented out</td><td>restored from its backup</td></tr><tr><td><code>/etc/containerd/config.toml</code> (systemd cgroups, data on the data disk)</td><td>deleted</td></tr><tr><td><code>/etc/modprobe.d/90-oif-nouveau.conf</code> (nouveau blocked)</td><td>deleted, boot image rebuilt</td></tr></tbody></table></div>
+<h2 id="kubernetes"><span class="n">6</span>Install: Kubernetes</h2>
+<p>The same <code>sudo ./oif install</code> continues; nothing is asked. It installs Kubernetes 1.35.9 from the official package repository, runs <code>kubeadm init</code> with address ranges that do not overlap the host's networks, removes the join tokens, then installs Calico, local-path storage and MetalLB, and proves them with a test volume and a test web server on the first MetalLB address.</p>
+<figure class="shot"><a href="img/r04-k8s.png" target="_blank" rel="noopener"><img src="img/r04-k8s.png" width="1520" height="1680" loading="lazy" alt="Kubernetes stages: packages held at 1.35.9, kubeadm init, join tokens removed, Calico, local-path storage on the data disk, MetalLB, and the smoke test answering on the load-balancer address."></a><figcaption><b>Figure 4.</b> Kubernetes stages: packages held at 1.35.9, kubeadm init, join tokens removed, Calico, local-path storage on the data disk, MetalLB, and the smoke test answering on the load-balancer address.</figcaption></figure>
+<p>kubectl works for your own user without <code>sudo</code>:</p>
+<figure class="shot"><a href="img/r05-nodes.png" target="_blank" rel="noopener"><img src="img/r05-nodes.png" width="2426" height="262" loading="lazy" alt="The node is Ready, Kubernetes 1.35.9 on containerd 2.2.2."></a><figcaption><b>Figure 5.</b> The node is Ready, Kubernetes 1.35.9 on containerd 2.2.2.</figcaption></figure>
+<p>kubeadm's own output contains a join token and a certificate key. oif keeps it in <code>/var/lib/oif/kubeadm-init.log</code> (root only), deletes the tokens (a single node needs none) and shows <code>&lt;redacted&gt;</code> in the readable log.</p>
+<h2 id="gpu"><span class="n">7</span>Install: NVIDIA GPU Operator</h2>
+<p>The GPU Operator v26.7.1 installs with its default stack (container toolkit, device plugin, GPU feature discovery, DCGM exporter, Node Feature Discovery) on the host's driver. oif then runs a pod that executes <code>nvidia-smi</code> and NVIDIA's CUDA vectorAdd sample, and reads the GPU's metrics.</p>
+<figure class="shot"><a href="img/r06-gpu-operator.png" target="_blank" rel="noopener"><img src="img/r06-gpu-operator.png" width="1520" height="870" loading="lazy" alt="GPU Operator stage and its check: the node advertises one nvidia.com/gpu, the CUDA test passes in a pod, and DCGM reports memory, temperature and power."></a><figcaption><b>Figure 6.</b> GPU Operator stage and its check: the node advertises one nvidia.com/gpu, the CUDA test passes in a pod, and DCGM reports memory, temperature and power.</figcaption></figure>
+<figure class="shot"><a href="img/r07-gpu.png" target="_blank" rel="noopener"><img src="img/r07-gpu.png" width="1788" height="1072" loading="lazy" alt="The GPU on the host, the GPU Operator&#x27;s pods, and the node&#x27;s allocatable resources, including nvidia.com/gpu: 1."></a><figcaption><b>Figure 7.</b> The GPU on the host, the GPU Operator's pods, and the node's allocatable resources, including nvidia.com/gpu: 1.</figcaption></figure>
+<h2 id="around"><span class="n">8</span>Install: Prometheus, ingress and certificates</h2>
+<p>Run:ai expects these before it is installed:</p>
+<div class="table"><table><thead><tr><th>Stage</th><th>What it installs</th></tr></thead><tbody><tr><td>prometheus</td><td>kube-prometheus-stack 92.3.0: Prometheus Operator and CRDs, Prometheus (50 GiB volume), Grafana with your admin password, Alertmanager</td></tr><tr><td>ingress</td><td>HAProxy ingress controller, class <code>haproxy</code>, on the first MetalLB address</td></tr><tr><td>pki</td><td>a private CA and a certificate for the Run:ai domain, its workloads and inference endpoints; the CA's public certificate is copied to <code>~/oif-ca.crt</code></td></tr><tr><td>runai-dns</td><td>a CoreDNS block so the cluster answers the Run:ai domain itself</td></tr></tbody></table></div>
+<figure class="shot"><a href="img/r08-around.png" target="_blank" rel="noopener"><img src="img/r08-around.png" width="1982" height="708" loading="lazy" alt="Prometheus, HAProxy on the load-balancer address, and the certificate for the sslip.io domain."></a><figcaption><b>Figure 8.</b> Prometheus, HAProxy on the load-balancer address, and the certificate for the sslip.io domain.</figcaption></figure>
+<figure class="shot"><a href="img/r09-dns-tls.png" target="_blank" rel="noopener"><img src="img/r09-dns-tls.png" width="1520" height="506" loading="lazy" alt="The domain resolves to the ingress address, Run:ai answers over HTTPS with the oif CA, and the CA&#x27;s subject and expiry."></a><figcaption><b>Figure 9.</b> The domain resolves to the ingress address, Run:ai answers over HTTPS with the oif CA, and the CA's subject and expiry.</figcaption></figure>
+<h2 id="runai"><span class="n">9</span>Install: Run:ai</h2>
+<p>oif downloads <code>runai-installer</code> 3.0.20, checks it against the published SHA-256, writes its configuration (control plane and cluster on this cluster, GPU Operator and Prometheus already installed, ingress class <code>haproxy</code>, the certificate and CA), runs the preflight checks, then installs.</p>
+<p>The configuration oif generates, with your domain and certificate paths filled in:</p>
+<div class="cmd"><button class="copy" type="button">Copy</button><pre>install:
+  mode: full_installation
+  connectivity: connected
+registry:
+  type: ngc                             # open source: public images, no credentials
+tls:
+  certPath: /var/lib/oif/pki/tls.crt
+  keyPath: /var/lib/oif/pki/tls.key
+  caChainPath: /var/lib/oif/pki/ca.crt
+controlPlane:
+  enabled: true
+  version: "3.0.20"
+  domain: runai.&lt;lb-ip&gt;.sslip.io
+cluster:
+  enabled: true
+  version: "3.0.20"
+  name: oif
+  workloadRouting: host
+prerequisites:
+  gpuOperator:
+    mode: skip
+  prometheus:
+    mode: skip
+  networkOperator:
+    mode: skip
+features:
+  skip: true
+externalConnection:
+  type: ingress
+  ingress:
+    className: haproxy</pre></div>
+<figure class="shot"><a href="img/r10-preflight.png" target="_blank" rel="noopener"><img src="img/r10-preflight.png" width="1520" height="830" loading="lazy" alt="Run:ai&#x27;s preflight checks: all nine pass."></a><figcaption><b>Figure 10.</b> Run:ai's preflight checks: all nine pass.</figcaption></figure>
+<figure class="shot"><a href="img/r11-runai.png" target="_blank" rel="noopener"><img src="img/r11-runai.png" width="2174" height="1558" loading="lazy" alt="The run that completed the installation on the reference host: the first attempt had installed the control plane and stopped at the cluster chart (see Troubleshooting), so those steps show as already installed; the cluster chart then installed and the cluster registered, in 4.5 minutes."></a><figcaption><b>Figure 11.</b> The run that completed the installation on the reference host: the first attempt had installed the control plane and stopped at the cluster chart (see Troubleshooting), so those steps show as already installed; the cluster chart then installed and the cluster registered, in 4.5 minutes.</figcaption></figure>
+<p>Then oif keeps Run:ai's GPU-fraction daemons off the GPU node while its driver is older than r615 (Run:ai 3.0's minimum for fractions), and verifies the result.</p>
+<figure class="shot"><a href="img/r12-verify.png" target="_blank" rel="noopener"><img src="img/r12-verify.png" width="2650" height="708" loading="lazy" alt="Fractions off for driver 595, then the verification: every Run:ai pod running, the UI answering over HTTPS with a certificate the oif CA trusts, and the two commands that show the administrator login."></a><figcaption><b>Figure 12.</b> Fractions off for driver 595, then the verification: every Run:ai pod running, the UI answering over HTTPS with a certificate the oif CA trusts, and the two commands that show the administrator login.</figcaption></figure>
+<p>The control plane and the cluster services:</p>
+<figure class="shot"><a href="img/r13-pods-cp.png" target="_blank" rel="noopener"><img src="img/r13-pods-cp.png" width="1520" height="1436" loading="lazy" alt="The Run:ai control plane in namespace runai-backend: about 30 services including Keycloak, PostgreSQL, NATS and Thanos."></a><figcaption><b>Figure 13.</b> The Run:ai control plane in namespace runai-backend: about 30 services including Keycloak, PostgreSQL, NATS and Thanos.</figcaption></figure>
+<figure class="shot"><a href="img/r14-pods-cl.png" target="_blank" rel="noopener"><img src="img/r14-pods-cl.png" width="1520" height="1436" loading="lazy" alt="The Run:ai cluster in namespace runai: the KAI Scheduler and its controllers, admission, Prometheus, and the agent."></a><figcaption><b>Figure 14.</b> The Run:ai cluster in namespace runai: the KAI Scheduler and its controllers, admission, Prometheus, and the agent.</figcaption></figure>
+<figure class="shot"><a href="img/r15-helm.png" target="_blank" rel="noopener"><img src="img/r15-helm.png" width="2382" height="424" loading="lazy" alt="Every Helm release oif installed, with chart versions."></a><figcaption><b>Figure 15.</b> Every Helm release oif installed, with chart versions.</figcaption></figure>
+<h2 id="ui"><span class="n">10</span>Open the Run:ai UI</h2>
+<h3>1. Read the administrator login</h3>
+<p>Run:ai generates the first administrator. Only root can read the password:</p>
+<div class="cmd"><button class="copy" type="button">Copy</button><pre>sudo kubectl --kubeconfig /etc/kubernetes/admin.conf -n runai-backend get configmap runai-backend-tenants-manager -o jsonpath='{.data.ADMIN_USERNAME}'; echo
+sudo kubectl --kubeconfig /etc/kubernetes/admin.conf -n runai-backend get secret runai-backend-gen-tenants-manager -o jsonpath='{.data.ADMIN_PASSWORD}' | base64 -d; echo</pre></div>
+<h3>2. Reach the load-balancer address</h3>
+<p>If your computer is on the server's network, open <code>https://runai.&lt;lb-ip&gt;.sslip.io</code> directly. If you reach the server only through a VPN that routes the server's own address, use an SSH SOCKS tunnel and a browser that sends its traffic and its DNS lookups through it:</p>
+<div class="cmd"><button class="copy" type="button">Copy</button><pre>ssh -N -D 127.0.0.1:11080 &lt;user&gt;@&lt;host-ip&gt;</pre></div>
+<p>On Windows, start Chrome with a separate profile that uses the tunnel:</p>
+<div class="cmd"><button class="copy" type="button">Copy</button><pre>"C:\Program Files\Google\Chrome\Application\chrome.exe" --user-data-dir=%TEMP%\chrome-runai --proxy-server=socks5://127.0.0.1:11080 --host-resolver-rules="MAP * ~NOTFOUND , EXCLUDE 127.0.0.1" https://runai.&lt;lb-ip&gt;.sslip.io/</pre></div>
+<h3>3. Trust the oif CA</h3>
+<p>Copy <code>~/oif-ca.crt</code> from the server and import it once: in Windows, double-click it, <b>Install Certificate</b>, <b>Local Machine</b> (or Current User), <b>Place all certificates in the following store</b>, <b>Trusted Root Certification Authorities</b>. Chrome and Edge use that store. On macOS, open it in Keychain Access and set it to <b>Always Trust</b>. Firefox has its own store: <b>Settings, Privacy &amp; Security, Certificates, View Certificates, Authorities, Import</b>.</p>
+<div class="cmd"><button class="copy" type="button">Copy</button><pre>scp &lt;user&gt;@&lt;host-ip&gt;:oif-ca.crt .</pre></div>
+<h3>4. Log in</h3>
+<figure class="shot"><a href="img/u01-login.png" target="_blank" rel="noopener"><img src="img/u01-login.png" width="2160" height="1350" loading="lazy" alt="The Run:ai sign-in page (Keycloak) on the sslip.io domain."></a><figcaption><b>Figure 16.</b> The Run:ai sign-in page (Keycloak) on the sslip.io domain.</figcaption></figure>
+<p>Sign in with the administrator from step 1, then change its password after the first login.</p>
+<figure class="shot"><a href="img/u02-overview.png" target="_blank" rel="noopener"><img src="img/u02-overview.png" width="2160" height="1350" loading="lazy" alt="Analytics, Overview: GPU nodes and devices, workloads by state and category, and projects with their GPU quota and use."></a><figcaption><b>Figure 17.</b> Analytics, Overview: GPU nodes and devices, workloads by state and category, and projects with their GPU quota and use.</figcaption></figure>
+<figure class="shot"><a href="img/u02b-quota.png" target="_blank" rel="noopener"><img src="img/u02b-quota.png" width="2160" height="1350" loading="lazy" alt="Analytics, Quota management: GPU quota against the cluster&#x27;s GPUs, allocation per node pool, and projects with the lowest allocation."></a><figcaption><b>Figure 18.</b> Analytics, Quota management: GPU quota against the cluster's GPUs, allocation per node pool, and projects with the lowest allocation.</figcaption></figure>
+<h2 id="tour"><span class="n">11</span>Tour of the Run:ai UI</h2>
+<h3>Resources</h3>
+<figure class="shot"><a href="img/u03-clusters.png" target="_blank" rel="noopener"><img src="img/u03-clusters.png" width="2160" height="1350" loading="lazy" alt="Resources, Clusters: the cluster oif on vanilla Kubernetes 1.35.9, Connected, with its URL and version."></a><figcaption><b>Figure 19.</b> Resources, Clusters: the cluster oif on vanilla Kubernetes 1.35.9, Connected, with its URL and version.</figcaption></figure>
+<figure class="shot"><a href="img/u04-nodes.png" target="_blank" rel="noopener"><img src="img/u04-nodes.png" width="2160" height="1350" loading="lazy" alt="Resources, Nodes: the GPU node with its RTX A6000, 50.9 GB of GPU memory and 192 CPU cores. Missing Prerequisites refers to GPU fractions only."></a><figcaption><b>Figure 20.</b> Resources, Nodes: the GPU node with its RTX A6000, 50.9 GB of GPU memory and 192 CPU cores. Missing Prerequisites refers to GPU fractions only.</figcaption></figure>
+<figure class="shot"><a href="img/u05-node-reason.png" target="_blank" rel="noopener"><img src="img/u05-node-reason.png" width="2160" height="1350" loading="lazy" alt="The reason, shown by the node&#x27;s information button: the NVIDIA driver&#x27;s major version is below 615, so GPU fractions are not supported on this node. Whole-GPU scheduling, projects and quotas are not affected."></a><figcaption><b>Figure 21.</b> The reason, shown by the node's information button: the NVIDIA driver's major version is below 615, so GPU fractions are not supported on this node. Whole-GPU scheduling, projects and quotas are not affected.</figcaption></figure>
+<figure class="shot"><a href="img/u06-nodepools.png" target="_blank" rel="noopener"><img src="img/u06-nodepools.png" width="2160" height="1350" loading="lazy" alt="Resources, Node pools: the default node pool, Ready, with one GPU and all CPU and memory of the node."></a><figcaption><b>Figure 22.</b> Resources, Node pools: the default node pool, Ready, with one GPU and all CPU and memory of the node.</figcaption></figure>
+<h3>Organization</h3>
+<figure class="shot"><a href="img/u07-departments.png" target="_blank" rel="noopener"><img src="img/u07-departments.png" width="2160" height="1350" loading="lazy" alt="Organization, Departments: the default department, which owns the projects team-a and team-b."></a><figcaption><b>Figure 23.</b> Organization, Departments: the default department, which owns the projects team-a and team-b.</figcaption></figure>
+<figure class="shot"><a href="img/u08-projects.png" target="_blank" rel="noopener"><img src="img/u08-projects.png" width="2160" height="1350" loading="lazy" alt="Organization, Projects: team-a with a GPU quota of 1 and team-b with 0, both Ready (created by the quota test in the next section)."></a><figcaption><b>Figure 24.</b> Organization, Projects: team-a with a GPU quota of 1 and team-b with 0, both Ready (created by the quota test in the next section).</figcaption></figure>
+<figure class="shot"><a href="img/u09-project-edit.png" target="_blank" rel="noopener"><img src="img/u09-project-edit.png" width="2160" height="1350" loading="lazy" alt="Select a project and choose EDIT: description, GPU quota, GPU over quota, scheduling rules and access rules are edited separately."></a><figcaption><b>Figure 25.</b> Select a project and choose EDIT: description, GPU quota, GPU over quota, scheduling rules and access rules are edited separately.</figcaption></figure>
+<figure class="shot"><a href="img/u09b-project-quota.png" target="_blank" rel="noopener"><img src="img/u09b-project-quota.png" width="2160" height="1350" loading="lazy" alt="Edit project, GPU quota: team-a&#x27;s quota on the default node pool, against the department&#x27;s quota. Nothing was saved here."></a><figcaption><b>Figure 26.</b> Edit project, GPU quota: team-a's quota on the default node pool, against the department's quota. Nothing was saved here.</figcaption></figure>
+<h3>Workload manager</h3>
+<figure class="shot"><a href="img/u10-workloads.png" target="_blank" rel="noopener"><img src="img/u10-workloads.png" width="2160" height="1350" loading="lazy" alt="Workload manager, Workloads: empty until a workload is submitted; the quota test&#x27;s pods were plain Kubernetes pods and were removed."></a><figcaption><b>Figure 27.</b> Workload manager, Workloads: empty until a workload is submitted; the quota test's pods were plain Kubernetes pods and were removed.</figcaption></figure>
+<figure class="shot"><a href="img/u11a-new-workload-menu.png" target="_blank" rel="noopener"><img src="img/u11a-new-workload-menu.png" width="2160" height="1350" loading="lazy" alt="NEW WORKLOAD offers the workload types: Workspace, Training, Inference (needs Knative, not installed in this guide) and Via YAML."></a><figcaption><b>Figure 28.</b> NEW WORKLOAD offers the workload types: Workspace, Training, Inference (needs Knative, not installed in this guide) and Via YAML.</figcaption></figure>
+<figure class="shot"><a href="img/u11-new-workload.png" target="_blank" rel="noopener"><img src="img/u11-new-workload.png" width="2160" height="1350" loading="lazy" alt="A new training: choose the cluster and the project (team-a, team-b), then the environment, compute resource and data. Run:ai sets the namespace and its scheduler."></a><figcaption><b>Figure 29.</b> A new training: choose the cluster and the project (team-a, team-b), then the environment, compute resource and data. Run:ai sets the namespace and its scheduler.</figcaption></figure>
+<figure class="shot"><a href="img/u17-environments.png" target="_blank" rel="noopener"><img src="img/u17-environments.png" width="2160" height="1350" loading="lazy" alt="Workload manager, Environments: images Run:ai ships as starting points, among them Jupyter, vLLM, Open WebUI, VS Code and TensorBoard."></a><figcaption><b>Figure 30.</b> Workload manager, Environments: images Run:ai ships as starting points, among them Jupyter, vLLM, Open WebUI, VS Code and TensorBoard.</figcaption></figure>
+<figure class="shot"><a href="img/u18-compute.png" target="_blank" rel="noopener"><img src="img/u18-compute.png" width="2160" height="1350" loading="lazy" alt="Workload manager, Compute resources: predefined requests from CPU-only to two GPUs, including GPU fractions (which need driver r615)."></a><figcaption><b>Figure 31.</b> Workload manager, Compute resources: predefined requests from CPU-only to two GPUs, including GPU fractions (which need driver r615).</figcaption></figure>
+<h3>Access, policies and settings</h3>
+<figure class="shot"><a href="img/u12-users.png" target="_blank" rel="noopener"><img src="img/u12-users.png" width="2160" height="1350" loading="lazy" alt="Access, Users: the generated administrator, a local user."></a><figcaption><b>Figure 32.</b> Access, Users: the generated administrator, a local user.</figcaption></figure>
+<figure class="shot"><a href="img/u12a-access-rules.png" target="_blank" rel="noopener"><img src="img/u12a-access-rules.png" width="2160" height="1350" loading="lazy" alt="Access, Access rules: the administrator holds the System administrator role on the whole tenant."></a><figcaption><b>Figure 33.</b> Access, Access rules: the administrator holds the System administrator role on the whole tenant.</figcaption></figure>
+<figure class="shot"><a href="img/u13-roles.png" target="_blank" rel="noopener"><img src="img/u13-roles.png" width="2160" height="1350" loading="lazy" alt="Access, Roles: Run:ai&#x27;s predefined roles, from viewers and researchers to system administrator."></a><figcaption><b>Figure 34.</b> Access, Roles: Run:ai's predefined roles, from viewers and researchers to system administrator.</figcaption></figure>
+<figure class="shot"><a href="img/u14-policies.png" target="_blank" rel="noopener"><img src="img/u14-policies.png" width="2160" height="1350" loading="lazy" alt="Policies, Workload policies: none yet; policies set defaults and limits for workloads per scope."></a><figcaption><b>Figure 35.</b> Policies, Workload policies: none yet; policies set defaults and limits for workloads per scope.</figcaption></figure>
+<figure class="shot"><a href="img/u15-settings.png" target="_blank" rel="noopener"><img src="img/u15-settings.png" width="2160" height="1350" loading="lazy" alt="Admin, General settings: analytics, resources, workloads, security, notifications, cluster authentication and branding."></a><figcaption><b>Figure 36.</b> Admin, General settings: analytics, resources, workloads, security, notifications, cluster authentication and branding.</figcaption></figure>
+<figure class="shot"><a href="img/u16-events.png" target="_blank" rel="noopener"><img src="img/u16-events.png" width="2160" height="1350" loading="lazy" alt="Admin, Event history: logins and changes with subject, source address and result (addresses shown as placeholders)."></a><figcaption><b>Figure 37.</b> Admin, Event history: logins and changes with subject, source address and result (addresses shown as placeholders).</figcaption></figure>
+<h2 id="quota"><span class="n">12</span>Projects and the quota test</h2>
+<p>The last stage, <code>runai-quota</code>, proves that Run:ai's quotas are enforced, through the Run:ai REST API:</p>
+<ol><li>It logs in as the administrator (credentials stay in memory, never printed).</li><li>It creates project <b>team-a</b> with a quota of 1 GPU, and <b>team-b</b> with 0 GPUs and over-quota off.</li><li>team-b submits a pod asking for one GPU <b>while the GPU is free</b>: it must stay Pending. The quota holds it, not a lack of capacity.</li><li>team-a submits the same pod: it must run on the GPU, while team-b's still waits.</li><li>The test pods are deleted; the projects stay.</li></ol>
+<figure class="shot"><a href="img/r16-quota.png" target="_blank" rel="noopener"><img src="img/r16-quota.png" width="1818" height="788" loading="lazy" alt="The quota test: team-b waits on a free GPU, team-a runs on it."></a><figcaption><b>Figure 38.</b> The quota test: team-b waits on a free GPU, team-a runs on it.</figcaption></figure>
+<p>The pod used by the test, in a Run:ai project's namespace:</p>
+<div class="cmd"><button class="copy" type="button">Copy</button><pre>apiVersion: v1
+kind: Pod
+metadata:
+  name: gpu-quota-test
+  namespace: runai-team-a
+spec:
+  schedulerName: runai-scheduler
+  runtimeClassName: nvidia
+  restartPolicy: Never
+  containers:
+    - name: gpu
+      image: nvcr.io/nvidia/k8s/cuda-sample:vectoradd-cuda12.5.0
+      command: ["sh", "-c", "nvidia-smi -L &amp;&amp; sleep 600"]
+      resources:
+        limits:
+          nvidia.com/gpu: 1</pre></div>
+<h2 id="troubleshooting"><span class="n">13</span>Troubleshooting</h2>
+<figure class="shot"><a href="img/r17-dns-check.png" target="_blank" rel="noopener"><img src="img/r17-dns-check.png" width="1952" height="344" loading="lazy" alt="oif check flags a DNS server in the host&#x27;s settings that refuses queries. It caused the one failure of the reference installation."></a><figcaption><b>Figure 39.</b> oif check flags a DNS server in the host's settings that refuses queries. It caused the one failure of the reference installation.</figcaption></figure>
+<div class="table"><table><thead><tr><th>Problem</th><th>Cause and fix</th></tr></thead><tbody><tr><td><code>./oif check</code>: <code>DNS server ... does not answer</code></td><td>A DNS server in the host's settings refuses queries. The host's resolver falls back to the next one, but Kubernetes' DNS does not, so pods see random lookup failures. Remove it from the host's network settings (netplan). oif's cluster DNS answers the Run:ai domain itself either way.</td></tr><tr><td>Run:ai cluster chart: <code>job pre-install failed: BackoffLimitExceeded</code></td><td>Its pre-install job could not resolve the control plane domain (<code>kubectl -n runai logs job/pre-install</code>). The runai-dns stage fixes it; run <code>sudo ./oif install</code> again. oif removes the failed job before retrying.</td></tr><tr><td><code>gpu-fractioning-mpsd</code> in CrashLoopBackOff</td><td>The NVIDIA driver is older than r615. The runai-fractions stage keeps the fraction daemons off the node; run <code>sudo ./oif install</code>.</td></tr><tr><td>Node shows <b>Missing Prerequisites</b> in Run:ai</td><td>Same cause, GPU fractions only; whole GPUs work.</td></tr><tr><td>Browser: <code>ERR_NAME_NOT_RESOLVED</code></td><td>The browser resolves names locally: use the <code>--host-resolver-rules</code> setting so DNS goes through the tunnel, or make sure your computer can resolve sslip.io.</td></tr><tr><td>Browser: certificate warning</td><td>Import <code>oif-ca.crt</code> into the trusted root authorities (Ingress and UI use the oif certificate).</td></tr><tr><td><code>the saved settings are not valid on this host</code></td><td><code>sudo ./oif install --reconfigure</code>; only invalid values are asked again.</td></tr><tr><td>An install stage failed</td><td>Fix the cause shown and run <code>sudo ./oif install</code> again: finished stages are skipped. The Run:ai installer's own logs are in <code>/var/lib/oif/runai/</code>.</td></tr></tbody></table></div>
+<h2 id="uninstall"><span class="n">14</span>Uninstall</h2>
+<p>Preview, without changing anything:</p>
+<div class="cmd"><button class="copy" type="button">Copy</button><pre>sudo ./oif plan</pre></div>
+<p>Remove everything oif installed and return the host to its OS default (Kubernetes, Run:ai, the GPU Operator and its containerd and CDI files, packages, kernel settings, swap, the data folder):</p>
+<div class="cmd"><button class="copy" type="button">Copy</button><pre>sudo ./oif uninstall</pre></div>
+<p>It asks you to type <code>wipe</code>, offers to reboot at the end, and runs as a background job. Only packages oif installed are removed, never one the operating system had before.</p>
+</main>
+</div>
+<script>
+document.querySelectorAll('.copy').forEach(function (b) {
+  b.addEventListener('click', function () {
+    var pre = b.parentElement.querySelector('pre'), text = pre.innerText;
+    function done(msg) { b.textContent = msg; setTimeout(function () { b.textContent = 'Copy'; }, 1500); }
+    try {
+      navigator.clipboard.writeText(text).then(function () { done('Copied'); }, function () { select(pre); done('Select + Ctrl+C'); });
+    } catch (e) { select(pre); done('Select + Ctrl+C'); }
+  });
+});
+function select(el) { var r = document.createRange(); r.selectNodeContents(el); var s = window.getSelection(); s.removeAllRanges(); s.addRange(r); }
+</script>
+</body></html>
