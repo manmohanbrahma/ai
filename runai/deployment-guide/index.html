@@ -1,0 +1,176 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Deployment Guide: Single-Node Run:ai</title><meta name="description" content="Architecture, versions, sizing, network, DNS, TLS, security and operations for open-source NVIDIA Run:ai 3.0 on one GPU server.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..100,500..800&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a printed technical paper - narrow reading column; tables, steps and figures may widen to 1040px */
+:root{
+  --paper:#fbfbfa; --ink:#18202a; --muted:#5b6672; --rule:#dee2e6; --panel:#f1f3f4;
+  --accent:#b8322a; --accent2:#2c5d8f; --ok:#2f7d32; --okbg:#e6f2e6; --warn:#8f5a00; --warnbg:#fbf1de;
+  --f-head:"Archivo","Arial Narrow","Helvetica Neue",Arial,sans-serif;
+  --f-body:"Source Serif 4",Georgia,"Times New Roman",serif;
+  --f-mono:"JetBrains Mono",ui-monospace,Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --paper:#13171c; --ink:#e5e9ed; --muted:#9ba6b1; --rule:#2d343c; --panel:#1b2128;
+  --accent:#ff7b6e; --accent2:#7fb2e5; --ok:#86d08a; --okbg:#1c311f; --warn:#f0b65c; --warnbg:#2e2413; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --paper:#13171c; --ink:#e5e9ed; --muted:#9ba6b1; --rule:#2d343c; --panel:#1b2128;
+  --accent:#ff7b6e; --accent2:#7fb2e5; --ok:#86d08a; --okbg:#1c311f; --warn:#f0b65c; --warnbg:#2e2413; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--paper);color:var(--ink);font:17px/1.62 var(--f-body);padding-inline:18px;padding-block:40px 80px;margin:0}
+.paper{max-width:1040px;margin:0 auto}
+.col{max-width:720px;margin-inline:auto}
+h1,h2,h3,.eyebrow,.meta,th,.fig figcaption,.step b.t{font-family:var(--f-head)}
+h1{font-size:clamp(34px,5.4vw,52px);font-stretch:85%;font-weight:750;line-height:1.05;letter-spacing:-.01em;margin:10px 0 18px;text-wrap:balance}
+h2{font-size:27px;font-stretch:88%;font-weight:700;margin:56px 0 12px;padding-top:18px;border-top:2px solid var(--ink);text-wrap:balance}
+h2 .n{color:var(--accent);margin-right:10px}
+h3{font-size:19px;font-weight:650;margin:28px 0 8px;text-wrap:balance}
+p{margin:0 0 14px} ul,ol{margin:0 0 16px;padding-left:22px} li{margin-bottom:6px}
+a{color:var(--accent2)}
+code{font-family:var(--f-mono);font-size:.82em;background:var(--panel);padding:1px 5px;border-radius:3px}
+pre{font-family:var(--f-mono);font-size:13px;line-height:1.5;background:var(--panel);border:1px solid var(--rule);padding:12px 14px;overflow-x:auto;margin:10px 0 16px}
+pre code{background:none;padding:0}
+.eyebrow{font-size:12.5px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--accent)}
+.lede{font-size:21px;line-height:1.5}
+.meta{display:flex;flex-wrap:wrap;gap:6px 26px;font-size:13.5px;color:var(--muted);margin:22px 0 0;padding-top:14px;border-top:1px solid var(--rule)}
+.meta b{color:var(--ink);font-weight:600}
+.note{background:var(--warnbg);border-left:3px solid var(--warn);padding:12px 16px;font-size:15px;margin:22px 0}
+.note b{color:var(--warn)}
+.wide{max-width:1040px;margin:22px auto}
+.tbl{overflow-x:auto;border-top:2px solid var(--ink);border-bottom:1px solid var(--ink)}
+table{border-collapse:collapse;width:100%;font-size:14.5px;font-variant-numeric:tabular-nums}
+th{font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);text-align:left;padding:9px 10px;border-bottom:1px solid var(--rule);vertical-align:bottom}
+td{padding:7px 10px;border-bottom:1px solid var(--rule);vertical-align:top}
+tr:last-child td{border-bottom:0}
+.pill{display:inline-block;font-family:var(--f-head);font-size:12px;font-weight:600;padding:1px 8px;border-radius:999px;white-space:nowrap}
+.pill.ok{background:var(--okbg);color:var(--ok)} .pill.todo{background:var(--warnbg);color:var(--warn)}
+.steps{list-style:none;padding:0;margin:18px 0;counter-reset:s}
+.step{display:grid;grid-template-columns:42px 1fr;gap:14px;padding:14px 0;border-top:1px solid var(--rule)}
+.step:first-child{border-top:0}
+.step::before{counter-increment:s;content:counter(s);font-family:var(--f-head);font-weight:750;font-size:26px;font-stretch:80%;color:var(--accent);line-height:1}
+.step>div{min-width:0}
+.step b.t{display:block;font-size:17px;font-weight:650;margin-bottom:4px}
+.step p{font-size:15.5px;margin-bottom:8px}
+.fig{margin:26px auto;max-width:1040px}
+.fig img{display:block;width:100%;height:auto;border:1px solid var(--rule)}
+.fig .slot{border:1.5px dashed var(--rule);background:var(--panel);aspect-ratio:16/8;display:flex;align-items:center;justify-content:center;padding:18px;text-align:center;color:var(--muted);font-family:var(--f-head);font-size:14px;max-width:100%}
+.fig figcaption{font-size:13.5px;color:var(--muted);margin-top:8px}
+.fig figcaption b{color:var(--ink)}
+pre.mermaid{background:var(--panel);padding:14px;overflow-x:auto;border:1px solid var(--rule);font-family:var(--f-head)}
+.two{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:22px}
+.two>*{min-width:0}
+footer{margin-top:60px;padding-top:14px;border-top:1px solid var(--rule);font-size:13.5px;color:var(--muted)}
+@media (max-width:520px){body{font-size:16px}.lede{font-size:18px}h2{font-size:23px}.step{grid-template-columns:30px 1fr}}
+</style>
+<style>
+.arch{display:block;width:100%;height:auto;font-family:var(--f-head);font-size:11.5px}
+.arch .t{fill:var(--ink)} .arch .q{fill:var(--muted)}
+.arch .bx{fill:none;stroke:var(--muted);stroke-width:1.25}
+.arch .bx.acc{fill:var(--accent2);fill-opacity:.12;stroke:var(--accent2);stroke-width:2}
+.arch .host{fill:var(--panel);stroke:var(--muted);stroke-width:1.25}
+.arch .ln path{fill:none;stroke:var(--muted);stroke-width:1.25} .arch .ah{fill:var(--muted)}
+ul.check{list-style:none;padding-left:4px} ul.check li::before{content:"\2610";margin-right:8px;color:var(--muted)}
+</style></head><body>
+<article class="paper">
+<header class="col">
+  <div class="eyebrow">Deployment Guide · October 2026</div>
+  <h1>Single-Node Run:ai Deployment</h1>
+  <p class="lede">How to plan open-source NVIDIA Run:ai 3.0 on one GPU server: the control plane and the cluster on a single-node Kubernetes cluster, with the NVIDIA GPU Operator, Prometheus, an ingress controller, a domain without a DNS server, and TLS from a private CA. Architecture, tested versions, sizing, network, security and operations, from a real lab build.</p>
+  <div class="meta">
+    <span><b>Author</b> Manmohan Brahma</span>
+    <span><b>Run:ai</b> 3.0.20, open source</span>
+    <span><b>Kubernetes</b> 1.35.9, single node</span>
+    <span><b>GPU</b> NVIDIA RTX A6000</span>
+    <span><a href="../install-guide/">Installation Guide</a></span>
+    <span><a href="https://github.com/manmohanbrahma/open-inference-fabric">oif on GitHub</a></span>
+    <span><a href="../../">All guides</a></span>
+  </div>
+  <div class="note"><b>Lab build.</b> Open-source Run:ai is community software without NVIDIA support. Run:ai documents data-centre GPUs; the workstation GPU used here schedules as a whole GPU, but GPU fractions need driver r615 or later.</div>
+</header>
+<section class="col">
+<h2 id="what-this-guide-covers"><span class="n">1</span>What this guide covers</h2>
+<p>NVIDIA open-sourced the complete Run:ai platform on 13 October 2026: the control plane (UI, REST API, identity, organisation, policies, metrics), the cluster services, the KAI Scheduler with projects, quotas and node pools, and the installer, under Apache-2.0. This guide describes how to deploy open-source <b>Run:ai 3.0</b> on <b>one GPU server</b>: control plane and cluster on the same single-node, upstream Kubernetes cluster, with the NVIDIA GPU Operator, Prometheus, an ingress controller, a domain and TLS, all installed and removed by one command line, <code>oif</code> (Open Inference Fabric).</p>
+<p>It is the planning half of a pair. The companion <a href="../install-guide/">Installation Guide</a> has every command and its output.</p>
+<p>The build is the first step of a larger project: one open-source platform that schedules, serves, benchmarks and observes LLMs on GPU servers.</p>
+</section>
+<section class="col">
+<h2 id="architecture"><span class="n">2</span>Architecture</h2>
+<figure class="fig"><svg class="arch" viewBox="0 0 760 600" role="img" aria-label="One host runs Kubernetes, the Run:ai control plane and the Run:ai cluster">
+<defs><marker id="arch-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path class="ah" d="M0 0L10 5L0 10z"/></marker></defs>
+<text class="t" x="24" y="30" font-size="15" font-weight="600">One host runs Kubernetes, the Run:ai control plane and the Run:ai cluster</text>
+<rect class="bx" x="40" y="52" width="332" height="56" rx="8"/><text class="t" x="56" y="76" font-size="13" font-weight="600">Administrators and researchers</text><text class="q" x="56" y="96">Browser: Run:ai UI, https://runai.&lt;lb-ip&gt;.sslip.io</text>
+<rect class="bx" x="388" y="52" width="332" height="56" rx="8"/><text class="t" x="404" y="76" font-size="13" font-weight="600">Automation</text><text class="q" x="404" y="96">Run:ai REST API and CLI, same domain</text>
+<rect class="host" x="24" y="132" width="712" height="444" rx="8"/>
+<g class="ln"><path d="M206 108V164" marker-end="url(#arch-arrow)"/><path d="M554 108V164" marker-end="url(#arch-arrow)"/><path d="M200 220V236" marker-end="url(#arch-arrow)"/><path d="M372 280H388" marker-end="url(#arch-arrow)"/><path d="M554 340V356" marker-end="url(#arch-arrow)"/><path d="M200 340V356" marker-end="url(#arch-arrow)"/></g>
+<rect class="bx" x="40" y="164" width="680" height="56" rx="8"/><text class="t" x="56" y="188" font-size="13" font-weight="600">MetalLB address &lt;lb-ip&gt; on HAProxy ingress (HTTPS 443, oif CA certificate)</text><text class="q" x="56" y="208">runai.&lt;lb-ip&gt;.sslip.io and *.runai.&lt;lb-ip&gt;.sslip.io; cluster DNS answers the domain itself</text>
+<rect class="bx acc" x="40" y="236" width="332" height="104" rx="8"/><text class="t" x="56" y="260" font-size="13" font-weight="600">Run:ai control plane (runai-backend)</text><text class="t" x="56" y="278">UI, REST API, Traefik, about 20 services</text><text class="t" x="56" y="294">Keycloak (identity), PostgreSQL 16</text><text class="t" x="56" y="310">NATS, Thanos (metrics)</text><text class="q" x="56" y="328">30 pods · 10.3 CPU · 13 GiB requested</text>
+<rect class="bx acc" x="388" y="236" width="332" height="104" rx="8"/><text class="t" x="404" y="260" font-size="13" font-weight="600">Run:ai cluster (runai)</text><text class="t" x="404" y="278">KAI Scheduler: projects, quotas, node pools</text><text class="t" x="404" y="294">admission, pod grouper, queue controllers</text><text class="t" x="404" y="310">agent and cluster sync, Prometheus</text><text class="q" x="404" y="328">30 pods · 5.4 CPU · 11 GiB requested</text>
+<rect class="bx" x="40" y="356" width="332" height="88" rx="8"/><text class="t" x="56" y="380" font-size="13" font-weight="600">Platform services</text><text class="q" x="56" y="396">Kubernetes 1.35.9, Calico, local-path, MetalLB</text><text class="q" x="56" y="412">Prometheus, Grafana, Alertmanager</text><text class="q" x="56" y="428">HAProxy ingress</text>
+<rect class="bx" x="388" y="356" width="332" height="88" rx="8"/><text class="t" x="404" y="380" font-size="13" font-weight="600">NVIDIA RTX A6000, 48 GB</text><text class="q" x="404" y="396">host driver 595.91.07 (CUDA 13.2)</text><text class="q" x="404" y="412">GPU Operator 26.7.1: toolkit, device plugin, DCGM</text><text class="q" x="404" y="428">nvidia.com/gpu, scheduled as a whole GPU</text>
+<rect class="bx" x="40" y="460" width="332" height="72" rx="8"/><text class="t" x="56" y="484" font-size="13" font-weight="600">Data disk</text><text class="q" x="56" y="500">container images, persistent volumes</text><text class="q" x="56" y="516">Thanos 100 GiB, Prometheus 50 GiB, PostgreSQL 8 GiB</text>
+<rect class="bx" x="388" y="460" width="332" height="72" rx="8"/><text class="t" x="404" y="484" font-size="13" font-weight="600">oif state (root only)</text><text class="q" x="404" y="500">/var/lib/oif: settings, record of host changes</text><text class="q" x="404" y="516">private CA, installer logs; uninstall reverses all</text>
+<text class="t" x="40" y="562" font-size="13" font-weight="600">Host: Ubuntu 26.04, single-node kubeadm cluster, installed and removed by oif</text>
+</svg><figcaption><b>Figure 1.</b> Reference architecture. Browsers and API clients reach HAProxy on one MetalLB address; the Run:ai control plane and the Run:ai cluster run on the same single-node Kubernetes cluster, and the KAI Scheduler places GPU workloads on the NVIDIA GPU.</figcaption></figure>
+<p>Everything runs on one host:</p>
+<ul><li><b>Kubernetes 1.35</b> (kubeadm), single node; the control plane also runs workloads.</li><li><b>Run:ai control plane</b> (namespace <code>runai-backend</code>): UI, REST API, Keycloak, PostgreSQL, NATS, Thanos, Traefik and about 20 services.</li><li><b>Run:ai cluster</b> (namespace <code>runai</code>): the KAI Scheduler (<code>runai-scheduler</code>), queue, pod-group and node-pool controllers, admission webhooks, a Prometheus instance, and the agent that syncs with the control plane.</li><li><b>GPU enablement</b>: NVIDIA driver on the host from the Ubuntu archive, NVIDIA GPU Operator for the container toolkit, device plugin, feature discovery and DCGM metrics.</li><li><b>Entry point</b>: one MetalLB address on the HAProxy ingress controller; the Run:ai domain and its wildcard resolve to it.</li></ul>
+<p>Requests from a browser or an API client reach HAProxy on the load-balancer address over HTTPS; HAProxy routes by host name to Run:ai's Traefik, which fronts the control plane. The Run:ai cluster services talk to the control plane through the same domain. GPU workloads submitted through Run:ai projects are placed by the KAI Scheduler on the GPU through the NVIDIA runtime.</p>
+</section>
+<section class="col">
+<h2 id="bill-of-materials"><span class="n">3</span>Bill of materials</h2>
+<p>Every version below was installed and verified together on the reference host. Each is pinned in <code>versions.env</code>, and every download is checked against a SHA-256 checksum before use.</p>
+<div class="wide"><div class="tbl"><table><thead><tr><th>Layer</th><th>Component</th><th>Version</th></tr></thead><tbody><tr><td>Host</td><td>Ubuntu Server</td><td>26.04.1 LTS, kernel 7.0</td></tr><tr><td>Host</td><td>NVIDIA driver (Ubuntu archive, headless, prebuilt open modules)</td><td>595.91.07, CUDA 13.2</td></tr><tr><td>Host</td><td>containerd / runc (Ubuntu archive)</td><td>2.2.2 / 1.4.0</td></tr><tr><td>Kubernetes</td><td>kubeadm, kubelet, kubectl (pkgs.k8s.io)</td><td>1.35.9</td></tr><tr><td>Kubernetes</td><td>Calico (Tigera operator, VXLAN)</td><td>v3.32.2</td></tr><tr><td>Kubernetes</td><td>local-path provisioner (default StorageClass)</td><td>v0.0.37</td></tr><tr><td>Kubernetes</td><td>MetalLB (layer 2)</td><td>v0.16.0</td></tr><tr><td>Kubernetes</td><td>Helm</td><td>v3.22.1</td></tr><tr><td>GPU</td><td>NVIDIA GPU Operator (driver disabled)</td><td>v26.7.1</td></tr><tr><td>Observability</td><td>kube-prometheus-stack (Prometheus, Grafana, Alertmanager)</td><td>92.3.0</td></tr><tr><td>Ingress</td><td>HAProxy Kubernetes Ingress Controller</td><td>chart 1.54.2, HAProxy 3.2.15</td></tr><tr><td>Run:ai</td><td>control plane and cluster (open source, <code>runai-installer</code>)</td><td>3.0.20</td></tr><tr><td>Run:ai bundled</td><td>Keycloak / PostgreSQL / NATS / Thanos / Traefik / Valkey</td><td>26.6 / 16 / 2.11.8 / 0.38 / 3.7 / 9.0.4</td></tr></tbody></table></div></div>
+<p>Run:ai 3.0's support matrix lists upstream Kubernetes 1.35 to 1.37 with containerd, GPU Operator 25.10 to 26.7.1, and kube-prometheus-stack 88.6.5 or newer. Version 26.7.2 of the GPU Operator was installed first and moved back to 26.7.1 to stay inside the matrix.</p>
+</section>
+<section class="col">
+<h2 id="reference-hardware-and-sizing"><span class="n">4</span>Reference hardware and sizing</h2>
+<div class="wide"><div class="tbl"><table><thead><tr><th>Item</th><th>Reference host</th><th>Run:ai minimum</th></tr></thead><tbody><tr><td>CPU</td><td>AMD EPYC 9684X, 96 cores / 192 threads</td><td>20 cores (control plane 10, cluster services 10)</td></tr><tr><td>Memory</td><td>751 GiB</td><td>32 GB (12 + 20)</td></tr><tr><td>Disk</td><td>9 TB data disk for images, volumes and models</td><td>160 GB (110 + 50)</td></tr><tr><td>GPU</td><td>NVIDIA RTX A6000, 48 GB (Ampere)</td><td>any GPU the GPU Operator supports</td></tr></tbody></table></div></div>
+<p>Measured on the reference host with everything running (93 pods):</p>
+<div class="wide"><div class="tbl"><table><thead><tr><th>Namespace</th><th>Pods</th><th>CPU requested</th><th>Memory requested</th></tr></thead><tbody><tr><td>runai-backend (control plane)</td><td>30</td><td>10.3 cores</td><td>13.1 GiB</td></tr><tr><td>runai (cluster services)</td><td>30</td><td>5.4 cores</td><td>11.3 GiB</td></tr><tr><td>Kubernetes, Calico, MetalLB, storage, ingress, GPU Operator, monitoring</td><td>33</td><td>under 2 cores</td><td>about 2 GiB</td></tr></tbody></table></div></div>
+<p>Actual memory in use on the host was about 18 GB. Persistent volumes, all on the data disk: Thanos 100 GiB, Prometheus 50 GiB, Grafana 10 GiB, PostgreSQL 8 GiB, NATS 3 x 3 GiB.</p>
+<p>Run:ai's documentation states that NVIDIA DGX Spark, Jetson and workstations are not supported. The RTX A6000 is a workstation-class GPU; on the reference host it is scheduled as a whole GPU without problems, but GPU fractions are not available (see Known issues).</p>
+</section>
+<section class="col">
+<h2 id="network-and-dns"><span class="n">5</span>Network and DNS</h2>
+<div class="wide"><div class="tbl"><table><thead><tr><th>Item</th><th>Value on the reference host</th><th>Why</th></tr></thead><tbody><tr><td>Host address</td><td><code>&lt;host-ip&gt;</code> on a /24</td><td>Kubernetes API on port 6443</td></tr><tr><td>Pod network</td><td>10.244.0.0/16 (Calico, VXLAN)</td><td>chosen by oif: no overlap with the host's networks</td></tr><tr><td>Service network</td><td>172.30.0.0/16</td><td>Kubernetes' default 10.96.0.0/12 spans 10.96 to 10.111 and would collide with a host network inside that range; oif picks the first free candidate</td></tr><tr><td>MetalLB pool</td><td>5 free addresses on the host's subnet</td><td>the first one is fixed to the ingress controller</td></tr><tr><td>Run:ai domain</td><td><code>runai.&lt;lb-ip&gt;.sslip.io</code></td><td>resolves to the ingress address without a DNS server</td></tr><tr><td>Workload wildcard</td><td><code>*.runai.&lt;lb-ip&gt;.sslip.io</code></td><td>workspaces and training endpoints (host-based routing)</td></tr><tr><td>Inference wildcard</td><td><code>*.inference.runai.&lt;lb-ip&gt;.sslip.io</code></td><td>covered by the certificate, for Knative inference later</td></tr></tbody></table></div></div>
+<p><b>sslip.io.</b> Run:ai needs a fully qualified domain and a wildcard below it. Without a DNS server of your own, sslip.io answers any name that contains an IP address with that address: <code>runai.192-0-2-240.sslip.io</code> resolves to <code>192.0.2.240</code>, and so does <code>anything.runai.192-0-2-240.sslip.io</code>. To use your own domain instead, set <code>RUNAI_DOMAIN</code> before installing and create <code>runai.example.com</code> and <code>*.runai.example.com</code> records pointing to the first MetalLB address.</p>
+<p><b>Cluster DNS answers the Run:ai domain itself.</b> The Run:ai cluster services reach the control plane through its domain. oif adds a block to CoreDNS that answers the domain and every name below it with the ingress address, so pods do not depend on external DNS for it. This was found necessary on the reference host, where one of the two DNS servers in the host's settings refuses every query: the host's resolver falls back to the other one, but CoreDNS does not, and pods saw random lookup failures (see Known issues).</p>
+<p><b>Access from a laptop.</b> MetalLB announces its addresses on the host's network segment. A client that reaches the host only through a VPN that routes the host's own address cannot reach the load-balancer address directly; an SSH SOCKS tunnel to the host, with a browser using it and resolving names remotely, works (<a href="../install-guide/#ui">Installation Guide, Open the Run:ai UI</a>).</p>
+</section>
+<section class="col">
+<h2 id="tls-and-certificates"><span class="n">6</span>TLS and certificates</h2>
+<p>oif creates a private certificate authority on the host and one server certificate:</p>
+<div class="wide"><div class="tbl"><table><thead><tr><th>Item</th><th>Detail</th></tr></thead><tbody><tr><td>CA</td><td>RSA 4096, 10 years, <code>CN=oif local CA &lt;host&gt;</code>; key in <code>/var/lib/oif/pki</code> (root only, mode 600)</td></tr><tr><td>Server certificate</td><td>RSA 2048, 825 days; SANs: the domain, <code>*.domain</code>, <code>*.inference.domain</code></td></tr><tr><td>Given to Run:ai</td><td>as <code>tls.certPath</code>, <code>tls.keyPath</code> and <code>tls.caChainPath</code> in the installer's configuration</td></tr><tr><td>Given to users</td><td>the CA's public certificate, <code>~/oif-ca.crt</code>, to import once into a browser or OS trust store</td></tr></tbody></table></div></div>
+<p>The CA is kept when the install is run again, so browsers that trust it keep trusting it. To use certificates from your own CA, the same three installer fields take them.</p>
+</section>
+<section class="col">
+<h2 id="storage"><span class="n">7</span>Storage</h2>
+<div class="wide"><div class="tbl"><table><thead><tr><th>Data</th><th>Where</th></tr></thead><tbody><tr><td>Container images and layers</td><td><code>&lt;INSTALL_DIR&gt;/containerd</code> (data disk, not the root disk)</td></tr><tr><td>Persistent volumes (local-path)</td><td><code>&lt;INSTALL_DIR&gt;/volumes</code></td></tr><tr><td>oif settings, records, CA, installer logs</td><td><code>/var/lib/oif</code> (root only)</td></tr><tr><td>Install log (readable, secrets redacted)</td><td><code>/var/log/oif-install.log</code></td></tr></tbody></table></div></div>
+<p>Run:ai recommends shared storage (NFS) for training data so that workloads read the same files on any node. A single-node cluster does not need it; local-path volumes are enough for the control plane and for inference workloads.</p>
+</section>
+<section class="col">
+<h2 id="security"><span class="n">8</span>Security</h2>
+<ul><li><b>Secrets.</b> Passwords and tokens are read from <code>.env</code> or asked at the prompt with the input hidden, saved only in <code>/var/lib/oif/settings.conf</code> (mode 600) and as Kubernetes Secrets. Grafana's admin password is passed to Kubernetes from a file, never as a command-line argument.</li><li><b>No join credentials left.</b> <code>kubeadm init</code> prints a bootstrap token and a certificate key; oif keeps that output in the root-only state folder, deletes the join tokens and the uploaded-certificates secret (a single node needs neither), and redacts tokens and keys from the readable log.</li><li><b>Run:ai administrator.</b> Run:ai generates the first administrator's password and stores it in the secret <code>runai-backend-gen-tenants-manager</code>; only root can read it. Change it after the first login.</li><li><b>Supply chain.</b> Every image and chart is pinned; Helm, the runai-installer binary and every upstream manifest are checked against SHA-256 checksums. Open-source Run:ai images and charts come from NGC without credentials.</li><li><b>Exposure.</b> The UI and API are reachable only on the load-balancer address on the host's subnet. Nothing is published outside the lab network.</li></ul>
+</section>
+<section class="col">
+<h2 id="design-decisions"><span class="n">9</span>Design decisions</h2>
+<div class="wide"><div class="tbl"><table><thead><tr><th>Decision</th><th>Choice</th><th>Reason</th></tr></thead><tbody><tr><td>Kubernetes</td><td>upstream kubeadm 1.35</td><td>open source, inside Run:ai's and Dynamo's support matrices</td></tr><tr><td>Install method</td><td><code>runai-installer</code> for Run:ai itself, oif for everything around it</td><td>NVIDIA's recommended path with preflight checks; prerequisites stay pinned and reversible</td></tr><tr><td>NVIDIA driver</td><td>host driver from the Ubuntu archive (prebuilt, signed, no DKMS); GPU Operator <code>driver.enabled=false</code></td><td>survives kernel updates through Ubuntu's packages; same driver version the operator would build</td></tr><tr><td>Prerequisites</td><td>GPU Operator and kube-prometheus-stack installed by oif, <code>mode: skip</code> in the installer</td><td>every version pinned, uninstall complete</td></tr><tr><td>Ingress</td><td>HAProxy, NVIDIA's documented example, on a fixed MetalLB address</td><td>the Run:ai domain needs one stable address</td></tr><tr><td>Domain</td><td>sslip.io by default, own domain optional</td><td>no DNS server in the lab</td></tr><tr><td>TLS</td><td>private CA generated on the host</td><td>browser trust after one import; no warnings</td></tr><tr><td>GPU fractions</td><td>off while the driver is older than r615</td><td>Run:ai 3.0 requires r615 for fractions</td></tr></tbody></table></div></div>
+</section>
+<section class="col">
+<h2 id="known-issues-and-limits"><span class="n">10</span>Known issues and limits</h2>
+<div class="wide"><div class="tbl"><table><thead><tr><th>Issue</th><th>Effect</th><th>What oif does / what to do</th></tr></thead><tbody><tr><td>GPU fractions need driver r615 or later; Ubuntu 26.04's archive ships 595</td><td>Run:ai's MPS daemon crash-loops; the Nodes page shows <b>Missing Prerequisites</b> for fractions</td><td>oif keeps the fractioning daemons off GPU nodes while the driver is older; whole-GPU scheduling, projects and quotas work. They come back automatically with a newer driver</td></tr><tr><td>A DNS server in the host's settings refuses queries</td><td>pods see random lookup failures for external names</td><td>the cluster answers the Run:ai domain itself; <code>oif check</code> warns about refusing DNS servers. Remove the refusing server from the host's network settings</td></tr><tr><td>Workstation GPUs are outside Run:ai's documented support</td><td>none observed for whole-GPU scheduling</td><td>keep production on data-centre GPUs</td></tr><tr><td>Single node</td><td>no high availability for the control plane</td><td>by design for this step</td></tr></tbody></table></div></div>
+</section>
+<section class="col">
+<h2 id="day-2-operations"><span class="n">11</span>Day-2 operations</h2>
+<div class="wide"><div class="tbl"><table><thead><tr><th>Task</th><th>How</th></tr></thead><tbody><tr><td>Status</td><td><code>sudo ./oif status</code>: finished stages and every recorded host change</td></tr><tr><td>Upgrade a component</td><td>change its version in <code>versions.env</code>, run <code>sudo ./oif install</code>: stages tied to that version run again (the GPU Operator downgrade to 26.7.1 was done this way)</td></tr><tr><td>Change settings</td><td>edit <code>.env</code>, <code>sudo ./oif install --reconfigure</code></td></tr><tr><td>Run:ai administrator password</td><td>change it in the UI after the first login</td></tr><tr><td>Metrics</td><td>Prometheus and Grafana in namespace <code>monitoring</code>; DCGM exporter on port 9400</td></tr><tr><td>Remove everything</td><td><code>sudo ./oif plan</code> (preview), then <code>sudo ./oif uninstall</code>: reverses every recorded change, newest first, and removes only the packages oif installed</td></tr></tbody></table></div></div>
+</section>
+<section class="col">
+<h2 id="checklists"><span class="n">12</span>Checklists</h2>
+<h3>Before installing</h3>
+<ul class="check"><li>Ubuntu 22.04, 24.04 or 26.04 server, 16+ CPU threads, 64 GB+ memory, 150 GB+ free under <code>/var/lib</code></li><li>A data disk for images and volumes (200 GB or more)</li><li>An NVIDIA GPU, Ampere or newer</li><li>2 to 5 free addresses on the host's subnet for MetalLB</li><li>Outbound HTTPS to registry.k8s.io, nvcr.io, ghcr.io, quay.io, docker.io, github.com, helm.ngc.nvidia.com and the Ubuntu archive</li><li>Every DNS server in the host's settings answers (<code>./oif check</code> tells)</li><li>A user with sudo; one reboot is acceptable</li></ul>
+<h3>After installing</h3>
+<ul class="check"><li><code>kubectl get nodes</code> shows the node Ready</li><li><code>kubectl get pods -A</code> shows every pod Running or Completed</li><li>The node advertises <code>nvidia.com/gpu</code></li><li><code>https://runai.&lt;lb-ip&gt;.sslip.io</code> opens without a certificate warning after importing the CA</li><li>The cluster shows <b>Connected</b> in Run:ai</li><li>A project with a GPU quota runs a GPU workload, and a project without quota waits</li></ul>
+</section>
+<footer class="col">Author: Manmohan Brahma · October 2026 · Written from a lab deployment; host addresses are shown as placeholders. Step-by-step commands: <a href="../install-guide/">Installation Guide</a>.</footer>
+</article>
+</body></html>
