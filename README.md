@@ -12,5 +12,6 @@ Every guide is written from a real lab deployment. Published at https://manmohan
 | Nutanix Enterprise AI on NKP: Installation Guide | [`nai-nkp/install-guide/`](https://manmohanbrahma.github.io/ai/nai-nkp/install-guide/) |
 | Nutanix Enterprise AI on Red Hat OpenShift: Deployment Planning Guide | [`nai-openshift/planning-guide/`](https://manmohanbrahma.github.io/ai/nai-openshift/planning-guide/) |
 | Nutanix Enterprise AI on Red Hat OpenShift: Install Guide | [`nai-openshift/install-guide/`](https://manmohanbrahma.github.io/ai/nai-openshift/install-guide/) |
+| AI Compute Accelerators: From Silicon to Tokens | [`accelerators/`](https://manmohanbrahma.github.io/ai/accelerators/) |
 
 To add a guide: put its self-contained HTML in a new folder as `index.html`, then add a card to the root `index.html` and a row here.
