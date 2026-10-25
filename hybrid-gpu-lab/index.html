@@ -1,0 +1,209 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Installation Guide: Hybrid GPU Cluster Lab</title><meta name="description" content="Build and tear down, with one command, five KVM VMs that emulate a multi-node cluster with NVIDIA and AMD GPUs in separate servers: three control-plane VMs and two GPU workers with PCI passthrough.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@600;700&family=Source+Sans+3:wght@400;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: single reading column (~72ch) with a sticky step index on wide screens; code and logs scroll inside their own boxes */
+:root {
+  --bg: #f6f7f8; --surface: #ffffff; --fg: #1b2228; --muted: #5a6670; --line: #d9dee2;
+  --accent: #0b7a75; --accent-soft: #e2f2f0; --warn: #9a5b00; --warn-soft: #fbf0dc; --bad: #a1262c;
+  --code-bg: #0f1a20; --code-fg: #d7e3e8; --code-dim: #7f939c; --code-ok: #6fd1a4; --code-warn: #f0c36a; --code-err: #ff8f8f;
+  --f-display: "Barlow Semi Condensed", "Arial Narrow", Arial, sans-serif;
+  --f-body: "Source Sans 3", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --f-mono: "JetBrains Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0e1418; --surface: #151d22; --fg: #e3e9ec; --muted: #9aa8b0; --line: #2a353c;
+  --accent: #4fc1b8; --accent-soft: #15302e; --warn: #f0b85a; --warn-soft: #33270f; --bad: #ff8a8f;
+  --code-bg: #091014; --code-fg: #d7e3e8; --code-dim: #7f939c; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #0e1418; --surface: #151d22; --fg: #e3e9ec; --muted: #9aa8b0; --line: #2a353c;
+  --accent: #4fc1b8; --accent-soft: #15302e; --warn: #f0b85a; --warn-soft: #33270f; --bad: #ff8a8f;
+  --code-bg: #091014; --code-fg: #d7e3e8; --code-dim: #7f939c; color-scheme: dark }
+* { box-sizing: border-box }
+body { background: var(--bg); color: var(--fg); font: 17px/1.6 var(--f-body); margin: 0; padding-inline: 16px; padding-block: 0 64px }
+.wrap { max-width: 1120px; margin: 0 auto; display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 48px }
+@media (max-width: 900px) { .wrap { grid-template-columns: minmax(0, 1fr) } nav.toc { display: none } }
+nav.toc { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 24px); align-self: start; padding-top: 40px; font-size: 14px }
+nav.toc ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; counter-reset: s }
+nav.toc a { color: var(--muted); text-decoration: none; display: block; padding: 2px 0 2px 10px; border-left: 2px solid var(--line) }
+nav.toc a:hover, nav.toc a:focus-visible { color: var(--accent); border-left-color: var(--accent); outline: none }
+main { min-width: 0; padding-top: 40px }
+header.doc { border-bottom: 1px solid var(--line); padding-bottom: 24px; margin-bottom: 8px }
+.eyebrow { font: 600 13px/1 var(--f-body); letter-spacing: .12em; text-transform: uppercase; color: var(--accent) }
+h1, h2, h3 { font-family: var(--f-display); text-wrap: balance; line-height: 1.15; margin: 0 }
+h1 { font-size: clamp(32px, 5vw, 46px); font-weight: 700; margin-top: 10px }
+h2 { font-size: 28px; font-weight: 600; margin: 56px 0 12px; scroll-margin-top: 20px }
+h2 .n { color: var(--accent); margin-right: 10px; font-variant-numeric: tabular-nums }
+h3 { font-size: 20px; font-weight: 600; margin: 28px 0 8px }
+p, li { max-width: 72ch }
+p { margin: 10px 0 }
+.meta { display: flex; flex-wrap: wrap; gap: 8px 24px; color: var(--muted); font-size: 15px; margin-top: 14px }
+.meta b { color: var(--fg); font-weight: 600 }
+.lede { font-size: 19px; color: var(--fg); margin-top: 14px }
+a { color: var(--accent) }
+code { font: 0.86em var(--f-mono); background: var(--accent-soft); padding: 1px 5px; border-radius: 4px; overflow-wrap: anywhere }
+.cmd, pre.log { position: relative; background: var(--code-bg); color: var(--code-fg); border-radius: 8px; margin: 12px 0; font: 13.5px/1.55 var(--f-mono) }
+.cmd pre, pre.log { margin: 0; padding: 14px 16px; overflow-x: auto; white-space: pre }
+pre.log { max-height: 460px; overflow: auto }
+.cmd .c { color: var(--code-dim) }
+.copy { position: absolute; top: 8px; right: 8px; font: 600 12px var(--f-body); color: var(--code-fg); background: transparent; border: 1px solid #3a4a52; border-radius: 6px; padding: 3px 9px; cursor: pointer }
+.copy:hover, .copy:focus-visible { border-color: var(--accent); color: #fff; outline: none }
+.log .ok { color: var(--code-ok) } .log .w { color: var(--code-warn) } .log .e { color: var(--code-err) } .log .s { color: #9cc7ff; font-weight: 600 }
+.table { overflow-x: auto; margin: 12px 0; border: 1px solid var(--line); border-radius: 8px; background: var(--surface) }
+table { border-collapse: collapse; width: 100%; font-size: 15px }
+th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); vertical-align: top }
+th { font: 600 13px var(--f-body); letter-spacing: .04em; text-transform: uppercase; color: var(--muted); background: var(--bg) }
+tr:last-child td { border-bottom: 0 }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap }
+.facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin: 18px 0 }
+.fact { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; min-width: 0 }
+.fact .k { font-size: 13px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em }
+.fact .v { font: 600 22px/1.2 var(--f-display); margin-top: 4px; font-variant-numeric: tabular-nums }
+.note { background: var(--warn-soft); border-radius: 8px; padding: 12px 16px; margin: 14px 0; max-width: 78ch }
+.note b { color: var(--warn) }
+.qa { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 0.8fr); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: var(--surface); margin: 12px 0 }
+.qa > div { padding: 8px 12px; border-bottom: 1px solid var(--line); min-width: 0; overflow-wrap: anywhere }
+.qa > div:nth-child(odd) { color: var(--muted) }
+.qa > div:nth-child(even) { font-family: var(--f-mono); font-size: 14px }
+.qa > div:nth-last-child(-n+2) { border-bottom: 0 }
+@media (max-width: 560px) { .qa { grid-template-columns: minmax(0, 1fr) } .qa > div:nth-child(odd) { border-bottom: 0; padding-bottom: 0 } }
+details { border: 1px solid var(--line); border-radius: 8px; background: var(--surface); margin: 12px 0 }
+details > summary { cursor: pointer; padding: 10px 14px; font-weight: 600 }
+details[open] > summary { border-bottom: 1px solid var(--line) }
+details .inner { padding: 4px 14px 14px; min-width: 0 }
+ol.steps li { margin: 6px 0 }
+@media (prefers-reduced-motion: no-preference) { nav.toc a { transition: color .15s, border-color .15s } }
+</style>
+<style>
+figure.shot{margin:20px 0 24px}
+figure.shot a{display:block;border:1px solid var(--line);border-radius:8px;overflow:hidden;box-shadow:0 1px 2px rgba(0,0,0,.06),0 6px 20px rgba(0,0,0,.08);cursor:zoom-in}
+figure.shot img{display:block;width:100%;height:auto}
+figure.shot figcaption{font-size:13.5px;color:var(--muted);margin-top:8px;line-height:1.45}
+figure.shot figcaption b{color:var(--fg)}
+
+.arch{display:block;width:100%;height:auto;font-family:var(--f-body);font-size:11.5px}
+.arch .t{fill:var(--fg)} .arch .q{fill:var(--muted)}
+.arch .bx{fill:var(--surface);stroke:var(--muted);stroke-width:1.25}
+.arch .bx.acc{fill:var(--accent-soft);stroke:var(--accent);stroke-width:2}
+.arch .host{fill:var(--bg);stroke:var(--muted);stroke-width:1.25}
+.arch .ln path{fill:none;stroke:var(--muted);stroke-width:1.25} .arch .ah{fill:var(--muted)}
+figure.fig{margin:24px 0}
+ul.check{list-style:none;padding-left:4px} ul.check li::before{content:"\2610";margin-right:8px;color:var(--muted)}</style></head><body>
+<div class="wrap">
+<nav class="toc" aria-label="Contents">
+  <ol>
+    <li><a href="#overview">What you get</a></li>
+    <li><a href="#sizing">Sizing</a></li>
+    <li><a href="#before">Before you start</a></li>
+    <li><a href="#check">Get the lab and check the host</a></li>
+    <li><a href="#create">Create the lab</a></li>
+    <li><a href="#vms">Check the VMs</a></li>
+    <li><a href="#gpus">The GPUs inside the VMs</a></li>
+    <li><a href="#repeat">Destroy and create again</a></li>
+    <li><a href="#keys">SSH keys</a></li>
+    <li><a href="#host">What changes on the host</a></li>
+    <li><a href="#troubleshooting">Troubleshooting</a></li>
+  </ol>
+</nav>
+<main>
+<header class="doc">
+  <div class="eyebrow">Installation Guide</div>
+  <h1>Hybrid GPU Cluster Lab</h1>
+  <p class="lede">NVIDIA and AMD GPUs live in separate servers in production. This lab builds that on one machine with KVM: three control-plane VMs and two GPU workers, one with an AMD Radeon PRO W7900 and one with an NVIDIA RTX A6000 through PCI passthrough, on one private subnet. One command creates it, one destroys it; every screen here is from a real run.</p>
+  <div class="meta"><span>Author <b>Manmohan Brahma</b></span><span>October <b>2026</b></span><span>Ubuntu <b>26.04</b></span><span>KVM <b>QEMU 10.2, libvirt 12.0</b></span><span>VMs <b>3 + 2</b></span><span><a href="https://github.com/manmohanbrahma/hybrid-gpu-lab">hybrid-gpu-lab on GitHub</a></span><span><a href="https://github.com/manmohanbrahma/open-inference-fabric">oif on GitHub</a></span><span><a href="../">All guides</a></span></div>
+</header>
+<h2 id="overview"><span class="n">1</span>What you get</h2>
+<p>In production, NVIDIA and AMD GPUs are not in the same server: a customer has NVIDIA servers and AMD servers, and joining them into one cluster has been hard. This guide builds that situation on one machine, so a hybrid cluster can be installed, tested, torn down and rebuilt as often as needed:</p>
+<ul><li><b>three control-plane VMs</b> for a highly available Kubernetes control plane;</li><li><b>one AMD GPU worker VM</b> that owns a Radeon PRO W7900 through PCI passthrough;</li><li><b>one NVIDIA GPU worker VM</b> that owns an RTX A6000 the same way;</li><li>all five on <b>one private subnet with fixed addresses</b>, ready to form a cluster;</li><li>the <b>admin's SSH key</b> on the VMs (all of them, the control plane only, or none: the admin chooses), and a lab key for the tooling.</li></ul>
+<p>One command line, <code>lab</code>, builds and removes it. It is a separate project from the cluster installer: it builds machines, not Kubernetes. The next guide installs a hybrid Run:ai cluster on these VMs with <a href="https://github.com/manmohanbrahma/open-inference-fabric">oif</a>.</p>
+<p>Everything shown is from a real run on the reference host: Ubuntu 26.04.1, AMD EPYC 9684X, 751 GiB memory, an NVIDIA RTX A6000 and an AMD Radeon PRO W7900. Addresses on the lab's private subnet are shown as they are; the host's own address and name are placeholders.</p>
+<figure class="fig"><svg class="arch" viewBox="0 0 760 560" role="img" aria-label="One host runs three control-plane VMs and two GPU worker VMs on a private network">
+<defs><marker id="arch-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path class="ah" d="M0 0L10 5L0 10z"/></marker></defs>
+<text class="t" x="24" y="30" font-size="15" font-weight="600">One server emulates a hybrid cluster: NVIDIA and AMD GPUs in separate nodes</text>
+<rect class="bx" x="40" y="52" width="332" height="56" rx="8"/><text class="t" x="56" y="76" font-size="13" font-weight="600">Admin workstation</text><text class="q" x="56" y="96">ssh -J &lt;user&gt;@&lt;host-ip&gt; oif@192.168.120.x</text>
+<rect class="bx" x="388" y="52" width="332" height="56" rx="8"/><text class="t" x="404" y="76" font-size="13" font-weight="600">./lab create | destroy | recreate</text><text class="q" x="404" y="96">run on the host with sudo; lab.conf, versions.env</text>
+<rect class="host" x="24" y="132" width="712" height="404" rx="8"/>
+<g class="ln"><path d="M206 108V164" marker-end="url(#arch-arrow)"/><path d="M554 108V164" marker-end="url(#arch-arrow)"/><path d="M380 220V236" marker-end="url(#arch-arrow)"/><path d="M200 396V412" marker-end="url(#arch-arrow)"/><path d="M554 396V412" marker-end="url(#arch-arrow)"/></g>
+<rect class="bx" x="40" y="164" width="680" height="56" rx="8"/><text class="t" x="56" y="188" font-size="13" font-weight="600">libvirt NAT network hybridlab, 192.168.120.0/24, gateway .1</text><text class="q" x="56" y="208">fixed addresses by MAC; .10 and .240-.250 free for a cluster address and load balancers</text>
+<rect class="bx acc" x="40" y="236" width="216" height="72" rx="8"/><text class="t" x="56" y="260" font-size="13" font-weight="600">cp1  .11</text><text class="q" x="56" y="278">24 vCPU, 48 GiB, 500 GiB</text><text class="q" x="56" y="294">control plane</text>
+<rect class="bx acc" x="272" y="236" width="216" height="72" rx="8"/><text class="t" x="288" y="260" font-size="13" font-weight="600">cp2  .12</text><text class="q" x="288" y="278">24 vCPU, 48 GiB, 500 GiB</text><text class="q" x="288" y="294">control plane</text>
+<rect class="bx acc" x="504" y="236" width="216" height="72" rx="8"/><text class="t" x="520" y="260" font-size="13" font-weight="600">cp3  .13</text><text class="q" x="520" y="278">24 vCPU, 48 GiB, 500 GiB</text><text class="q" x="520" y="294">control plane</text>
+<rect class="bx" x="40" y="324" width="332" height="72" rx="8"/><text class="t" x="56" y="348" font-size="13" font-weight="600">gpu-amd  .21</text><text class="q" x="56" y="366">48 vCPU, 96 GiB, 800 GiB</text><text class="q" x="56" y="382">worker, owns the AMD GPU</text>
+<rect class="bx" x="388" y="324" width="332" height="72" rx="8"/><text class="t" x="404" y="348" font-size="13" font-weight="600">gpu-nvidia  .22</text><text class="q" x="404" y="366">48 vCPU, 96 GiB, 800 GiB</text><text class="q" x="404" y="382">worker, owns the NVIDIA GPU</text>
+<rect class="bx" x="40" y="412" width="332" height="64" rx="8"/><text class="t" x="56" y="436" font-size="13" font-weight="600">AMD Radeon PRO W7900, 48 GB</text><text class="q" x="56" y="454">GPU + HDMI audio on vfio-pci, IOMMU passthrough</text>
+<rect class="bx" x="388" y="412" width="332" height="64" rx="8"/><text class="t" x="404" y="436" font-size="13" font-weight="600">NVIDIA RTX A6000, 48 GB</text><text class="q" x="404" y="454">GPU + HDMI audio on vfio-pci, IOMMU passthrough</text>
+<text class="t" x="40" y="500" font-size="13" font-weight="600">Host: Ubuntu 26.04, KVM (QEMU, libvirt, OVMF), AMD EPYC 9684X, 192 threads, 751 GiB</text>
+<text class="q" x="40" y="520">VMs: Ubuntu 26.04 cloud image, pinned release and checksum; thin disks on the data disk; cloud-init with SSH keys only</text>
+</svg><figcaption><b>Figure 1.</b> The lab on one server. Each GPU worker owns one physical GPU through PCI passthrough, as a separate GPU server would; all five VMs share one private subnet with fixed addresses.</figcaption></figure>
+<div class="table"><table><thead><tr><th>Step</th><th>When</th></tr></thead><tbody><tr><td>Host setup: KVM packages, GPU binding, an 860 MB image download</td><td>the first create only</td></tr><tr><td>Create the five VMs and wait until they answer SSH</td><td>every create, a few minutes</td></tr><tr><td>Destroy: VMs, disks and network</td><td>every destroy; the host setup and image stay</td></tr></tbody></table></div>
+<h2 id="sizing"><span class="n">2</span>Sizing</h2>
+<div class="table"><table><thead><tr><th>VM</th><th>Role</th><th>vCPU</th><th>Memory</th><th>Disk</th><th>NIC</th><th>GPU</th></tr></thead><tbody><tr><td>cp1, cp2, cp3</td><td>control plane</td><td>24</td><td>48 GiB</td><td>500 GiB</td><td>1</td><td>none</td></tr><tr><td>gpu-amd</td><td>worker</td><td>48</td><td>96 GiB</td><td>800 GiB</td><td>1</td><td>AMD Radeon PRO W7900, 48 GB</td></tr><tr><td>gpu-nvidia</td><td>worker</td><td>48</td><td>96 GiB</td><td>800 GiB</td><td>1</td><td>NVIDIA RTX A6000, 48 GB</td></tr><tr><td><b>Total</b></td><td></td><td><b>168</b></td><td><b>336 GiB</b></td><td><b>3.1 TB</b> (thin)</td><td></td><td></td></tr></tbody></table></div>
+<p>The disks are thin: a fresh VM uses a few GB. The reference host has 192 threads, 751 GiB and 9 TB free on its data disk; the root disk is too small for the VM disks, so they go on the data disk (<code>LAB_STORAGE</code>).</p>
+<div class="table"><table><thead><tr><th>Address</th><th>Name</th></tr></thead><tbody><tr><td>192.168.120.1</td><td>the host (NAT gateway)</td></tr><tr><td>192.168.120.11, .12, .13</td><td>cp1, cp2, cp3</td></tr><tr><td>192.168.120.21</td><td>gpu-amd</td></tr><tr><td>192.168.120.22</td><td>gpu-nvidia</td></tr><tr><td>192.168.120.100 to .199</td><td>free DHCP range; .10 and .240 to .250 are left for a cluster address and load balancers</td></tr></tbody></table></div>
+<h2 id="before"><span class="n">3</span>Before you start</h2>
+<ul class="check"><li>Ubuntu 26.04 on the host, with AMD-V (or VT-x) and the IOMMU enabled in the BIOS</li><li>Each GPU in an IOMMU group of its own, together only with its HDMI audio function</li><li>The GPUs not driving a display and not in use by anything on the host (no Kubernetes or GPU drivers using them)</li><li>Memory, CPUs and disk space for the VMs; outbound HTTPS to cloud-images.ubuntu.com and the Ubuntu archive</li><li>An SSH public key for the admin on the host (by default the keys you log in with)</li></ul>
+<p>Find the GPUs' PCI addresses and their groups:</p>
+<div class="cmd"><button class="copy" type="button">Copy</button><pre>lspci -nn | grep -Ei 'vga|3d|audio'
+for d in 0000:82:00.0 0000:82:00.1 0000:c8:00.0 0000:c8:00.1; do
+  echo "$d group $(basename $(readlink /sys/bus/pci/devices/$d/iommu_group))"; done</pre></div>
+<h2 id="check"><span class="n">4</span>Get the lab and check the host</h2>
+<div class="cmd"><button class="copy" type="button">Copy</button><pre>git clone https://github.com/manmohanbrahma/hybrid-gpu-lab.git
+cd hybrid-gpu-lab
+cp lab.conf.example lab.conf<span class="c">      # set LAB_STORAGE and the GPUs' PCI addresses</span>
+./lab check<span class="c">                       # read-only: KVM, IOMMU groups, CPUs, memory, disk</span>
+./lab plan<span class="c">                        # what create would do; changes nothing</span></pre></div>
+<p><code>lab.conf</code> holds one line per VM: name, role, vCPUs, memory, disk, the last octet of its address, and the GPU's PCI functions (every function of the card: the GPU and its audio device, because passthrough moves whole IOMMU groups).</p>
+<figure class="shot"><a href="img/h01.png" target="_blank" rel="noopener"><img src="img/h01.png" width="1802" height="1882" loading="lazy" alt="./lab check confirms KVM, clean IOMMU groups for the four GPU functions, and room for 168 vCPUs and 336 GiB; ./lab plan shows the private network with a fixed address per VM and the cloud-init of cp1 with the lab key and the admin key."></a><figcaption><b>Figure 1.</b> ./lab check confirms KVM, clean IOMMU groups for the four GPU functions, and room for 168 vCPUs and 336 GiB; ./lab plan shows the private network with a fixed address per VM and the cloud-init of cp1 with the lab key and the admin key.</figcaption></figure>
+<h2 id="create"><span class="n">5</span>Create the lab</h2>
+<div class="cmd"><button class="copy" type="button">Copy</button><pre>sudo ./lab create</pre></div>
+<p>On first use it sets up the host, then builds the VMs:</p>
+<ol><li>Installs the KVM packages that are missing: QEMU, libvirt, virt-install, the OVMF firmware, driverctl and genisoimage. It records which ones it installed.</li><li>Binds each GPU function to <code>vfio-pci</code> with <code>driverctl</code>, so the host's drivers let go of the cards; the binding survives reboots.</li><li>Downloads the Ubuntu 26.04 cloud image of the pinned release and checks its SHA-256 checksum.</li><li>Asks for the admin's public key and where to put it: <b>all</b> VMs, <b>control</b>-plane VMs only, or <b>none</b>. The answer is remembered.</li><li>Creates the private NAT network, a thin disk per VM on top of the image, and each VM with cloud-init: host name, user <code>oif</code> with passwordless sudo, SSH keys only.</li><li>Waits until every VM answers SSH and cloud-init has finished, then checks that each GPU VM sees its card.</li></ol>
+<figure class="shot"><a href="img/h02.png" target="_blank" rel="noopener"><img src="img/h02.png" width="2486" height="1436" loading="lazy" alt="The first create: KVM packages installed, both GPUs and their audio functions moved to vfio-pci (the W7900 from amdgpu, the A6000 from nouveau), the image verified, the admin key placed on all VMs, five VMs started and the two GPU VMs seeing their cards."></a><figcaption><b>Figure 2.</b> The first create: KVM packages installed, both GPUs and their audio functions moved to vfio-pci (the W7900 from amdgpu, the A6000 from nouveau), the image verified, the admin key placed on all VMs, five VMs started and the two GPU VMs seeing their cards.</figcaption></figure>
+<h2 id="vms"><span class="n">6</span>Check the VMs</h2>
+<p>Log in with the admin key from the admin's workstation, through the host:</p>
+<div class="cmd"><button class="copy" type="button">Copy</button><pre>ssh -J &lt;user&gt;@&lt;host-ip&gt; oif@192.168.120.21
+sudo ./lab ssh gpu-amd<span class="c">            # or from the host with the lab key</span>
+sudo ./lab status</pre></div>
+<figure class="shot"><a href="img/h03.png" target="_blank" rel="noopener"><img src="img/h03.png" width="2204" height="870" loading="lazy" alt="Each VM with its CPUs, memory and grown root disk; every VM reaches cp1 and the internet; each GPU VM has its card with a 64 GiB memory window (BAR), which the firmware&#x27;s enlarged 64-bit PCI space makes room for."></a><figcaption><b>Figure 3.</b> Each VM with its CPUs, memory and grown root disk; every VM reaches cp1 and the internet; each GPU VM has its card with a 64 GiB memory window (BAR), which the firmware's enlarged 64-bit PCI space makes room for.</figcaption></figure>
+<h2 id="gpus"><span class="n">7</span>The GPUs inside the VMs</h2>
+<p>The lab installs no GPU drivers: the cluster installer does that per node. To check the cards by hand, load each vendor's driver in its VM.</p>
+<p>The W7900 with the kernel's own <code>amdgpu</code> driver. The cloud image has no GPU firmware, so install it first:</p>
+<div class="cmd"><button class="copy" type="button">Copy</button><pre>sudo apt-get install -y linux-firmware-amd-graphics
+sudo modprobe -r amdgpu &amp;&amp; sudo modprobe amdgpu</pre></div>
+<figure class="shot"><a href="img/h04.png" target="_blank" rel="noopener"><img src="img/h04.png" width="1774" height="830" loading="lazy" alt="gpu-amd: amdgpu initialises the W7900 with 46,064 MB of device memory; /dev/kfd and the render device are there; the driver reports 48.3 GB of VRAM."></a><figcaption><b>Figure 4.</b> gpu-amd: amdgpu initialises the W7900 with 46,064 MB of device memory; /dev/kfd and the render device are there; the driver reports 48.3 GB of VRAM.</figcaption></figure>
+<p>The A6000 with the NVIDIA 595 server driver, the same version as on the bare-metal host. The cloud image loads <code>nouveau</code> at boot, so it has to let go of the card first:</p>
+<div class="cmd"><button class="copy" type="button">Copy</button><pre>sudo apt-get install -y linux-modules-nvidia-595-server-open-$(uname -r) nvidia-utils-595-server
+echo 0000:03:00.0 | sudo tee /sys/bus/pci/drivers/nouveau/unbind
+sudo modprobe nvidia &amp;&amp; nvidia-smi</pre></div>
+<figure class="shot"><a href="img/h05.png" target="_blank" rel="noopener"><img src="img/h05.png" width="1996" height="546" loading="lazy" alt="gpu-nvidia: nouveau holds the card until it is unbound; then nvidia-smi shows the RTX A6000 with driver 595.91.07 and 49,140 MiB."></a><figcaption><b>Figure 5.</b> gpu-nvidia: nouveau holds the card until it is unbound; then nvidia-smi shows the RTX A6000 with driver 595.91.07 and 49,140 MiB.</figcaption></figure>
+<div class="table"><table><thead><tr><th>VM</th><th>Needs on top of the cloud image</th><th>Then</th></tr></thead><tbody><tr><td>gpu-amd</td><td><code>linux-firmware-amd-graphics</code></td><td><code>amdgpu</code> in the Ubuntu kernel initialises the GPU</td></tr><tr><td>gpu-nvidia</td><td><code>nouveau</code> blocked; NVIDIA kernel modules and utilities</td><td><code>nvidia-smi</code> shows the GPU</td></tr></tbody></table></div>
+<h2 id="repeat"><span class="n">8</span>Destroy and create again</h2>
+<div class="cmd"><button class="copy" type="button">Copy</button><pre>sudo ./lab destroy<span class="c">                # VMs, disks and network gone; host setup and image kept</span>
+sudo ./lab recreate<span class="c">               # destroy, then create</span></pre></div>
+<figure class="shot"><a href="img/h06.png" target="_blank" rel="noopener"><img src="img/h06.png" width="1802" height="1274" loading="lazy" alt="A recreate: the five VMs and the network removed, then built again from the same image; both GPU VMs see their cards again."></a><figcaption><b>Figure 6.</b> A recreate: the five VMs and the network removed, then built again from the same image; both GPU VMs see their cards again.</figcaption></figure>
+<p>The GPUs stay on <code>vfio-pci</code> between runs, so a new VM gets its card straight away. A GPU whose driver was active when its VM was destroyed must reset before the next VM can use it; the W7900 is a workstation GPU, and this is the case worth testing on your hardware.</p>
+<h2 id="keys"><span class="n">9</span>SSH keys</h2>
+<div class="table"><table><thead><tr><th>Key</th><th>Where</th><th>Used for</th></tr></thead><tbody><tr><td>Admin's public key</td><td>all VMs, control-plane VMs only, or none (<code>LAB_ADMIN_KEY_ON</code>)</td><td>the admin logs in as <code>oif</code></td></tr><tr><td>Lab key, <code>/var/lib/hybrid-lab/ssh/id_ed25519</code> (root-only)</td><td>every VM</td><td><code>./lab ssh</code> and the readiness checks</td></tr></tbody></table></div>
+<p>The admin's choice is asked once and kept; set <code>LAB_ADMIN_KEY</code> and <code>LAB_ADMIN_KEY_ON</code> in <code>lab.conf</code> to skip the question. Password login is off on every VM. The cluster installer brings its own key for the cluster and asks again whether the admin's key stays on the control plane.</p>
+<h2 id="host"><span class="n">10</span>What changes on the host</h2>
+<div class="table"><table><thead><tr><th>Change</th><th>Removed by</th></tr></thead><tbody><tr><td>KVM packages the lab installed (recorded)</td><td><code>sudo ./lab host-clean</code></td></tr><tr><td>GPU functions bound to <code>vfio-pci</code> (driverctl, kept across reboots)</td><td><code>host-clean</code>; reboot for a clean driver start</td></tr><tr><td>libvirt network <code>hybridlab</code> and the VMs <code>hl-*</code>, their disks in <code>LAB_STORAGE</code></td><td><code>sudo ./lab destroy</code></td></tr><tr><td><code>/var/lib/hybrid-lab</code> (state, lab key, cloud-init seeds) and the base image</td><td><code>host-clean</code> (the log <code>/var/log/hybrid-lab.log</code> stays)</td></tr></tbody></table></div>
+<div class="cmd"><button class="copy" type="button">Copy</button><pre>sudo ./lab host-clean<span class="c">             # destroy, then undo the host setup</span></pre></div>
+<h2 id="troubleshooting"><span class="n">11</span>Troubleshooting</h2>
+<figure class="shot"><a href="img/h07.png" target="_blank" rel="noopener"><img src="img/h07.png" width="2010" height="464" loading="lazy" alt="The one failure of the reference run: on an EPYC host, libvirt picked the firmware built for AMD SEV encrypted VMs, and AppArmor&#x27;s helper refused it. The lab now names the standard firmware."></a><figcaption><b>Figure 7.</b> The one failure of the reference run: on an EPYC host, libvirt picked the firmware built for AMD SEV encrypted VMs, and AppArmor's helper refused it. The lab now names the standard firmware.</figcaption></figure>
+<div class="table"><table><thead><tr><th>Problem</th><th>Cause and fix</th></tr></thead><tbody><tr><td><code>cannot load AppArmor profile</code>, <code>virt-aa-helper: error: /usr/share/ovmf/OVMF.amdsev.fd ... skipped restricted file</code></td><td>libvirt chose the AMD SEV firmware on an EPYC host. The lab names <code>OVMF_CODE_4M.fd</code> (<code>LAB_OVMF_CODE</code>, <code>LAB_OVMF_VARS</code>); secure boot stays off so the NVIDIA driver loads.</td></tr><tr><td><code>&lt;address&gt; shares IOMMU group ... with ...</code></td><td>Another device is in the GPU's group: list every function of the card in <code>lab.conf</code>, or move the card to another slot.</td></tr><tr><td>The host hangs while binding a GPU to vfio-pci</td><td>The host's driver could not let go of the card: reboot; the binding is saved and takes effect at boot.</td></tr><tr><td><code>amdgpu ... Direct firmware load ... failed</code>, <code>Fatal error during GPU init</code> in gpu-amd</td><td>The cloud image has no GPU firmware: install <code>linux-firmware-amd-graphics</code>.</td></tr><tr><td><code>NVRM: GPU ... is already bound to nouveau</code> in gpu-nvidia</td><td>Block <code>nouveau</code> (or unbind it) before loading <code>nvidia</code>.</td></tr><tr><td>A VM does not answer SSH after 10 minutes</td><td><code>sudo virsh console hl-&lt;name&gt;</code> shows its boot; <code>sudo ./lab recreate</code> builds it again.</td></tr></tbody></table></div>
+</main>
+</div>
+<script>
+document.querySelectorAll('.copy').forEach(function (b) {
+  b.addEventListener('click', function () {
+    var pre = b.parentElement.querySelector('pre'), text = pre.innerText;
+    function done(msg) { b.textContent = msg; setTimeout(function () { b.textContent = 'Copy'; }, 1500); }
+    try {
+      navigator.clipboard.writeText(text).then(function () { done('Copied'); }, function () { select(pre); done('Select + Ctrl+C'); });
+    } catch (e) { select(pre); done('Select + Ctrl+C'); }
+  });
+});
+function select(el) { var r = document.createRange(); r.selectNodeContents(el); var s = window.getSelection(); s.removeAllRanges(); s.addRange(r); }
+</script>
+</body></html>
