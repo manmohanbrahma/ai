@@ -5,142 +5,691 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Bare Metal to Tokens</title>
 <meta name="description" content="Field-tested guides for running AI platforms on GPU servers: Run:ai, Nutanix Enterprise AI, NKP and OpenShift, from an empty host to models answering requests.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
-:root{
-  --bg:#f5f6f4; --panel:#ffffff; --fg:#1b1f1d; --muted:#5d6661; --line:#d9ddd9; --soft:#eceeeb; --accent:#4f8a00;
-  --f-display:"Barlow Semi Condensed","Roboto Condensed","Arial Narrow","Helvetica Neue",Arial,sans-serif;
-  --f-body:"IBM Plex Sans","Segoe UI",system-ui,-apple-system,Roboto,sans-serif;
-  --f-mono:"IBM Plex Mono",ui-monospace,"SF Mono",Consolas,"Liberation Mono",monospace;
-  color-scheme:light;
+:root {
+  --bg: #f0f4f9;
+  --panel: #ffffff;
+  --fg: #0f172a;
+  --muted: #475569;
+  --line: #e2e8f0;
+  --soft: #eef2f7;
+  --accent: #2563eb;
+  --accent-hover: #1d4ed8;
+  --accent-soft: #dbeafe;
+  --accent-strong: #1e40af;
+  --dark: #0b1220;
+  --dark-panel: #111827;
+  --dark-line: #1e293b;
+  --f-display: "Barlow Semi Condensed", "Roboto Condensed", "Arial Narrow", sans-serif;
+  --f-body: "IBM Plex Sans", "Segoe UI", system-ui, -apple-system, Roboto, sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+  color-scheme: light;
 }
-@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
-  --bg:#121514; --panel:#1a1e1c; --fg:#e6e9e6; --muted:#9aa49e; --line:#2e3431; --soft:#222725; --accent:#8cc63f; color-scheme:dark}}
-:root[data-theme="dark"]{
-  --bg:#121514; --panel:#1a1e1c; --fg:#e6e9e6; --muted:#9aa49e; --line:#2e3431; --soft:#222725; --accent:#8cc63f; color-scheme:dark}
-*{box-sizing:border-box}
-html,body{margin:0}
-body{background:var(--bg);color:var(--fg);font:15px/1.55 var(--f-body);padding:40px 16px 64px}
-.wrap{max-width:1000px;margin:0 auto;display:flex;flex-direction:column;gap:32px}
-.eyebrow{font:500 12px var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
-h1,h2{font-family:var(--f-display);font-weight:600;line-height:1.15;margin:0}
-h1{font-size:clamp(30px,5vw,44px)} h2{font-size:21px}
-p{margin:0;max-width:70ch}
-.muted{color:var(--muted)}
-.list{display:grid;gap:14px}
-a.card{display:flex;flex-direction:column;gap:8px;padding:18px 20px;background:var(--panel);border:1px solid var(--line);border-radius:8px;color:inherit;text-decoration:none;transition:border-color .15s}
-a.card:hover,a.card:focus-visible{border-color:var(--accent);outline:none}
-.card .go{color:var(--accent);font-weight:500}
-.tags{display:flex;flex-wrap:wrap;gap:6px}
-.tag{font:500 11.5px var(--f-mono);padding:2px 8px;border-radius:4px;background:var(--soft);color:var(--muted)}
-footer{font-size:12.5px;color:var(--muted);border-top:1px solid var(--line);padding-top:16px}
+*, *::before, *::after { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font: 14px/1.45 var(--f-body);
+  -webkit-font-smoothing: antialiased;
+}
+a { color: inherit; text-decoration: none; }
+
+/* Top nav — compact */
+.topbar {
+  background: var(--dark);
+  border-bottom: 1px solid var(--dark-line);
+  position: sticky; top: 0; z-index: 50;
+}
+.topbar-inner {
+  max-width: 1080px; margin: 0 auto; padding: 0 16px;
+  height: 44px; display: flex; align-items: center; justify-content: space-between; gap: 12px;
+}
+.brand {
+  display: flex; align-items: center; gap: 8px;
+  font-family: var(--f-display); font-weight: 600; font-size: 15px; color: #fff;
+}
+.brand-mark {
+  width: 24px; height: 24px; border-radius: 5px;
+  background: linear-gradient(135deg, #3b82f6, #0ea5e9);
+  display: grid; place-items: center;
+  font: 700 12px var(--f-display); color: #fff;
+}
+.nav-links { display: flex; align-items: center; gap: 2px; }
+.nav-links a {
+  padding: 6px 10px; border-radius: 5px; font-size: 12.5px; color: #94a3b8;
+  transition: color .12s, background .12s;
+}
+.nav-links a:hover { color: #fff; background: rgba(255,255,255,.06); }
+.nav-links a.external { display: inline-flex; align-items: center; gap: 3px; }
+.nav-links a.external svg { opacity: .65; }
+
+/* Hero — tight, one-shot */
+.hero {
+  background: var(--dark); color: #e2e8f0; position: relative; overflow: hidden;
+}
+.hero::before {
+  content: ""; position: absolute; inset: 0;
+  background:
+    radial-gradient(ellipse 70% 50% at 75% 15%, rgba(37,99,235,.16), transparent 55%),
+    radial-gradient(ellipse 40% 35% at 15% 85%, rgba(14,165,233,.1), transparent 45%);
+  pointer-events: none;
+}
+.hero-inner {
+  max-width: 1080px; margin: 0 auto; padding: 28px 16px 32px;
+  display: grid; grid-template-columns: 1.2fr 0.8fr; gap: 28px; align-items: center;
+  position: relative;
+}
+.eyebrow {
+  font: 500 11px var(--f-mono); letter-spacing: .09em; text-transform: uppercase;
+  color: #64748b; display: inline-flex; align-items: center; gap: 6px;
+}
+.eyebrow::before {
+  content: ""; width: 6px; height: 6px; border-radius: 50%;
+  background: var(--accent); box-shadow: 0 0 0 2.5px rgba(37,99,235,.28);
+}
+.hero h1 {
+  font-family: var(--f-display); font-weight: 700;
+  font-size: clamp(28px, 4.2vw, 40px); line-height: 1.05;
+  letter-spacing: -0.02em; color: #fff; margin: 8px 0 10px;
+}
+.hero-lead {
+  font-size: 13.5px; line-height: 1.5; color: #94a3b8; max-width: 46ch; margin: 0 0 16px;
+}
+.hero-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 8px 14px; border-radius: 7px;
+  font: 600 13px var(--f-body); transition: background .12s, box-shadow .12s;
+}
+.btn-primary { background: var(--accent); color: #fff; }
+.btn-primary:hover { background: var(--accent-hover); box-shadow: 0 3px 12px rgba(37,99,235,.32); }
+.btn-ghost { color: #94a3b8; border: 1px solid var(--dark-line); }
+.btn-ghost:hover { color: #fff; border-color: #334155; }
+.meta-line { font-size: 11.5px; color: #64748b; margin-top: 12px; }
+
+/* Stack diagram — compact */
+.stack-diagram {
+  background: var(--dark-panel); border: 1px solid var(--dark-line);
+  border-radius: 10px; padding: 16px 14px;
+}
+.stack-label {
+  font: 500 9.5px var(--f-mono); letter-spacing: .1em; text-transform: uppercase;
+  color: #64748b; margin-bottom: 12px; text-align: center;
+}
+.stack-layers { display: flex; flex-direction: column; align-items: center; gap: 0; }
+.layer {
+  width: 100%; max-width: 220px; padding: 9px 12px; border-radius: 7px;
+  text-align: center; font: 600 12px var(--f-body);
+}
+.layer-host {
+  background: #1e293b; color: #94a3b8; border: 1px dashed #334155; margin-bottom: 5px;
+}
+.layer-compute {
+  background: linear-gradient(135deg, #2563eb, #0ea5e9); color: #fff;
+  box-shadow: 0 6px 18px rgba(37,99,235,.3); margin-bottom: 5px; font-size: 12.5px;
+}
+.layer-tokens { background: #0f172a; border: 1px solid #1e3a5f; color: #7dd3fc; }
+.stack-arrow { width: 2px; height: 10px; background: #334155; margin: 0 auto; }
+.stack-footer {
+  margin-top: 12px; display: flex; justify-content: center; gap: 14px;
+  font: 500 10px var(--f-mono); color: #64748b; flex-wrap: wrap;
+}
+.stack-footer span { display: flex; align-items: center; gap: 4px; }
+.stack-footer .dot { width: 5px; height: 5px; border-radius: 50%; background: var(--accent); }
+
+/* Path strip — slim */
+.path-strip { background: var(--panel); border-bottom: 1px solid var(--line); }
+.path-inner {
+  max-width: 1080px; margin: 0 auto; padding: 0 16px;
+  display: flex; overflow-x: auto;
+}
+.path-item {
+  flex: 1; min-width: 110px; padding: 9px 12px;
+  font: 500 11px var(--f-mono); letter-spacing: .04em; text-transform: uppercase;
+  color: var(--muted); border-right: 1px solid var(--line);
+  white-space: nowrap; display: flex; align-items: center; gap: 6px;
+}
+.path-item:last-child { border-right: none; }
+.path-item .arrow { color: var(--accent); opacity: .55; }
+
+/* Main — dense */
+.main { max-width: 1080px; margin: 0 auto; padding: 24px 16px 40px; }
+
+.section-head { margin-bottom: 14px; }
+.section-head h2 {
+  font-family: var(--f-display); font-weight: 600; font-size: 20px;
+  margin: 4px 0 0; letter-spacing: -0.01em;
+}
+.section-head p { color: var(--muted); margin: 4px 0 0; font-size: 13px; max-width: 58ch; }
+
+/* Journey — 3 compact cards */
+.journey {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 28px;
+}
+.journey-card {
+  background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
+  padding: 12px 14px; display: flex; flex-direction: column; gap: 6px;
+  transition: border-color .12s, box-shadow .12s;
+}
+.journey-card:hover {
+  border-color: var(--accent); box-shadow: 0 3px 12px rgba(37,99,235,.08);
+}
+.journey-num {
+  font: 600 10px var(--f-mono); letter-spacing: .07em; text-transform: uppercase; color: var(--accent);
+}
+.journey-card h3 {
+  font-family: var(--f-display); font-weight: 600; font-size: 15px; margin: 0; line-height: 1.2;
+}
+.journey-card p { font-size: 12.5px; color: var(--muted); margin: 0; flex: 1; line-height: 1.4; }
+.journey-card .link {
+  font: 500 12px var(--f-body); color: var(--accent);
+  display: inline-flex; align-items: center; gap: 3px; margin-top: 2px;
+}
+.journey-card .link:hover { color: var(--accent-hover); }
+
+/* Library head */
+.library-head {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
+  gap: 10px; margin-bottom: 12px;
+}
+.filters { display: flex; flex-wrap: wrap; gap: 5px; }
+.filter-btn {
+  padding: 4px 10px; border-radius: 999px; font: 500 11.5px var(--f-body);
+  background: var(--soft); color: var(--muted); border: 1px solid transparent;
+  cursor: pointer; transition: all .12s;
+}
+.filter-btn:hover, .filter-btn.active {
+  background: var(--accent-soft); color: var(--accent-strong); border-color: #93c5fd;
+}
+.search-box {
+  display: flex; align-items: center; gap: 6px;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 7px;
+  padding: 6px 10px; min-width: 180px;
+}
+.search-box input {
+  border: none; outline: none; background: transparent;
+  font: 13px var(--f-body); color: var(--fg); width: 100%;
+}
+.search-box input::placeholder { color: #94a3b8; }
+.search-box svg { color: #94a3b8; flex-shrink: 0; }
+
+/* Guide groups — tight */
+.guide-group { margin-bottom: 22px; }
+.guide-group-label {
+  font: 600 11px var(--f-mono); letter-spacing: .07em; text-transform: uppercase;
+  color: var(--muted); margin-bottom: 8px; display: flex; align-items: center; gap: 8px;
+}
+.guide-group-label::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+.guide-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+.card {
+  background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
+  padding: 12px 14px; display: flex; flex-direction: column; gap: 6px;
+  transition: border-color .12s, box-shadow .12s; height: 100%;
+}
+.card:hover {
+  border-color: var(--accent); box-shadow: 0 4px 14px rgba(37,99,235,.09);
+}
+.card .type {
+  font: 500 10px var(--f-mono); letter-spacing: .05em; text-transform: uppercase;
+  color: var(--muted); display: flex; justify-content: space-between; align-items: center;
+}
+.card .type .date { color: #94a3b8; }
+.card h3 {
+  font-family: var(--f-display); font-weight: 600; font-size: 14.5px;
+  margin: 0; line-height: 1.25;
+}
+.card p { font-size: 12.5px; color: var(--muted); margin: 0; flex: 1; line-height: 1.4; }
+.tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 2px; }
+.tag {
+  font: 500 10px var(--f-mono); padding: 1px 6px; border-radius: 3px;
+  background: var(--soft); color: var(--muted);
+}
+.card .go {
+  font: 500 12.5px var(--f-body); color: var(--accent);
+  display: inline-flex; align-items: center; gap: 3px; margin-top: 4px;
+}
+.card:hover .go { color: var(--accent-hover); }
+
+/* Deep dive — compact banner */
+.deep-dive {
+  background: var(--dark); border-radius: 10px; padding: 20px 22px;
+  display: grid; grid-template-columns: 1.25fr 0.75fr; gap: 20px; align-items: center;
+  position: relative; overflow: hidden;
+}
+.deep-dive::before {
+  content: ""; position: absolute; inset: 0;
+  background: radial-gradient(ellipse 55% 70% at 92% 45%, rgba(37,99,235,.18), transparent 55%);
+  pointer-events: none;
+}
+.deep-dive .eyebrow { color: #64748b; }
+.deep-dive h2 {
+  font-family: var(--f-display); font-weight: 600; font-size: 18px;
+  color: #fff; margin: 6px 0 8px;
+}
+.deep-dive p { color: #94a3b8; margin: 0 0 12px; max-width: 46ch; font-size: 13px; }
+.deep-dive .tags { margin-bottom: 12px; }
+.deep-dive .tag {
+  background: #1e293b; color: #7dd3fc; border: 1px solid #1e3a5f;
+}
+.anatomy {
+  display: flex; align-items: center; justify-content: center; gap: 8px; flex-wrap: wrap;
+}
+.anatomy-box {
+  background: #0f172a; border: 1px solid #1e293b; border-radius: 8px;
+  padding: 10px 12px; text-align: center; min-width: 72px;
+}
+.anatomy-box.highlight {
+  background: linear-gradient(135deg, #2563eb, #0ea5e9); border-color: transparent; color: #fff;
+}
+.anatomy-box .icon { font-size: 16px; margin-bottom: 3px; line-height: 1; }
+.anatomy-box .label {
+  font: 600 9.5px var(--f-mono); letter-spacing: .05em; text-transform: uppercase; color: #64748b;
+}
+.anatomy-box.highlight .label { color: rgba(255,255,255,.85); }
+.anatomy-arrow { color: #475569; font-size: 14px; }
+.anatomy-caption {
+  text-align: center; margin-top: 10px; font: 500 10px var(--f-mono); color: #64748b;
+  display: flex; justify-content: space-between; gap: 10px; max-width: 260px;
+  margin-left: auto; margin-right: auto;
+}
+
+/* Footer — slim */
+.site-footer {
+  background: var(--panel); border-top: 1px solid var(--line); padding: 20px 16px 24px;
+}
+.footer-inner {
+  max-width: 1080px; margin: 0 auto;
+  display: flex; flex-wrap: wrap; justify-content: space-between; gap: 16px; align-items: flex-start;
+}
+.footer-brand { font-family: var(--f-display); font-weight: 600; font-size: 14px; margin-bottom: 3px; }
+.footer-note { font-size: 12px; color: var(--muted); max-width: 32ch; }
+.footer-links { display: flex; gap: 18px; flex-wrap: wrap; }
+.footer-links a { font-size: 12.5px; color: var(--muted); transition: color .12s; }
+.footer-links a:hover { color: var(--accent); }
+.footer-bottom {
+  max-width: 1080px; margin: 16px auto 0; padding-top: 12px; border-top: 1px solid var(--line);
+  display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px;
+  font-size: 11.5px; color: #94a3b8;
+}
+
+/* Responsive */
+@media (max-width: 860px) {
+  .hero-inner { grid-template-columns: 1fr; gap: 20px; }
+  .journey { grid-template-columns: 1fr; }
+  .guide-grid { grid-template-columns: 1fr; }
+  .deep-dive { grid-template-columns: 1fr; padding: 16px; }
+  .nav-links { display: none; }
+}
+@media (max-width: 520px) {
+  .hero-inner { padding: 20px 14px 24px; }
+  .main { padding: 18px 14px 32px; }
+  .search-box { min-width: 0; width: 100%; }
+}
 </style>
 </head>
 <body>
-<div class="wrap">
-<header style="display:flex;flex-direction:column;gap:10px">
-  <span class="eyebrow">Field-tested AI infrastructure guides</span>
-  <h1>Bare Metal to Tokens</h1>
-  <p class="muted">Field-tested guides for running AI platforms on GPU servers, from an empty host to models answering requests. Every guide is written from a real lab deployment, with the commands, outputs and screens it produced.</p>
+
+<header class="topbar">
+  <div class="topbar-inner">
+    <a href="./" class="brand">
+      <span class="brand-mark">b</span>
+      Bare Metal to Tokens
+    </a>
+    <nav class="nav-links" aria-label="Primary">
+      <a href="#library">Guide library</a>
+      <a href="#deep-dives">Deep dives</a>
+      <a href="#author">About</a>
+      <a class="external" href="https://github.com/manmohanbrahma/ai" target="_blank" rel="noopener">
+        GitHub
+        <svg width="11" height="11" viewBox="0 0 12 12" fill="none" aria-hidden="true"><path d="M3.5 2.5h6v6M9.5 2.5L2.5 9.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </a>
+    </nav>
+  </div>
 </header>
 
-<section class="list" aria-label="Run:ai">
-  <h2>Run:ai</h2>
-  <a class="card" href="runai/deployment-guide/">
-    <span class="eyebrow">Deployment Guide · October 2026</span>
-    <h2>Single-Node Run:ai Deployment Guide</h2>
-    <p class="muted">Architecture, tested versions, sizing, network, DNS without a DNS server, TLS, security and day-2 operations for open-source NVIDIA Run:ai 3.0 on one GPU server.</p>
-    <div class="tags"><span class="tag">Run:ai 3.0.20</span><span class="tag">Open source</span><span class="tag">Kubernetes 1.35</span><span class="tag">GPU Operator 26.7</span><span class="tag">RTX A6000</span></div>
-    <span class="go">Open guide →</span>
-  </a>
-  <a class="card" href="runai/install-guide/">
-    <span class="eyebrow">Installation Guide · October 2026</span>
-    <h2>Single-Node Run:ai Installation Guide</h2>
-    <p class="muted">Step-by-step installation with one command line, oif, from an empty Ubuntu host to the Run:ai UI and projects with enforced GPU quotas, with every screen and its real output.</p>
-    <div class="tags"><span class="tag">oif</span><span class="tag">KAI Scheduler</span><span class="tag">Quotas</span><span class="tag">Runbook</span></div>
-    <span class="go">Open guide →</span>
-  </a>
-  <a class="card" href="runai-amd/deployment-guide/">
-    <span class="eyebrow">Deployment Guide · October 2026</span>
-    <h2>Run:ai with NVIDIA and AMD GPUs: Deployment Guide</h2>
-    <p class="muted">One Run:ai cluster scheduling an NVIDIA and an AMD GPU on the same server: the AMD GPU Operator next to NVIDIA's, what Run:ai counts for AMD, per-vendor quotas, and one metric schema for both vendors.</p>
-    <div class="tags"><span class="tag">Run:ai 3.0.20</span><span class="tag">AMD GPU Operator 1.5.1</span><span class="tag">RTX A6000</span><span class="tag">Radeon PRO W7900</span></div>
-    <span class="go">Open guide →</span>
-  </a>
-  <a class="card" href="runai-amd/install-guide/">
-    <span class="eyebrow">Installation Guide · October 2026</span>
-    <h2>Run:ai with NVIDIA and AMD GPUs: Installation Guide</h2>
-    <p class="muted">Add an AMD GPU to the single-node Run:ai installation with oif: AMD GPU Operator, quotas proved on the AMD GPU, per-vendor caps, Grafana dashboards with both vendors on the same panels, and oif's Run:ai patches: both GPUs counted, AMD logo, PyTorch and JupyterLab on ROCm.</p>
-    <div class="tags"><span class="tag">oif</span><span class="tag">amd.com/gpu</span><span class="tag">ResourceQuota</span><span class="tag">Grafana</span><span class="tag">Run:ai patches</span><span class="tag">Runbook</span></div>
-    <span class="go">Open guide →</span>
-  </a>
-  <a class="card" href="hybrid-gpu-lab/">
-    <span class="eyebrow">Installation Guide · October 2026</span>
-    <h2>Hybrid GPU Cluster Lab: NVIDIA and AMD GPUs in Separate Nodes</h2>
-    <p class="muted">One server emulates a hybrid GPU cluster with KVM: three control-plane VMs and two GPU workers, an AMD Radeon PRO W7900 and an NVIDIA RTX A6000 through PCI passthrough, on one private subnet. One command creates it, one destroys it.</p>
-    <div class="tags"><span class="tag">KVM</span><span class="tag">PCI passthrough</span><span class="tag">Ubuntu 26.04</span><span class="tag">3 + 2 VMs</span><span class="tag">Runbook</span></div>
-    <span class="go">Open guide →</span>
-  </a>
+<section class="hero">
+  <div class="hero-inner">
+    <div>
+      <span class="eyebrow">Field-tested AI infrastructure guides</span>
+      <h1>BARE METAL TO TOKENS</h1>
+      <p class="hero-lead">
+        Real lab deployments — from empty host to models answering requests.
+        Commands, outputs, and screens included.
+      </p>
+      <div class="hero-actions">
+        <a class="btn btn-primary" href="#library">
+          Explore the guides
+          <svg width="13" height="13" viewBox="0 0 14 14" fill="none" aria-hidden="true"><path d="M2.5 7h9M7.5 3l4 4-4 4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </a>
+        <a class="btn btn-ghost" href="https://github.com/manmohanbrahma/ai" target="_blank" rel="noopener">Repository</a>
+      </div>
+      <p class="meta-line">Manmohan Brahma · October 2026</p>
+    </div>
+    <div class="stack-diagram" aria-hidden="true">
+      <div class="stack-label">Host → inference</div>
+      <div class="stack-layers">
+        <div class="layer layer-host">Bare host</div>
+        <div class="stack-arrow"></div>
+        <div class="layer layer-compute">GPU / AI · Compute</div>
+        <div class="stack-arrow"></div>
+        <div class="layer layer-tokens">{ } Tokens →</div>
+      </div>
+      <div class="stack-footer">
+        <span><span class="dot"></span> NVIDIA + AMD</span>
+        <span><span class="dot"></span> Single → Hybrid</span>
+      </div>
+    </div>
+  </div>
 </section>
 
-<section class="list" aria-label="Nutanix Kubernetes Platform">
-  <h2>Nutanix Kubernetes Platform</h2>
-  <a class="card" href="nkp-single-node/">
-    <span class="eyebrow">Installation Guide · October 2026</span>
-    <h2>Single-Node NKP, with the AMD GPU Operator in the Catalog</h2>
-    <p class="muted">Build an air-gapped, self-managed NKP 2.18 cluster on one Ubuntu server, then package the AMD GPU Operator 1.5.1 as a custom catalog app so it appears in Kommander's marketplace. By hand, or with one script.</p>
-    <div class="tags"><span class="tag">NKP 2.18</span><span class="tag">Single node</span><span class="tag">Air-gapped</span><span class="tag">AMD GPU Operator</span><span class="tag">Custom catalog</span><span class="tag">nkp-amd-gpu.sh</span></div>
-    <span class="go">Open guide →</span>
-  </a>
-</section>
-
-<section class="list" aria-label="Nutanix Enterprise AI on Nutanix Kubernetes Platform">
-  <h2>Nutanix Enterprise AI on Nutanix Kubernetes Platform</h2>
-  <a class="card" href="nai-nkp/deployment-guide/">
-    <span class="eyebrow">Deployment Guide · October 2026</span>
-    <h2>Deployment Guide</h2>
-    <p class="muted">Architecture, tested versions, sizing, network, storage, models and day-2 operations for Nutanix Enterprise AI 2.8.1 on single-node NKP 2.18, serving models on an NVIDIA and an AMD GPU.</p>
-    <div class="tags"><span class="tag">NAI 2.8.1</span><span class="tag">NKP 2.18</span><span class="tag">RTX A6000</span><span class="tag">Radeon PRO W7900</span></div>
-    <span class="go">Open guide →</span>
-  </a>
-  <a class="card" href="nai-nkp/install-guide/">
-    <span class="eyebrow">Installation Guide · October 2026</span>
-    <h2>Installation Guide</h2>
-    <p class="muted">Step-by-step installation with one script, from an empty Ubuntu host to a model answering OpenAI-compatible API calls, including NAI Labs, the Remote NAI provider and troubleshooting.</p>
-    <div class="tags"><span class="tag">nai-on-nkp.sh</span><span class="tag">Air-gapped</span><span class="tag">Runbook</span></div>
-    <span class="go">Open guide →</span>
-  </a>
-</section>
-
-<section class="list" aria-label="Nutanix Enterprise AI on Red Hat OpenShift">
-  <h2>Nutanix Enterprise AI on Red Hat OpenShift</h2>
-  <a class="card" href="nai-openshift/planning-guide/">
-    <span class="eyebrow">Deployment Planning Guide · October 2026</span>
-    <h2>Deployment Planning Guide</h2>
-    <p class="muted">Architecture, prerequisites, sizing and the deployment plan for Nutanix Enterprise AI 2.8.1 on single-node Red Hat OpenShift 4.22 with the NVIDIA GPU Operator, including CPU and GPU inference endpoints.</p>
-    <div class="tags"><span class="tag">NAI 2.8.1</span><span class="tag">OpenShift 4.22</span><span class="tag">NVIDIA GPU Operator</span><span class="tag">RTX A6000</span></div>
-    <span class="go">Open guide →</span>
-  </a>
-  <a class="card" href="nai-openshift/install-guide/">
-    <span class="eyebrow">Install Guide · October 2026</span>
-    <h2>Install Guide</h2>
-    <p class="muted">Step-by-step install procedure, from the OpenShift agent-based install through the GPU Operator to NAI and the first model endpoints, with the commands used and their checks.</p>
-    <div class="tags"><span class="tag">Agent-based install</span><span class="tag">nai-on-openshift.sh</span><span class="tag">Runbook</span></div>
-    <span class="go">Open guide →</span>
-  </a>
-</section>
-
-<section class="list" aria-label="Deep dives">
-  <h2>Deep dives</h2>
-  <a class="card" href="accelerators/">
-    <span class="eyebrow">Deep Dive · October 2026</span>
-    <h2>AI Compute Accelerators: From Silicon to Tokens</h2>
-    <p class="muted">Inference-first deep dive: how AI compute accelerators turn silicon into tokens, with numbers from a real lab deployment (RTX A6000 vs Radeon PRO W7900).</p>
-    <div class="tags"><span class="tag">GPU</span><span class="tag">AMD</span><span class="tag">Inference</span></div>
-    <span class="go">Open paper →</span>
-  </a>
-</section>
-
-<footer>Author: Manmohan Brahma. More guides will be added here. GPU benchmarks: <a href="https://manmohanbrahma.github.io/gpu-benchmark/" style="color:var(--accent)">manmohanbrahma.github.io/gpu-benchmark</a></footer>
+<div class="path-strip">
+  <div class="path-inner">
+    <div class="path-item">Path through the stack</div>
+    <div class="path-item">GPU servers <span class="arrow">→</span></div>
+    <div class="path-item">Kubernetes <span class="arrow">→</span></div>
+    <div class="path-item">AI platforms <span class="arrow">→</span></div>
+    <div class="path-item">Model endpoints</div>
+  </div>
 </div>
+
+<main class="main">
+
+  <div class="section-head">
+    <span class="eyebrow" style="color:var(--muted)">01 · Start here</span>
+    <h2>One server. The whole journey.</h2>
+    <p>Single-node Run:ai first, then expand to mixed-vendor GPUs.</p>
+  </div>
+
+  <div class="journey">
+    <a class="journey-card" href="runai/deployment-guide/">
+      <span class="journey-num">01 · Plan</span>
+      <h3>Understand the architecture</h3>
+      <p>Versions, sizing, and the decisions behind the stack.</p>
+      <span class="link">Deployment guide →</span>
+    </a>
+    <a class="journey-card" href="runai/install-guide/">
+      <span class="journey-num">02 · Build</span>
+      <h3>Bring the platform up</h3>
+      <p>Empty Ubuntu host → Run:ai UI with enforced GPU quotas.</p>
+      <span class="link">Installation guide →</span>
+    </a>
+    <a class="journey-card" href="runai-amd/deployment-guide/">
+      <span class="journey-num">03 · Extend</span>
+      <h3>Beyond one GPU vendor</h3>
+      <p>Add AMD alongside NVIDIA, or build the hybrid cluster lab.</p>
+      <span class="link">Mixed-GPU guides →</span>
+    </a>
+  </div>
+
+  <div id="library" class="section-head">
+    <span class="eyebrow" style="color:var(--muted)">02 · Resource library</span>
+    <h2>Choose your layer of the stack.</h2>
+  </div>
+
+  <div class="library-head">
+    <div class="filters" id="filters">
+      <button type="button" class="filter-btn active" data-filter="all">All</button>
+      <button type="button" class="filter-btn" data-filter="runai">Run:ai</button>
+      <button type="button" class="filter-btn" data-filter="nkp">NKP</button>
+      <button type="button" class="filter-btn" data-filter="nai-nkp">NAI on NKP</button>
+      <button type="button" class="filter-btn" data-filter="nai-openshift">NAI on OpenShift</button>
+      <button type="button" class="filter-btn" data-filter="deep">Deep dives</button>
+    </div>
+    <div class="search-box">
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="7" cy="7" r="5.5" stroke="currentColor" stroke-width="1.4"/><path d="M11 11l3.5 3.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+      <input type="search" id="search" placeholder="Search guides…" aria-label="Search guides">
+    </div>
+  </div>
+
+  <div class="guide-group" data-group="runai">
+    <div class="guide-group-label">Run:ai</div>
+    <div class="guide-grid">
+      <a class="card" href="runai/deployment-guide/" data-tags="runai nvidia kubernetes single-node deployment rtx a6000">
+        <div class="type"><span>Deployment</span><span class="date">Oct 2026</span></div>
+        <h3>Single-Node Run:ai Deployment Guide</h3>
+        <p>Architecture, sizing, network, DNS, TLS, security and day-2 ops for open-source Run:ai 3.0 on one GPU server.</p>
+        <div class="tags">
+          <span class="tag">Run:ai 3.0.20</span>
+          <span class="tag">K8s 1.35</span>
+          <span class="tag">GPU Operator 26.7</span>
+          <span class="tag">RTX A6000</span>
+        </div>
+        <span class="go">Open guide →</span>
+      </a>
+      <a class="card" href="runai/install-guide/" data-tags="runai nvidia install oif quotas runbook">
+        <div class="type"><span>Installation</span><span class="date">Oct 2026</span></div>
+        <h3>Single-Node Run:ai Installation Guide</h3>
+        <p>One command line (oif) from empty Ubuntu host to UI and projects with enforced GPU quotas — every screen included.</p>
+        <div class="tags">
+          <span class="tag">oif</span>
+          <span class="tag">KAI Scheduler</span>
+          <span class="tag">Quotas</span>
+          <span class="tag">Runbook</span>
+        </div>
+        <span class="go">Open guide →</span>
+      </a>
+      <a class="card" href="runai-amd/deployment-guide/" data-tags="runai amd nvidia mixed hybrid deployment radeon">
+        <div class="type"><span>Deployment</span><span class="date">Oct 2026</span></div>
+        <h3>Run:ai with NVIDIA + AMD GPUs</h3>
+        <p>One cluster scheduling both vendors: AMD GPU Operator, per-vendor quotas, unified metrics.</p>
+        <div class="tags">
+          <span class="tag">AMD GPU Operator 1.5.1</span>
+          <span class="tag">RTX A6000</span>
+          <span class="tag">Radeon PRO W7900</span>
+        </div>
+        <span class="go">Open guide →</span>
+      </a>
+      <a class="card" href="runai-amd/install-guide/" data-tags="runai amd nvidia install oif grafana rocm">
+        <div class="type"><span>Installation</span><span class="date">Oct 2026</span></div>
+        <h3>NVIDIA + AMD Installation Guide</h3>
+        <p>Add AMD to single-node Run:ai: quotas, Grafana panels for both vendors, ROCm patches.</p>
+        <div class="tags">
+          <span class="tag">oif</span>
+          <span class="tag">ResourceQuota</span>
+          <span class="tag">Grafana</span>
+          <span class="tag">Runbook</span>
+        </div>
+        <span class="go">Open guide →</span>
+      </a>
+      <a class="card" href="hybrid-gpu-lab/" data-tags="runai amd nvidia hybrid kvm passthrough cluster lab">
+        <div class="type"><span>Lab</span><span class="date">Oct 2026</span></div>
+        <h3>Hybrid GPU Cluster Lab (KVM)</h3>
+        <p>One server, three control-plane VMs + two GPU workers (AMD + NVIDIA via PCI passthrough). One command up, one down.</p>
+        <div class="tags">
+          <span class="tag">KVM</span>
+          <span class="tag">PCI passthrough</span>
+          <span class="tag">3 + 2 VMs</span>
+          <span class="tag">Runbook</span>
+        </div>
+        <span class="go">Open guide →</span>
+      </a>
+    </div>
+  </div>
+
+  <div class="guide-group" data-group="nkp">
+    <div class="guide-group-label">Nutanix Kubernetes Platform</div>
+    <div class="guide-grid">
+      <a class="card" href="nkp-single-node/" data-tags="nkp amd gpu operator air-gapped catalog single-node">
+        <div class="type"><span>Installation</span><span class="date">Oct 2026</span></div>
+        <h3>Single-Node NKP + AMD GPU Operator</h3>
+        <p>Air-gapped NKP 2.18 on one Ubuntu host; package AMD GPU Operator as a custom catalog app.</p>
+        <div class="tags">
+          <span class="tag">NKP 2.18</span>
+          <span class="tag">Air-gapped</span>
+          <span class="tag">Custom catalog</span>
+          <span class="tag">nkp-amd-gpu.sh</span>
+        </div>
+        <span class="go">Open guide →</span>
+      </a>
+    </div>
+  </div>
+
+  <div class="guide-group" data-group="nai-nkp">
+    <div class="guide-group-label">Nutanix Enterprise AI on NKP</div>
+    <div class="guide-grid">
+      <a class="card" href="nai-nkp/deployment-guide/" data-tags="nai nkp nvidia amd deployment inference">
+        <div class="type"><span>Deployment</span><span class="date">Oct 2026</span></div>
+        <h3>NAI on NKP — Deployment Guide</h3>
+        <p>Architecture, sizing, storage, models and day-2 for NAI 2.8.1 on single-node NKP, NVIDIA + AMD.</p>
+        <div class="tags">
+          <span class="tag">NAI 2.8.1</span>
+          <span class="tag">NKP 2.18</span>
+          <span class="tag">RTX A6000</span>
+          <span class="tag">Radeon PRO W7900</span>
+        </div>
+        <span class="go">Open guide →</span>
+      </a>
+      <a class="card" href="nai-nkp/install-guide/" data-tags="nai nkp install air-gapped runbook openai">
+        <div class="type"><span>Installation</span><span class="date">Oct 2026</span></div>
+        <h3>NAI on NKP — Installation Guide</h3>
+        <p>One script from empty host to OpenAI-compatible model endpoints, including NAI Labs and troubleshooting.</p>
+        <div class="tags">
+          <span class="tag">nai-on-nkp.sh</span>
+          <span class="tag">Air-gapped</span>
+          <span class="tag">Runbook</span>
+        </div>
+        <span class="go">Open guide →</span>
+      </a>
+    </div>
+  </div>
+
+  <div class="guide-group" data-group="nai-openshift">
+    <div class="guide-group-label">Nutanix Enterprise AI on OpenShift</div>
+    <div class="guide-grid">
+      <a class="card" href="nai-openshift/planning-guide/" data-tags="nai openshift planning nvidia gpu operator">
+        <div class="type"><span>Planning</span><span class="date">Oct 2026</span></div>
+        <h3>NAI on OpenShift — Planning Guide</h3>
+        <p>Architecture, prerequisites and plan for NAI 2.8.1 on single-node OpenShift 4.22 with NVIDIA GPU Operator.</p>
+        <div class="tags">
+          <span class="tag">NAI 2.8.1</span>
+          <span class="tag">OpenShift 4.22</span>
+          <span class="tag">NVIDIA GPU Operator</span>
+        </div>
+        <span class="go">Open guide →</span>
+      </a>
+      <a class="card" href="nai-openshift/install-guide/" data-tags="nai openshift install agent-based runbook">
+        <div class="type"><span>Install</span><span class="date">Oct 2026</span></div>
+        <h3>NAI on OpenShift — Install Guide</h3>
+        <p>Agent-based install → GPU Operator → NAI → first model endpoints, with commands and checks.</p>
+        <div class="tags">
+          <span class="tag">Agent-based</span>
+          <span class="tag">nai-on-openshift.sh</span>
+          <span class="tag">Runbook</span>
+        </div>
+        <span class="go">Open guide →</span>
+      </a>
+    </div>
+  </div>
+
+  <div id="deep-dives" class="guide-group" data-group="deep">
+    <div class="guide-group-label">Deep dives</div>
+    <a class="deep-dive" href="accelerators/" data-tags="deep accelerators gpu amd nvidia inference silicon tokens">
+      <div>
+        <span class="eyebrow">Deep dive · October 2026</span>
+        <h2>AI Compute Accelerators: From Silicon to Tokens</h2>
+        <p>Inference-first: how accelerators turn silicon into tokens, with real numbers (RTX A6000 vs Radeon PRO W7900).</p>
+        <div class="tags">
+          <span class="tag">GPU</span>
+          <span class="tag">AMD</span>
+          <span class="tag">Inference</span>
+        </div>
+        <span class="btn btn-primary" style="display:inline-flex">Open paper →</span>
+      </div>
+      <div>
+        <div class="anatomy" aria-hidden="true">
+          <div class="anatomy-box">
+            <div class="icon">◈</div>
+            <div class="label">Silicon</div>
+          </div>
+          <span class="anatomy-arrow">→</span>
+          <div class="anatomy-box">
+            <div class="icon">☰</div>
+            <div class="label">Memory</div>
+          </div>
+          <span class="anatomy-arrow">→</span>
+          <div class="anatomy-box highlight">
+            <div class="icon">{ }</div>
+            <div class="label">Tokens</div>
+          </div>
+        </div>
+        <div class="anatomy-caption">
+          <span>RTX A6000</span>
+          <span>×</span>
+          <span>Radeon PRO W7900</span>
+        </div>
+      </div>
+    </a>
+  </div>
+
+</main>
+
+<footer class="site-footer" id="author">
+  <div class="footer-inner">
+    <div>
+      <div class="footer-brand">Manmohan Brahma</div>
+      <p class="footer-note">Built in the lab, shared here. More guides coming.</p>
+    </div>
+    <div class="footer-links">
+      <a href="https://manmohanbrahma.github.io/gpu-benchmark/" target="_blank" rel="noopener">GPU benchmarks →</a>
+      <a href="https://github.com/manmohanbrahma/ai" target="_blank" rel="noopener">Repository →</a>
+      <a href="https://github.com/manmohanbrahma" target="_blank" rel="noopener">GitHub →</a>
+    </div>
+  </div>
+  <div class="footer-bottom">
+    <span>Bare Metal to Tokens</span>
+    <span>From empty host to models answering requests.</span>
+  </div>
+</footer>
+
+<script>
+(function () {
+  const filters = document.getElementById('filters');
+  const search = document.getElementById('search');
+  const groups = document.querySelectorAll('.guide-group');
+
+  function apply() {
+    const active = filters.querySelector('.filter-btn.active');
+    const filter = active ? active.dataset.filter : 'all';
+    const q = (search.value || '').trim().toLowerCase();
+
+    groups.forEach(function (g) {
+      const groupKey = g.dataset.group;
+      let anyVisible = false;
+
+      g.querySelectorAll('.card, .deep-dive').forEach(function (c) {
+        const tags = (c.dataset.tags || '').toLowerCase();
+        const text = c.textContent.toLowerCase();
+        const matchFilter = filter === 'all' || filter === groupKey;
+        const matchSearch = !q || tags.includes(q) || text.includes(q);
+        const visible = matchFilter && matchSearch;
+        c.style.display = visible ? '' : 'none';
+        if (visible) anyVisible = true;
+      });
+
+      if (filter !== 'all' && filter !== groupKey) {
+        g.style.display = 'none';
+      } else if (q && !anyVisible) {
+        g.style.display = 'none';
+      } else {
+        g.style.display = '';
+      }
+    });
+  }
+
+  filters.addEventListener('click', function (e) {
+    const btn = e.target.closest('.filter-btn');
+    if (!btn) return;
+    filters.querySelectorAll('.filter-btn').forEach(function (b) { b.classList.remove('active'); });
+    btn.classList.add('active');
+    apply();
+  });
+
+  search.addEventListener('input', apply);
+})();
+</script>
 </body>
 </html>
