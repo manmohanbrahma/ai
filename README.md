@@ -9,6 +9,7 @@ Every guide is written from a real lab deployment. Published at https://manmohan
 | Run:ai: Single-Node Run:ai Installation Guide | [`runai/install-guide/`](https://manmohanbrahma.github.io/ai/runai/install-guide/) |
 | Run:ai: Run:ai with NVIDIA and AMD GPUs, Deployment Guide | [`runai-amd/deployment-guide/`](https://manmohanbrahma.github.io/ai/runai-amd/deployment-guide/) |
 | Run:ai: Run:ai with NVIDIA and AMD GPUs, Installation Guide | [`runai-amd/install-guide/`](https://manmohanbrahma.github.io/ai/runai-amd/install-guide/) |
+| Run:ai: Creating a Virtual Lab to Run Run:ai in HA Mode (demo guide) | [`runai-ha-lab/`](https://manmohanbrahma.github.io/ai/runai-ha-lab/) |
 | Run:ai: Highly Available Run:ai with NVIDIA and AMD GPUs, Deployment Guide | [`runai-amd-ha/deployment-guide/`](https://manmohanbrahma.github.io/ai/runai-amd-ha/deployment-guide/) |
 | Run:ai: Highly Available Run:ai with NVIDIA and AMD GPUs, Installation Guide | [`runai-amd-ha/install-guide/`](https://manmohanbrahma.github.io/ai/runai-amd-ha/install-guide/) |
 | Hybrid GPU Cluster Lab: NVIDIA and AMD GPUs in Separate Nodes (KVM) | [`hybrid-gpu-lab/`](https://manmohanbrahma.github.io/ai/hybrid-gpu-lab/) |

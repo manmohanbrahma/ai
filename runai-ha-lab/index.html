@@ -1,0 +1,299 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Creating a Virtual Lab to Run Run:ai in HA Mode</title><meta name="description" content="A demo flow for anyone: turn one GPU server into five VMs, three control-plane nodes and an NVIDIA and an AMD GPU worker, install Run:ai in high-availability mode, then power off a control-plane node and watch it keep working.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@600;700&family=Source+Sans+3:wght@400;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: single reading column (~72ch) with a sticky step index on wide screens; code and logs scroll inside their own boxes */
+:root {
+  --bg: #f6f7f8; --surface: #ffffff; --fg: #1b2228; --muted: #5a6670; --line: #d9dee2;
+  --accent: #0b7a75; --accent-soft: #e2f2f0; --warn: #9a5b00; --warn-soft: #fbf0dc; --bad: #a1262c;
+  --code-bg: #0f1a20; --code-fg: #d7e3e8; --code-dim: #7f939c; --code-ok: #6fd1a4; --code-warn: #f0c36a; --code-err: #ff8f8f;
+  --f-display: "Barlow Semi Condensed", "Arial Narrow", Arial, sans-serif;
+  --f-body: "Source Sans 3", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --f-mono: "JetBrains Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0e1418; --surface: #151d22; --fg: #e3e9ec; --muted: #9aa8b0; --line: #2a353c;
+  --accent: #4fc1b8; --accent-soft: #15302e; --warn: #f0b85a; --warn-soft: #33270f; --bad: #ff8a8f;
+  --code-bg: #091014; --code-fg: #d7e3e8; --code-dim: #7f939c; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #0e1418; --surface: #151d22; --fg: #e3e9ec; --muted: #9aa8b0; --line: #2a353c;
+  --accent: #4fc1b8; --accent-soft: #15302e; --warn: #f0b85a; --warn-soft: #33270f; --bad: #ff8a8f;
+  --code-bg: #091014; --code-fg: #d7e3e8; --code-dim: #7f939c; color-scheme: dark }
+* { box-sizing: border-box }
+body { background: var(--bg); color: var(--fg); font: 17px/1.6 var(--f-body); margin: 0; padding-inline: 16px; padding-block: 0 64px }
+.wrap { max-width: 1120px; margin: 0 auto; display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 48px }
+@media (max-width: 900px) { .wrap { grid-template-columns: minmax(0, 1fr) } nav.toc { display: none } }
+nav.toc { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 24px); align-self: start; padding-top: 40px; font-size: 14px }
+nav.toc ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; counter-reset: s }
+nav.toc a { color: var(--muted); text-decoration: none; display: block; padding: 2px 0 2px 10px; border-left: 2px solid var(--line) }
+nav.toc a:hover, nav.toc a:focus-visible { color: var(--accent); border-left-color: var(--accent); outline: none }
+main { min-width: 0; padding-top: 40px }
+header.doc { border-bottom: 1px solid var(--line); padding-bottom: 24px; margin-bottom: 8px }
+.eyebrow { font: 600 13px/1 var(--f-body); letter-spacing: .12em; text-transform: uppercase; color: var(--accent) }
+h1, h2, h3 { font-family: var(--f-display); text-wrap: balance; line-height: 1.15; margin: 0 }
+h1 { font-size: clamp(32px, 5vw, 46px); font-weight: 700; margin-top: 10px }
+h2 { font-size: 28px; font-weight: 600; margin: 56px 0 12px; scroll-margin-top: 20px }
+h2 .n { color: var(--accent); margin-right: 10px; font-variant-numeric: tabular-nums }
+h3 { font-size: 20px; font-weight: 600; margin: 28px 0 8px }
+p, li { max-width: 72ch }
+p { margin: 10px 0 }
+.meta { display: flex; flex-wrap: wrap; gap: 8px 24px; color: var(--muted); font-size: 15px; margin-top: 14px }
+.meta b { color: var(--fg); font-weight: 600 }
+.lede { font-size: 19px; color: var(--fg); margin-top: 14px }
+a { color: var(--accent) }
+code { font: 0.86em var(--f-mono); background: var(--accent-soft); padding: 1px 5px; border-radius: 4px; overflow-wrap: anywhere }
+.cmd, pre.log { position: relative; background: var(--code-bg); color: var(--code-fg); border-radius: 8px; margin: 12px 0; font: 13.5px/1.55 var(--f-mono) }
+.cmd pre, pre.log { margin: 0; padding: 14px 16px; overflow-x: auto; white-space: pre }
+pre.log { max-height: 460px; overflow: auto }
+.cmd .c { color: var(--code-dim) }
+.copy { position: absolute; top: 8px; right: 8px; font: 600 12px var(--f-body); color: var(--code-fg); background: transparent; border: 1px solid #3a4a52; border-radius: 6px; padding: 3px 9px; cursor: pointer }
+.copy:hover, .copy:focus-visible { border-color: var(--accent); color: #fff; outline: none }
+.log .ok { color: var(--code-ok) } .log .w { color: var(--code-warn) } .log .e { color: var(--code-err) } .log .s { color: #9cc7ff; font-weight: 600 }
+.table { overflow-x: auto; margin: 12px 0; border: 1px solid var(--line); border-radius: 8px; background: var(--surface) }
+table { border-collapse: collapse; width: 100%; font-size: 15px }
+th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); vertical-align: top }
+th { font: 600 13px var(--f-body); letter-spacing: .04em; text-transform: uppercase; color: var(--muted); background: var(--bg) }
+tr:last-child td { border-bottom: 0 }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap }
+.facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin: 18px 0 }
+.fact { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; min-width: 0 }
+.fact .k { font-size: 13px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em }
+.fact .v { font: 600 22px/1.2 var(--f-display); margin-top: 4px; font-variant-numeric: tabular-nums }
+.note { background: var(--warn-soft); border-radius: 8px; padding: 12px 16px; margin: 14px 0; max-width: 78ch }
+.note b { color: var(--warn) }
+.qa { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 0.8fr); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: var(--surface); margin: 12px 0 }
+.qa > div { padding: 8px 12px; border-bottom: 1px solid var(--line); min-width: 0; overflow-wrap: anywhere }
+.qa > div:nth-child(odd) { color: var(--muted) }
+.qa > div:nth-child(even) { font-family: var(--f-mono); font-size: 14px }
+.qa > div:nth-last-child(-n+2) { border-bottom: 0 }
+@media (max-width: 560px) { .qa { grid-template-columns: minmax(0, 1fr) } .qa > div:nth-child(odd) { border-bottom: 0; padding-bottom: 0 } }
+details { border: 1px solid var(--line); border-radius: 8px; background: var(--surface); margin: 12px 0 }
+details > summary { cursor: pointer; padding: 10px 14px; font-weight: 600 }
+details[open] > summary { border-bottom: 1px solid var(--line) }
+details .inner { padding: 4px 14px 14px; min-width: 0 }
+ol.steps li { margin: 6px 0 }
+@media (prefers-reduced-motion: no-preference) { nav.toc a { transition: color .15s, border-color .15s } }
+</style>
+<style>
+figure.shot{margin:20px 0 24px}
+figure.shot a{display:block;border:1px solid var(--line);border-radius:8px;overflow:hidden;box-shadow:0 1px 2px rgba(0,0,0,.06),0 6px 20px rgba(0,0,0,.08);cursor:zoom-in}
+figure.shot img{display:block;width:100%;height:auto}
+figure.shot figcaption{font-size:13.5px;color:var(--muted);margin-top:8px;line-height:1.45}
+figure.shot figcaption b{color:var(--fg)}
+
+.arch{display:block;width:100%;height:auto;font-family:var(--f-body);font-size:11.5px}
+.arch .t{fill:var(--fg)} .arch .q{fill:var(--muted)}
+.arch .bx{fill:var(--surface);stroke:var(--muted);stroke-width:1.25}
+.arch .bx.acc{fill:var(--accent-soft);stroke:var(--accent);stroke-width:2}
+.arch .host{fill:var(--bg);stroke:var(--muted);stroke-width:1.25}
+.arch .ln path{fill:none;stroke:var(--muted);stroke-width:1.25} .arch .ah{fill:var(--muted)}
+figure.fig{margin:24px 0}
+ul.check{list-style:none;padding-left:4px} ul.check li::before{content:"\2610";margin-right:8px;color:var(--muted)}</style></head><body>
+<div class="wrap">
+<nav class="toc" aria-label="Contents">
+  <ol>
+    <li><a href="#overview">The demo in one picture</a></li>
+    <li><a href="#before">What you need</a></li>
+    <li><a href="#vms">Build the five VMs</a></li>
+    <li><a href="#login">Log in to cp1</a></li>
+    <li><a href="#env">Get oif and fill in .env</a></li>
+    <li><a href="#install">Install</a></li>
+    <li><a href="#check">Check it worked</a></li>
+    <li><a href="#runai">Open Run:ai and run a GPU workload per vendor</a></li>
+    <li><a href="#ha">Power off a control-plane node</a></li>
+    <li><a href="#cleanup">Clean up</a></li>
+    <li><a href="#troubleshooting">When something goes wrong</a></li>
+  </ol>
+</nav>
+<main>
+<header class="doc">
+  <div class="eyebrow">Demo Guide</div>
+  <h1>Creating a Virtual Lab to Run Run:ai in HA Mode</h1>
+  <p class="lede">Three control-plane nodes and an NVIDIA and an AMD GPU worker node, all as virtual machines on one GPU server. Build the VMs with one command, install Run:ai in high-availability mode with another, run a GPU workload on each vendor, then power off a control-plane node and watch Run:ai keep working. Every step is from a real run.</p>
+  <div class="meta"><span>Author <b>Manmohan Brahma</b></span><span>October <b>2026</b></span><span>Run:ai <b>3.0.20</b></span><span>VMs <b>3 + 2</b></span><span>GPUs <b>RTX A6000 + Radeon PRO W7900</b></span><span><a href="https://github.com/manmohanbrahma/hybrid-gpu-lab">hybrid-gpu-lab</a></span><span><a href="https://github.com/manmohanbrahma/open-inference-fabric">oif</a></span><span><a href="../">All guides</a></span></div>
+</header>
+<h2 id="overview"><span class="n">1</span>The demo in one picture</h2>
+<p>One GPU server becomes a small five-node cluster, and Run:ai runs on it in high-availability (HA) mode:</p>
+<ul><li><b>3 control-plane VMs</b> (<code>cp1</code>, <code>cp2</code>, <code>cp3</code>) run Kubernetes and Run:ai, with every Run:ai service in at least two copies on different VMs;</li><li><b>2 GPU worker VMs</b>: <code>gpu-nvidia</code> owns an NVIDIA GPU and <code>gpu-amd</code> owns an AMD GPU, each through PCI passthrough, like two separate GPU servers;</li><li>Run:ai gets <b>one node pool per vendor</b> (<code>nvidia</code>, <code>amd</code>), so a workload lands on the right GPU;</li><li>at the end you <b>power off a control-plane VM</b> and watch Run:ai keep working.</li></ul>
+<figure class="fig"><svg class="arch" viewBox="0 0 760 600" role="img" aria-label="One GPU server runs five VMs: three control-plane VMs with Run:ai in copies, and an NVIDIA and an AMD GPU worker VM">
+<defs><marker id="arch-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path class="ah" d="M0 0L10 5L0 10z"/></marker></defs>
+<text class="t" x="24" y="30" font-size="15" font-weight="600">One GPU server, five VMs, Run:ai in HA mode</text>
+<rect class="bx" x="40" y="52" width="332" height="56" rx="8"/><text class="t" x="56" y="76" font-size="13" font-weight="600">Your workstation</text><text class="q" x="56" y="96">ssh -A -J &lt;user&gt;@&lt;host-ip&gt;; browser via SOCKS</text>
+<rect class="bx" x="388" y="52" width="332" height="56" rx="8"/><text class="t" x="404" y="76" font-size="13" font-weight="600">Run:ai and Grafana</text><text class="q" x="404" y="96">https://runai.192-168-120-240.sslip.io</text>
+<rect class="host" x="24" y="132" width="712" height="444" rx="8"/>
+<text class="t" x="40" y="156" font-size="13" font-weight="600">Lab host: Ubuntu 26.04, KVM, built by hybrid-gpu-lab (sudo ./lab create)</text>
+<g class="ln"><path d="M206 108V176" marker-end="url(#arch-arrow)"/><path d="M554 108V176" marker-end="url(#arch-arrow)"/><path d="M380 216V230" marker-end="url(#arch-arrow)"/><path d="M200 446V460" marker-end="url(#arch-arrow)"/><path d="M554 446V460" marker-end="url(#arch-arrow)"/></g>
+<rect class="bx" x="40" y="176" width="680" height="40" rx="8"/><text class="t" x="56" y="194" font-size="13" font-weight="600">Private network 192.168.120.0/24</text><text class="q" x="56" y="209">API address .10 (kube-vip) and Run:ai address .240 (MetalLB) move to a surviving control-plane VM</text>
+<rect class="bx acc" x="40" y="232" width="216" height="118" rx="8"/><text class="t" x="56" y="256" font-size="13" font-weight="600">cp1  .11</text><text class="q" x="56" y="276">Kubernetes control plane</text><text class="q" x="56" y="294">Run:ai copy, Keycloak</text><text class="q" x="56" y="312">PostgreSQL instance</text><text class="q" x="56" y="330">Prometheus, Grafana</text>
+<rect class="bx acc" x="272" y="232" width="216" height="118" rx="8"/><text class="t" x="288" y="256" font-size="13" font-weight="600">cp2  .12</text><text class="q" x="288" y="276">Kubernetes control plane</text><text class="q" x="288" y="294">Run:ai copy, Keycloak</text><text class="q" x="288" y="312">PostgreSQL instance</text><text class="q" x="288" y="330">Prometheus, Grafana</text>
+<rect class="bx acc" x="504" y="232" width="216" height="118" rx="8"/><text class="t" x="520" y="256" font-size="13" font-weight="600">cp3  .13</text><text class="q" x="520" y="276">Kubernetes control plane</text><text class="q" x="520" y="294">Run:ai copy, Keycloak</text><text class="q" x="520" y="312">PostgreSQL instance</text><text class="q" x="520" y="330">Prometheus, Grafana</text>
+<text class="q" x="40" y="370">oif install runs on cp1 and sets up all five VMs; any one control-plane VM can be powered off</text>
+<rect class="bx" x="40" y="382" width="332" height="64" rx="8"/><text class="t" x="56" y="406" font-size="13" font-weight="600">gpu-nvidia  .22</text><text class="q" x="56" y="426">NVIDIA driver and GPU Operator, Run:ai pool nvidia</text>
+<rect class="bx" x="388" y="382" width="332" height="64" rx="8"/><text class="t" x="404" y="406" font-size="13" font-weight="600">gpu-amd  .21</text><text class="q" x="404" y="426">amdgpu driver and AMD GPU Operator, Run:ai pool amd</text>
+<rect class="bx" x="40" y="462" width="332" height="56" rx="8"/><text class="t" x="56" y="486" font-size="13" font-weight="600">NVIDIA RTX A6000, 48 GB</text><text class="q" x="56" y="504">PCI passthrough (vfio-pci)</text>
+<rect class="bx" x="388" y="462" width="332" height="56" rx="8"/><text class="t" x="404" y="486" font-size="13" font-weight="600">AMD Radeon PRO W7900, 48 GB</text><text class="q" x="404" y="504">PCI passthrough (vfio-pci)</text>
+<text class="q" x="40" y="548">VMs: Ubuntu 26.04; control plane 24 vCPU, 48 GiB each; GPU workers 48 vCPU, 96 GiB each</text>
+</svg><figcaption><b>Figure 1.</b> The demo lab. Each GPU worker VM owns one physical GPU, as a separate GPU server would; Run:ai and its database run in copies on the three control-plane VMs.</figcaption></figure>
+<p>Two open-source tools do the work, each with one command:</p>
+<div class="table"><table><thead><tr><th>Tool</th><th>What it does</th><th>Command</th></tr></thead><tbody><tr><td><a href="https://github.com/manmohanbrahma/hybrid-gpu-lab">hybrid-gpu-lab</a></td><td>builds the five VMs on the host, gives each GPU to its VM</td><td><code>sudo ./lab create</code></td></tr><tr><td><a href="https://github.com/manmohanbrahma/open-inference-fabric">Open Inference Fabric (oif)</a></td><td>installs Kubernetes, the GPU operators and Run:ai on all five VMs, from the first one</td><td><code>sudo ./oif install</code></td></tr></tbody></table></div>
+<div class="table"><table><thead><tr><th>Demo part</th><th>Where</th><th>Time</th></tr></thead><tbody><tr><td>Build the five VMs</td><td>lab host</td><td>5 minutes</td></tr><tr><td>Log in to cp1</td><td>your workstation</td><td>1 minute</td></tr><tr><td>Get oif and fill in <code>.env</code></td><td>cp1</td><td>5 minutes</td></tr><tr><td>Install</td><td>cp1</td><td>about 90 minutes</td></tr><tr><td>Check it worked</td><td>cp1</td><td>5 minutes</td></tr><tr><td>Open Run:ai and run a GPU workload per vendor</td><td>browser, cp1</td><td>10 minutes</td></tr><tr><td>Power off a control-plane node</td><td>lab host</td><td>15 minutes</td></tr><tr><td>Clean up</td><td>cp1, lab host</td><td>10 minutes</td></tr></tbody></table></div>
+<p>Every command and screen in this guide is from a real run on the reference lab: an AMD EPYC server with an NVIDIA RTX A6000 and an AMD Radeon PRO W7900. The step-by-step details behind each part are in the <a href="../hybrid-gpu-lab/">Hybrid GPU Cluster Lab guide</a> and the <a href="../runai-amd-ha/install-guide/">HA installation guide</a>.</p>
+<h2 id="before"><span class="n">2</span>What you need</h2>
+<ul class="check"><li>One server with Ubuntu 26.04, virtualisation (AMD-V or VT-x) and the IOMMU turned on in the BIOS</li><li>One NVIDIA and one AMD GPU in that server, not used by the host's display</li><li>Room for the VMs: 168 vCPUs, 336 GiB of memory and about 3.1 TB of thin disk with the default sizes (smaller sizes work for a demo, see <code>lab.conf</code>)</li><li>Internet access from the server (packages, container images)</li><li>A user on the server with sudo, and an SSH key on your workstation (<code>~/.ssh/id_ed25519</code>)</li></ul>
+<h2 id="vms"><span class="n">3</span>Build the five VMs</h2>
+<p>On the lab host, get the lab tool and tell it which GPUs to use:</p>
+<div class="cmd"><button class="copy" type="button">Copy</button><pre>git clone https://github.com/manmohanbrahma/hybrid-gpu-lab.git &amp;&amp; cd hybrid-gpu-lab
+cp lab.conf.example lab.conf
+lspci -D | grep -Ei 'vga|3d|display|audio'<span class="c">      # find each GPU and its HDMI audio function</span>
+nano lab.conf<span class="c">                                    # put those PCI addresses on the gpu-amd and gpu-nvidia lines</span></pre></div>
+<p>In <code>lab.conf</code>, each GPU line lists the GPU and its audio function, for example:</p>
+<div class="cmd"><button class="copy" type="button">Copy</button><pre>gpu-amd    worker  48 96 800 21 0000:c8:00.0,0000:c8:00.1
+gpu-nvidia worker  48 96 800 22 0000:82:00.0,0000:82:00.1</pre></div>
+<p>Check the host, then build:</p>
+<div class="cmd"><button class="copy" type="button">Copy</button><pre>./lab check<span class="c">          # read-only: KVM, IOMMU groups, CPUs, memory, disk</span>
+sudo ./lab create<span class="c">    # installs KVM if needed, gives the GPUs to vfio-pci, builds the network and the VMs</span></pre></div>
+<figure class="shot"><a href="img/lab-create.png" target="_blank" rel="noopener"><img src="img/lab-create.png" width="2486" height="1436" loading="lazy" alt="The first create: KVM packages installed, both GPUs and their audio functions moved to vfio-pci, the Ubuntu image verified, the admin key placed on all VMs, five VMs started and the two GPU VMs seeing their cards."></a><figcaption><b>Figure 1.</b> The first create: KVM packages installed, both GPUs and their audio functions moved to vfio-pci, the Ubuntu image verified, the admin key placed on all VMs, five VMs started and the two GPU VMs seeing their cards.</figcaption></figure>
+<p>On the first create the tool asks for your public key and puts it on the VMs. Afterwards:</p>
+<div class="cmd"><button class="copy" type="button">Copy</button><pre>sudo ./lab status
+sudo ./lab ssh gpu-nvidia 'lspci | grep -i nvidia'
+sudo ./lab ssh gpu-amd 'lspci | grep -iE "vga|display"'</pre></div>
+<div class="table"><table><thead><tr><th>VM</th><th>Address</th><th>Role</th></tr></thead><tbody><tr><td>cp1, cp2, cp3</td><td>192.168.120.11, .12, .13</td><td>control plane</td></tr><tr><td>gpu-amd</td><td>192.168.120.21</td><td>worker with the AMD GPU</td></tr><tr><td>gpu-nvidia</td><td>192.168.120.22</td><td>worker with the NVIDIA GPU</td></tr><tr><td>(free)</td><td>192.168.120.10</td><td>Kubernetes API address</td></tr><tr><td>(free)</td><td>192.168.120.240-244</td><td>Run:ai and Grafana addresses (MetalLB)</td></tr></tbody></table></div>
+<p>To start over at any time: <code>sudo ./lab recreate</code> (destroy, then create). The GPUs stay on <code>vfio-pci</code>, so no host reboot is needed.</p>
+<h2 id="login"><span class="n">4</span>Log in to cp1</h2>
+<p>The VMs sit on a private network inside the host, so you reach them through the host (<code>-J</code>). Forward your SSH agent (<code>-A</code>): oif uses your key once to put its own key on the other four VMs.</p>
+<p>On your workstation:</p>
+<div class="cmd"><button class="copy" type="button">Copy</button><pre>eval $(ssh-agent -s); ssh-add ~/.ssh/id_ed25519
+ssh -A -J &lt;user&gt;@&lt;host-ip&gt; oif@192.168.120.11
+ssh-add -l<span class="c">                        # on cp1: your key must be listed</span></pre></div>
+<p>If <code>ssh-add -l</code> says <code>Could not open a connection to your authentication agent</code>, the agent was not running on your workstation: run the first line again there.</p>
+<h2 id="env"><span class="n">5</span>Get oif and fill in .env</h2>
+<p>On cp1:</p>
+<div class="cmd"><button class="copy" type="button">Copy</button><pre>git clone https://github.com/manmohanbrahma/open-inference-fabric.git &amp;&amp; cd open-inference-fabric
+cp .env.example .env
+nano .env</pre></div>
+<p>Set these lines; leave the rest empty (oif fills in defaults or asks):</p>
+<div class="cmd"><button class="copy" type="button">Copy</button><pre>HOST_IP=192.168.120.11
+METALLB_RANGE=192.168.120.240-192.168.120.244
+OIF_NODES="192.168.120.11:control 192.168.120.12:control 192.168.120.13:control 192.168.120.21:worker 192.168.120.22:worker"
+OIF_API_VIP=192.168.120.10
+RUNAI_ADMIN_EMAIL=you@example.com
+RUNAI_ADMIN_PASSWORD=choose-one
+GRAFANA_ADMIN_PASSWORD=choose-one</pre></div>
+<p>Passwords need 12 characters or more; the Run:ai one also needs upper and lower case, a digit and a symbol. Edit the existing lines rather than adding new ones at the end, so each key appears once. Put a password in single quotes if it contains spaces or quotes. Check without showing the passwords (the last line must print <code>2</code>):</p>
+<div class="cmd"><button class="copy" type="button">Copy</button><pre>grep -E '^(HOST_IP|METALLB_RANGE|OIF_NODES|OIF_API_VIP|RUNAI_ADMIN_EMAIL)=' .env
+grep -cE '^(RUNAI_ADMIN_PASSWORD|GRAFANA_ADMIN_PASSWORD)=.+' .env</pre></div>
+<h2 id="install"><span class="n">6</span>Install</h2>
+<p>On cp1, keeping your agent through sudo:</p>
+<div class="cmd"><button class="copy" type="button">Copy</button><pre>sudo --preserve-env=SSH_AUTH_SOCK ./oif install</pre></div>
+<p>The questions come first:</p>
+<div class="table"><table><thead><tr><th>Question</th><th>Answer for this lab</th></tr></thead><tbody><tr><td>Data folder</td><td>Enter (the default)</td></tr><tr><td>NVIDIA GPUs / AMD GPUs for Kubernetes</td><td>Enter (all)</td></tr><tr><td>AMD display cards to keep away from Kubernetes</td><td><code>none</code> (each GPU VM has one card, for Kubernetes)</td></tr><tr><td>Put your SSH public key on the other control-plane nodes too</td><td><code>y</code></td></tr><tr><td>Anything else</td><td>Enter (the default)</td></tr></tbody></table></div>
+<p>Then oif exchanges keys with the other VMs and continues as a background job, so it survives if your session drops. Follow it:</p>
+<div class="cmd"><button class="copy" type="button">Copy</button><pre>journalctl -fu oif-install<span class="c">         # Ctrl+C stops following, not the install</span></pre></div>
+<figure class="shot"><a href="img/ha-nodes.png" target="_blank" rel="noopener"><img src="img/ha-nodes.png" width="1832" height="830" loading="lazy" alt="The nodes stage: oif prepares every VM over SSH. The AMD VM&#x27;s GPU is already on the kernel&#x27;s amdgpu driver; the NVIDIA VM gets the NVIDIA driver and one reboot, then reports its RTX A6000."></a><figcaption><b>Figure 2.</b> The nodes stage: oif prepares every VM over SSH. The AMD VM's GPU is already on the kernel's amdgpu driver; the NVIDIA VM gets the NVIDIA driver and one reboot, then reports its RTX A6000.</figcaption></figure>
+<figure class="shot"><a href="img/ha-kubernetes.png" target="_blank" rel="noopener"><img src="img/ha-kubernetes.png" width="1832" height="1760" loading="lazy" alt="Kubernetes on five nodes: the API address on cp1, the two other control-plane VMs and the two GPU VMs join, the join tokens are deleted, and MetalLB gets its address range."></a><figcaption><b>Figure 3.</b> Kubernetes on five nodes: the API address on cp1, the two other control-plane VMs and the two GPU VMs join, the join tokens are deleted, and MetalLB gets its address range.</figcaption></figure>
+<figure class="shot"><a href="img/ha-platform.png" target="_blank" rel="noopener"><img src="img/ha-platform.png" width="1832" height="870" loading="lazy" alt="The platform in copies: a PostgreSQL database of three instances, one per control-plane VM, then Run:ai on that database with every Run:ai service in two copies on different VMs."></a><figcaption><b>Figure 4.</b> The platform in copies: a PostgreSQL database of three instances, one per control-plane VM, then Run:ai on that database with every Run:ai service in two copies on different VMs.</figcaption></figure>
+<figure class="shot"><a href="img/ha-end.png" target="_blank" rel="noopener"><img src="img/ha-end.png" width="1832" height="1072" loading="lazy" alt="The end of the install: Run:ai node pools per vendor, each with its one GPU; the per-vendor quota test; the dashboards reading both GPUs."></a><figcaption><b>Figure 5.</b> The end of the install: Run:ai node pools per vendor, each with its one GPU; the per-vendor quota test; the dashboards reading both GPUs.</figcaption></figure>
+<p>The <code>gpu-nvidia</code> VM reboots once on its own for its driver: that is expected.</p>
+<h2 id="check"><span class="n">7</span>Check it worked</h2>
+<p>On cp1, in <code>open-inference-fabric</code>:</p>
+<div class="cmd"><button class="copy" type="button">Copy</button><pre>sudo tests/lab/t120-nodes.sh<span class="c">     # every node prepared</span>
+sudo tests/lab/t121-cluster.sh<span class="c">   # 5 nodes Ready, the API on its shared address</span>
+sudo tests/lab/t122-gpus.sh<span class="c">      # each GPU on its node and driver</span>
+sudo tests/lab/t123-runai.sh<span class="c">     # Run:ai pools per vendor, placement and quota per pool</span>
+kubectl get nodes -o wide</pre></div>
+<figure class="shot"><a href="img/ha-checks.png" target="_blank" rel="noopener"><img src="img/ha-checks.png" width="1520" height="1436" loading="lazy" alt="The four checks on a fresh install: every node prepared, five nodes with one etcd member and one API server per control-plane node, each GPU on its node and driver, and Run:ai placing and queuing work per vendor pool."></a><figcaption><b>Figure 6.</b> The four checks on a fresh install: every node prepared, five nodes with one etcd member and one API server per control-plane node, each GPU on its node and driver, and Run:ai placing and queuing work per vendor pool.</figcaption></figure>
+<h2 id="runai"><span class="n">8</span>Open Run:ai and run a GPU workload per vendor</h2>
+<h3>Open the UI from your workstation</h3>
+<p>The Run:ai address (<code>192.168.120.240</code>) is on the host's private network. Reach it with an SSH SOCKS tunnel through the host and a browser that uses it:</p>
+<div class="cmd"><button class="copy" type="button">Copy</button><pre>ssh -N -D 127.0.0.1:11080 &lt;user&gt;@&lt;host-ip&gt;<span class="c">          # leave it running</span>
+chrome --user-data-dir=$HOME/lab-chrome --proxy-server="socks5://127.0.0.1:11080" \
+  https://runai.192-168-120-240.sslip.io https://grafana.runai.192-168-120-240.sslip.io</pre></div>
+<p>The names are <code>sslip.io</code> names: they resolve to the address inside them, so no DNS server is needed. oif signs the certificates with its own CA: copy <code>~/oif-ca.crt</code> from cp1 (<code>scp -J &lt;user&gt;@&lt;host-ip&gt; oif@192.168.120.11:oif-ca.crt .</code>) and trust it on your workstation, or accept the browser warning for the demo. Log in with <code>RUNAI_ADMIN_EMAIL</code> and its password; Grafana's user is <code>admin</code>.</p>
+<figure class="shot"><a href="img/r02-nodes.png" target="_blank" rel="noopener"><img src="img/r02-nodes.png" width="2160" height="1500" loading="lazy" alt="Run:ai, Nodes: the three control-plane nodes in pool default; gpu-amd in pool amd with its Radeon PRO W7900 and gpu-nvidia in pool nvidia with its RTX A6000, each 1/1 GPU ready."></a><figcaption><b>Figure 7.</b> Run:ai, Nodes: the three control-plane nodes in pool default; gpu-amd in pool amd with its Radeon PRO W7900 and gpu-nvidia in pool nvidia with its RTX A6000, each 1/1 GPU ready.</figcaption></figure>
+<figure class="shot"><a href="img/r03-nodepools.png" target="_blank" rel="noopener"><img src="img/r03-nodepools.png" width="2160" height="1500" loading="lazy" alt="Run:ai, Node pools: amd and nvidia, one per vendor, one GPU each; default holds the control-plane nodes."></a><figcaption><b>Figure 8.</b> Run:ai, Node pools: amd and nvidia, one per vendor, one GPU each; default holds the control-plane nodes.</figcaption></figure>
+<h3>Run one workload per vendor, and see the quota hold</h3>
+<p>Project <code>team-c</code> (created by the checks above) has a quota of 1 GPU in each vendor pool. On cp1, start one NVIDIA workload, one AMD workload and a second NVIDIA workload:</p>
+<div class="cmd"><button class="copy" type="button">Copy</button><pre>cat &gt; demo.yaml &lt;&lt;'EOF'
+apiVersion: v1
+kind: Pod
+metadata: {name: nvidia-a6000-check, namespace: runai-team-c, labels: {runai/node-pool: nvidia, app: demo}}
+spec:
+  schedulerName: runai-scheduler
+  runtimeClassName: nvidia
+  containers:
+  - {name: gpu, image: nvcr.io/nvidia/k8s/cuda-sample:vectoradd-cuda12.5.0, command: [sh, -c, "nvidia-smi -L &amp;&amp; sleep 3600"], resources: {limits: {nvidia.com/gpu: 1}}}
+---
+apiVersion: v1
+kind: Pod
+metadata: {name: amd-w7900-check, namespace: runai-team-c, labels: {runai/node-pool: amd, app: demo}}
+spec:
+  schedulerName: runai-scheduler
+  containers:
+  - {name: gpu, image: docker.io/library/busybox:1.37.0, command: [sh, -c, "ls /dev/kfd /dev/dri &amp;&amp; sleep 3600"], resources: {limits: {amd.com/gpu: 1}}}
+---
+apiVersion: v1
+kind: Pod
+metadata: {name: nvidia-second-waits, namespace: runai-team-c, labels: {runai/node-pool: nvidia, app: demo}}
+spec:
+  schedulerName: runai-scheduler
+  runtimeClassName: nvidia
+  containers:
+  - {name: gpu, image: nvcr.io/nvidia/k8s/cuda-sample:vectoradd-cuda12.5.0, command: [sh, -c, "nvidia-smi -L &amp;&amp; sleep 3600"], resources: {limits: {nvidia.com/gpu: 1}}}
+EOF
+kubectl apply -f demo.yaml
+kubectl -n runai-team-c get pods -o wide</pre></div>
+<p>The first two run, each on its vendor's VM; the third stays <code>Pending</code>, because team-c's NVIDIA quota is used. Run:ai shows the same:</p>
+<figure class="shot"><a href="img/r05-workloads.png" target="_blank" rel="noopener"><img src="img/r05-workloads.png" width="2160" height="1500" loading="lazy" alt="Run:ai, Workloads: amd-w7900-check running in pool amd, nvidia-a6000-check running in pool nvidia, and nvidia-second-waits pending on team-c&#x27;s quota."></a><figcaption><b>Figure 9.</b> Run:ai, Workloads: amd-w7900-check running in pool amd, nvidia-a6000-check running in pool nvidia, and nvidia-second-waits pending on team-c's quota.</figcaption></figure>
+<figure class="shot"><a href="img/r01-overview.png" target="_blank" rel="noopener"><img src="img/r01-overview.png" width="2160" height="1500" loading="lazy" alt="Run:ai, Overview: 2/2 GPU nodes and 2/2 GPUs ready, 2 workloads running and 1 pending."></a><figcaption><b>Figure 10.</b> Run:ai, Overview: 2/2 GPU nodes and 2/2 GPUs ready, 2 workloads running and 1 pending.</figcaption></figure>
+<figure class="shot"><a href="img/r08-grafana-fleet.png" target="_blank" rel="noopener"><img src="img/r08-grafana-fleet.png" width="2160" height="1950" loading="lazy" alt="Grafana, OIF Fleet: both GPUs side by side (utilisation, memory, power, temperature, clock) and the nodes&#x27; CPU and memory."></a><figcaption><b>Figure 11.</b> Grafana, OIF Fleet: both GPUs side by side (utilisation, memory, power, temperature, clock) and the nodes' CPU and memory.</figcaption></figure>
+<p>The cluster page shows <b>Missing prerequisites</b>: GPU fractions need NVIDIA driver r615 or later and are off with the lab's 595 driver. Whole-GPU workloads are not affected.</p>
+<h2 id="ha"><span class="n">9</span>Power off a control-plane node</h2>
+<p>This is the HA part of the demo. Pick the node that hurts most to lose: the one running the database primary. On cp1:</p>
+<div class="cmd"><button class="copy" type="button">Copy</button><pre>kubectl -n oif-db get pods -l cnpg.io/instanceRole=primary -o wide<span class="c">     # NODE column: e.g. cp2</span></pre></div>
+<p>On the lab host, start a watch that does what a user does, every 5 seconds (copy <code>oif-ca.crt</code> there first, as in the Run:ai section):</p>
+<div class="cmd"><button class="copy" type="button">Copy</button><pre>while sleep 5; do
+  printf '%s  ui %s  grafana %s\n' "$(date +%T)" \
+    "$(curl -s -o /dev/null -w '%{http_code}' --max-time 4 --cacert oif-ca.crt https://runai.192-168-120-240.sslip.io)" \
+    "$(curl -s -o /dev/null -w '%{http_code}' --max-time 4 --cacert oif-ca.crt https://grafana.runai.192-168-120-240.sslip.io/api/health)"
+done</pre></div>
+<p>In a second window on the host, pull the power of that node (here <code>cp2</code>; the VMs are named <code>hl-&lt;name&gt;</code>):</p>
+<div class="cmd"><button class="copy" type="button">Copy</button><pre>sudo virsh destroy hl-cp2<span class="c">          # an instant power-off, not a shutdown</span></pre></div>
+<p>Watch from cp1 (or cp3 if you powered off cp1) while it happens:</p>
+<div class="cmd"><button class="copy" type="button">Copy</button><pre>kubectl get nodes -w<span class="c">               # cp2 turns NotReady after about 20 s</span>
+kubectl -n oif-db get pods -l cnpg.io/instanceRole=primary -o wide<span class="c">     # a new primary on another node</span>
+kubectl -n runai-team-c get pods<span class="c">   # the demo workloads keep running on the GPU nodes</span></pre></div>
+<p>Keep using the Run:ai UI in the browser. Then power the node on again and watch it rejoin:</p>
+<div class="cmd"><button class="copy" type="button">Copy</button><pre>sudo virsh start hl-cp2<span class="c">            # on the host</span></pre></div>
+<p>What a user saw on the reference run, measured from outside the cluster with cp2 holding both the database primary and the ingress address:</p>
+<div class="table"><table><thead><tr><th>Service</th><th>Away for</th><th>Target</th></tr></thead><tbody><tr><td>Run:ai UI</td><td>0 s</td><td>under 90 s</td></tr><tr><td>Run:ai login and API call</td><td>67 s</td><td>under 90 s</td></tr><tr><td>Grafana</td><td>47 s</td><td>under 90 s</td></tr></tbody></table></div>
+<p>Nobody acted: no restart, no command. The short login gap is the database failover: 20 s until Kubernetes declares the node down, then the standby takes over and Run:ai reconnects.</p>
+<figure class="shot"><a href="img/ha-poweroff.png" target="_blank" rel="noopener"><img src="img/ha-poweroff.png" width="2010" height="1720" loading="lazy" alt="The full test with cp2 powered off: the API keeps working, the database primary moves, Run:ai logs in and places workloads in both GPU pools with the quota held, and when cp2 is back every copy is complete again: 23 checks pass."></a><figcaption><b>Figure 12.</b> The full test with cp2 powered off: the API keeps working, the database primary moves, Run:ai logs in and places workloads in both GPU pools with the quota held, and when cp2 is back every copy is complete again: 23 checks pass.</figcaption></figure>
+<p>For the scripted version of this test, with 23 checks and an outside probe that logs in to Run:ai every 5 seconds, see <a href="../runai-amd-ha/install-guide/#demo">Power off a control-plane node</a> in the HA installation guide.</p>
+<h2 id="cleanup"><span class="n">10</span>Clean up</h2>
+<p>Remove the demo workloads (on cp1):</p>
+<div class="cmd"><button class="copy" type="button">Copy</button><pre>kubectl delete -f demo.yaml</pre></div>
+<p>Remove everything oif installed, from all five VMs (on cp1; type <code>wipe</code> to confirm):</p>
+<div class="cmd"><button class="copy" type="button">Copy</button><pre>sudo ./oif uninstall
+for n in 11 12 13 21 22; do ssh oif@192.168.120.$n 'bash -s' &lt; tests/host/verify-clean.sh; done</pre></div>
+<p>Or simply delete the VMs (on the lab host), which also removes everything inside them:</p>
+<div class="cmd"><button class="copy" type="button">Copy</button><pre>sudo ./lab destroy<span class="c">                 # VMs, disks and network gone; the image and lab.conf kept</span>
+sudo ./lab host-clean<span class="c">              # also undo the host setup (KVM packages, GPUs on vfio-pci)</span></pre></div>
+<p>After <code>./lab destroy</code> and <code>./lab create</code>, the VMs have new SSH host keys: on your workstation, forget the old ones with <code>for n in 10 11 12 13 21 22; do ssh-keygen -R 192.168.120.$n; done</code>.</p>
+<h2 id="troubleshooting"><span class="n">11</span>When something goes wrong</h2>
+<div class="table"><table><thead><tr><th>Symptom</th><th>Fix</th></tr></thead><tbody><tr><td><code>sudo: cannot execute ... ./lab: Permission denied</code></td><td>An old clone without the executable bit: <code>git pull</code>, or <code>chmod 755 lab</code>.</td></tr><tr><td><code>ssh-add -l</code>: <code>Could not open a connection to your authentication agent</code></td><td>Start the agent on your workstation (<code>eval $(ssh-agent -s); ssh-add</code>) and log in again with <code>ssh -A</code>.</td></tr><tr><td><code>REMOTE HOST IDENTIFICATION HAS CHANGED</code></td><td>The VMs were rebuilt: <code>ssh-keygen -R 192.168.120.&lt;n&gt;</code> on your workstation.</td></tr><tr><td><code>cluster key is not on every node</code> during the install</td><td>Your agent did not reach sudo: log in with <code>ssh -A</code> and use <code>sudo --preserve-env=SSH_AUTH_SOCK ./oif install</code>.</td></tr><tr><td>A GPU VM does not see its GPU</td><td><code>./lab check</code> on the host: each GPU must be in an IOMMU group of its own, and not driving the host's display.</td></tr><tr><td>A Run:ai workload stays Pending with <code>NonPreemptibleOverQuota</code></td><td>The project's quota in that pool is used: that is the quota working.</td></tr><tr><td>The browser cannot open <code>runai.192-168-120-240.sslip.io</code></td><td>The SOCKS tunnel is not running, or the browser was not started with <code>--proxy-server</code>.</td></tr></tbody></table></div>
+</main>
+</div>
+<script>
+document.querySelectorAll('.copy').forEach(function (b) {
+  b.addEventListener('click', function () {
+    var pre = b.parentElement.querySelector('pre'), text = pre.innerText;
+    function done(msg) { b.textContent = msg; setTimeout(function () { b.textContent = 'Copy'; }, 1500); }
+    try {
+      navigator.clipboard.writeText(text).then(function () { done('Copied'); }, function () { select(pre); done('Select + Ctrl+C'); });
+    } catch (e) { select(pre); done('Select + Ctrl+C'); }
+  });
+});
+function select(el) { var r = document.createRange(); r.selectNodeContents(el); var s = window.getSelection(); s.removeAllRanges(); s.addRange(r); }
+</script>
+</body></html>
