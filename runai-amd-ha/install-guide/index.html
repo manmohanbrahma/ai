@@ -1,0 +1,168 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Installation Guide: Highly Available Run:ai with NVIDIA and AMD GPUs</title><meta name="description" content="Install open-source Run:ai 3.0 across five nodes with oif, every platform service in copies, then power off a control-plane node and measure what users see.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@600;700&family=Source+Sans+3:wght@400;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: single reading column (~72ch) with a sticky step index on wide screens; code and logs scroll inside their own boxes */
+:root {
+  --bg: #f6f7f8; --surface: #ffffff; --fg: #1b2228; --muted: #5a6670; --line: #d9dee2;
+  --accent: #0b7a75; --accent-soft: #e2f2f0; --warn: #9a5b00; --warn-soft: #fbf0dc; --bad: #a1262c;
+  --code-bg: #0f1a20; --code-fg: #d7e3e8; --code-dim: #7f939c; --code-ok: #6fd1a4; --code-warn: #f0c36a; --code-err: #ff8f8f;
+  --f-display: "Barlow Semi Condensed", "Arial Narrow", Arial, sans-serif;
+  --f-body: "Source Sans 3", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --f-mono: "JetBrains Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0e1418; --surface: #151d22; --fg: #e3e9ec; --muted: #9aa8b0; --line: #2a353c;
+  --accent: #4fc1b8; --accent-soft: #15302e; --warn: #f0b85a; --warn-soft: #33270f; --bad: #ff8a8f;
+  --code-bg: #091014; --code-fg: #d7e3e8; --code-dim: #7f939c; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #0e1418; --surface: #151d22; --fg: #e3e9ec; --muted: #9aa8b0; --line: #2a353c;
+  --accent: #4fc1b8; --accent-soft: #15302e; --warn: #f0b85a; --warn-soft: #33270f; --bad: #ff8a8f;
+  --code-bg: #091014; --code-fg: #d7e3e8; --code-dim: #7f939c; color-scheme: dark }
+* { box-sizing: border-box }
+body { background: var(--bg); color: var(--fg); font: 17px/1.6 var(--f-body); margin: 0; padding-inline: 16px; padding-block: 0 64px }
+.wrap { max-width: 1120px; margin: 0 auto; display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 48px }
+@media (max-width: 900px) { .wrap { grid-template-columns: minmax(0, 1fr) } nav.toc { display: none } }
+nav.toc { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 24px); align-self: start; padding-top: 40px; font-size: 14px }
+nav.toc ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; counter-reset: s }
+nav.toc a { color: var(--muted); text-decoration: none; display: block; padding: 2px 0 2px 10px; border-left: 2px solid var(--line) }
+nav.toc a:hover, nav.toc a:focus-visible { color: var(--accent); border-left-color: var(--accent); outline: none }
+main { min-width: 0; padding-top: 40px }
+header.doc { border-bottom: 1px solid var(--line); padding-bottom: 24px; margin-bottom: 8px }
+.eyebrow { font: 600 13px/1 var(--f-body); letter-spacing: .12em; text-transform: uppercase; color: var(--accent) }
+h1, h2, h3 { font-family: var(--f-display); text-wrap: balance; line-height: 1.15; margin: 0 }
+h1 { font-size: clamp(32px, 5vw, 46px); font-weight: 700; margin-top: 10px }
+h2 { font-size: 28px; font-weight: 600; margin: 56px 0 12px; scroll-margin-top: 20px }
+h2 .n { color: var(--accent); margin-right: 10px; font-variant-numeric: tabular-nums }
+h3 { font-size: 20px; font-weight: 600; margin: 28px 0 8px }
+p, li { max-width: 72ch }
+p { margin: 10px 0 }
+.meta { display: flex; flex-wrap: wrap; gap: 8px 24px; color: var(--muted); font-size: 15px; margin-top: 14px }
+.meta b { color: var(--fg); font-weight: 600 }
+.lede { font-size: 19px; color: var(--fg); margin-top: 14px }
+a { color: var(--accent) }
+code { font: 0.86em var(--f-mono); background: var(--accent-soft); padding: 1px 5px; border-radius: 4px; overflow-wrap: anywhere }
+.cmd, pre.log { position: relative; background: var(--code-bg); color: var(--code-fg); border-radius: 8px; margin: 12px 0; font: 13.5px/1.55 var(--f-mono) }
+.cmd pre, pre.log { margin: 0; padding: 14px 16px; overflow-x: auto; white-space: pre }
+pre.log { max-height: 460px; overflow: auto }
+.cmd .c { color: var(--code-dim) }
+.copy { position: absolute; top: 8px; right: 8px; font: 600 12px var(--f-body); color: var(--code-fg); background: transparent; border: 1px solid #3a4a52; border-radius: 6px; padding: 3px 9px; cursor: pointer }
+.copy:hover, .copy:focus-visible { border-color: var(--accent); color: #fff; outline: none }
+.log .ok { color: var(--code-ok) } .log .w { color: var(--code-warn) } .log .e { color: var(--code-err) } .log .s { color: #9cc7ff; font-weight: 600 }
+.table { overflow-x: auto; margin: 12px 0; border: 1px solid var(--line); border-radius: 8px; background: var(--surface) }
+table { border-collapse: collapse; width: 100%; font-size: 15px }
+th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); vertical-align: top }
+th { font: 600 13px var(--f-body); letter-spacing: .04em; text-transform: uppercase; color: var(--muted); background: var(--bg) }
+tr:last-child td { border-bottom: 0 }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap }
+.facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin: 18px 0 }
+.fact { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; min-width: 0 }
+.fact .k { font-size: 13px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em }
+.fact .v { font: 600 22px/1.2 var(--f-display); margin-top: 4px; font-variant-numeric: tabular-nums }
+.note { background: var(--warn-soft); border-radius: 8px; padding: 12px 16px; margin: 14px 0; max-width: 78ch }
+.note b { color: var(--warn) }
+.qa { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 0.8fr); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: var(--surface); margin: 12px 0 }
+.qa > div { padding: 8px 12px; border-bottom: 1px solid var(--line); min-width: 0; overflow-wrap: anywhere }
+.qa > div:nth-child(odd) { color: var(--muted) }
+.qa > div:nth-child(even) { font-family: var(--f-mono); font-size: 14px }
+.qa > div:nth-last-child(-n+2) { border-bottom: 0 }
+@media (max-width: 560px) { .qa { grid-template-columns: minmax(0, 1fr) } .qa > div:nth-child(odd) { border-bottom: 0; padding-bottom: 0 } }
+details { border: 1px solid var(--line); border-radius: 8px; background: var(--surface); margin: 12px 0 }
+details > summary { cursor: pointer; padding: 10px 14px; font-weight: 600 }
+details[open] > summary { border-bottom: 1px solid var(--line) }
+details .inner { padding: 4px 14px 14px; min-width: 0 }
+ol.steps li { margin: 6px 0 }
+@media (prefers-reduced-motion: no-preference) { nav.toc a { transition: color .15s, border-color .15s } }
+</style>
+<style>
+figure.shot{margin:20px 0 24px}
+figure.shot a{display:block;border:1px solid var(--line);border-radius:8px;overflow:hidden;box-shadow:0 1px 2px rgba(0,0,0,.06),0 6px 20px rgba(0,0,0,.08);cursor:zoom-in}
+figure.shot img{display:block;width:100%;height:auto}
+figure.shot figcaption{font-size:13.5px;color:var(--muted);margin-top:8px;line-height:1.45}
+figure.shot figcaption b{color:var(--fg)}
+ul.check{list-style:none;padding-left:4px} ul.check li::before{content:"\2610";margin-right:8px;color:var(--muted)}</style></head><body>
+<div class="wrap">
+<nav class="toc" aria-label="Contents">
+  <ol>
+    <li><a href="#overview">What you get</a></li>
+    <li><a href="#before">Before you start</a></li>
+    <li><a href="#install">Install</a></li>
+    <li><a href="#check">Check it worked</a></li>
+    <li><a href="#demo">Power off a control-plane node</a></li>
+    <li><a href="#troubleshooting">Troubleshooting</a></li>
+    <li><a href="#uninstall">Uninstall</a></li>
+  </ol>
+</nav>
+<main>
+<header class="doc">
+  <div class="eyebrow">Installation Guide</div>
+  <h1>Highly Available Run:ai with NVIDIA and AMD GPUs</h1>
+  <p class="lede">Install Run:ai across three control-plane nodes and an NVIDIA and an AMD GPU server with one command, <code>oif install</code>, every platform service in copies on different nodes. Then power off the worst control-plane node to lose and measure, from outside the cluster, what users see. About 90 minutes, with the real output of every step.</p>
+  <div class="meta"><span>Author <b>Manmohan Brahma</b></span><span>October <b>2026</b></span><span>Run:ai <b>3.0.20</b></span><span>Nodes <b>3 + 2</b></span><span>CloudNativePG <b>1.30</b></span><span><a href="https://github.com/manmohanbrahma/open-inference-fabric">oif on GitHub</a></span><span><a href="../deployment-guide/">Deployment Guide</a></span><span><a href="../../">All guides</a></span></div>
+</header>
+<h2 id="overview"><span class="n">1</span>What you get</h2>
+<p>One command on the first of five nodes installs a highly available Run:ai cluster with an NVIDIA and an AMD GPU server:</p>
+<ul><li><b>Kubernetes on three control-plane nodes</b> behind one API address, and the two GPU servers as workers;</li><li>each GPU set up on its own server: the NVIDIA driver on the NVIDIA server, the AMD GPU firmware on the AMD server;</li><li><b>Run:ai with one node pool per vendor</b> (<code>nvidia</code>, <code>amd</code>) and project quotas per pool;</li><li><b>every platform service in copies</b> on different control-plane nodes, with a replicated database, so powering off any one control-plane node interrupts users for less than 90 seconds;</li><li>oif's Run:ai patches, the ROCm templates and the Grafana dashboards for both vendors, as on <a href="../../runai-amd/install-guide/">one server</a>.</li></ul>
+<p>The commands and the power-off demonstration are from a real run on the reference lab: five virtual machines with an AMD Radeon PRO W7900 and an NVIDIA RTX A6000. Addresses are the lab's private subnet. Planning topics (architecture, what keeps the platform up, sizing, limits) are in the companion <a href="../deployment-guide/">Deployment Guide</a>.</p>
+<div class="table"><table><thead><tr><th>Step (reference run, about 90 minutes in all)</th><th>Time</th></tr></thead><tbody><tr><td>Questions and SSH key exchange</td><td>2 minutes</td></tr><tr><td>Nodes prepared, including one reboot of the NVIDIA server for its driver</td><td>4 minutes</td></tr><tr><td>Kubernetes on five nodes, network, storage, MetalLB</td><td>21 minutes</td></tr><tr><td>GPU operators, database, monitoring, ingress</td><td>21 minutes</td></tr><tr><td>Run:ai on the database, every service in two copies, node pools</td><td>28 minutes</td></tr><tr><td>Run:ai patches, quota tests, ROCm templates, dashboards</td><td>15 minutes</td></tr></tbody></table></div>
+<h2 id="before"><span class="n">2</span>Before you start</h2>
+<ul class="check"><li>Five machines on one subnet, Ubuntu 26.04: three control-plane nodes (24 vCPU and 48 GB in the lab) and one GPU server per vendor</li><li>One user on every node with SSH keys and sudo without a password (the lab's user <code>oif</code>)</li><li>From your workstation, SSH to the first control-plane node with your agent: oif uses your access once to install its own key on the other nodes</li><li>Free addresses on the subnet: one for the Kubernetes API and a range for MetalLB (Run:ai and Grafana)</li><li>Outbound HTTPS from every node, as in the <a href="../../runai-amd/install-guide/">single-server guide</a></li><li>A machine outside the cluster that reaches the MetalLB range, for the demonstration (the lab's host)</li></ul>
+<h2 id="install"><span class="n">3</span>Install</h2>
+<ol><li>Log in to the first control-plane node with your agent forwarded and get oif:</li></ol>
+<p>   ``<code>bash    ssh -A oif@192.168.120.11    git clone https://github.com/manmohanbrahma/open-inference-fabric.git &amp;&amp; cd open-inference-fabric    cp .env.example .env    </code><code></code></p>
+<ol start="2"><li>In <code>.env</code>, list the nodes (this node first) and the addresses, besides the usual settings (Run:ai administrator, passwords):</li></ol>
+<p>   ``<code>bash    OIF_NODES="192.168.120.11:control 192.168.120.12:control 192.168.120.13:control 192.168.120.21:worker 192.168.120.22:worker"    OIF_API_VIP=192.168.120.10    METALLB_RANGE=192.168.120.240-192.168.120.244    HOST_IP=192.168.120.11    </code><code></code></p>
+<p>   With three control-plane nodes, oif installs the platform in copies on its own: nothing else to set.</p>
+<ol start="3"><li>Install, keeping your agent through sudo for the key exchange:</li></ol>
+<p>   ``<code>bash    sudo --preserve-env=SSH_AUTH_SOCK ./oif install    </code><code></code></p>
+<p>   The questions come first, then the key exchange, then the install runs as a background job (<code>journalctl -fu oif-install</code> to follow it).</p>
+<figure class="shot"><a href="img/h01.png" target="_blank" rel="noopener"><img src="img/h01.png" width="1832" height="830" loading="lazy" alt="The nodes stage: oif prepares every node over SSH. Each one gets containerd and the connection reaper; the AMD server&#x27;s GPU is already on the kernel&#x27;s amdgpu driver; the NVIDIA server gets the NVIDIA driver and one reboot, then reports its RTX A6000."></a><figcaption><b>Figure 1.</b> The nodes stage: oif prepares every node over SSH. Each one gets containerd and the connection reaper; the AMD server's GPU is already on the kernel's amdgpu driver; the NVIDIA server gets the NVIDIA driver and one reboot, then reports its RTX A6000.</figcaption></figure>
+<figure class="shot"><a href="img/h02.png" target="_blank" rel="noopener"><img src="img/h02.png" width="1832" height="1760" loading="lazy" alt="Kubernetes on five nodes: kubeadm on the first node with kube-vip holding the API address, the two other control-plane nodes and the two GPU servers join, the join tokens are deleted, the platform is placed on the control-plane nodes, and MetalLB gets its address range."></a><figcaption><b>Figure 2.</b> Kubernetes on five nodes: kubeadm on the first node with kube-vip holding the API address, the two other control-plane nodes and the two GPU servers join, the join tokens are deleted, the platform is placed on the control-plane nodes, and MetalLB gets its address range.</figcaption></figure>
+<figure class="shot"><a href="img/h03.png" target="_blank" rel="noopener"><img src="img/h03.png" width="1832" height="870" loading="lazy" alt="The platform in copies: a PostgreSQL database of three instances, one per control-plane node, then Run:ai on that database, and every Run:ai service in two copies on different nodes."></a><figcaption><b>Figure 3.</b> The platform in copies: a PostgreSQL database of three instances, one per control-plane node, then Run:ai on that database, and every Run:ai service in two copies on different nodes.</figcaption></figure>
+<figure class="shot"><a href="img/h04.png" target="_blank" rel="noopener"><img src="img/h04.png" width="1832" height="1072" loading="lazy" alt="Run:ai node pools per vendor, each with its one GPU; the per-vendor quota test (one pod per vendor runs, a second NVIDIA pod queues); and the dashboards reading both GPUs. The install took about 90 minutes."></a><figcaption><b>Figure 4.</b> Run:ai node pools per vendor, each with its one GPU; the per-vendor quota test (one pod per vendor runs, a second NVIDIA pod queues); and the dashboards reading both GPUs. The install took about 90 minutes.</figcaption></figure>
+<div class="table"><table><thead><tr><th>Stage</th><th>What it does with several nodes</th></tr></thead><tbody><tr><td>nodes</td><td>copies oif to each node and prepares it there: packages, kernel, containerd, the NVIDIA driver or the AMD firmware, Kubernetes packages, the connection reaper; reboots a node when its driver needs it</td></tr><tr><td>kubernetes, k8s-join</td><td>kube-vip on the API address, <code>kubeadm init</code> on this node, the others join; join tokens are deleted after</td></tr><tr><td>metallb</td><td>the ingress address is announced only from the control-plane nodes</td></tr><tr><td>gpu-operator, amd-gpu-operator</td><td>installed when any node has that vendor's GPU, checked on the node that has it</td></tr><tr><td>platform-db</td><td>CloudNativePG and a database of three instances, one per control-plane node</td></tr><tr><td>runai, runai-ha</td><td>Run:ai on the external database, then every service in two copies on different nodes</td></tr><tr><td>runai-pools</td><td>GPU nodes labelled by vendor, Run:ai node pools <code>nvidia</code> and <code>amd</code></td></tr><tr><td>vendor-quota</td><td>project quotas per pool, proved with one pod per vendor and a third that queues</td></tr></tbody></table></div>
+<h2 id="check"><span class="n">4</span>Check it worked</h2>
+<p>On the first node, the lab acceptance scripts:</p>
+<div class="cmd"><button class="copy" type="button">Copy</button><pre>sudo tests/lab/t120-nodes.sh<span class="c">     # cluster key, node stages on every node</span>
+sudo tests/lab/t121-cluster.sh<span class="c">   # 5 nodes Ready, the API on its shared address</span>
+sudo tests/lab/t122-gpus.sh<span class="c">      # each GPU on its driver and node, a pod per vendor on the right node</span>
+sudo tests/lab/t123-runai.sh<span class="c">     # pools per vendor, patched images on every node, placement and quota per pool</span></pre></div>
+<figure class="shot"><a href="img/h05.png" target="_blank" rel="noopener"><img src="img/h05.png" width="1520" height="1436" loading="lazy" alt="The acceptance scripts on the fresh install: every node prepared, five nodes with one etcd member and one API server per control-plane node, each GPU on its node and driver, and Run:ai placing and queuing work per vendor pool."></a><figcaption><b>Figure 5.</b> The acceptance scripts on the fresh install: every node prepared, five nodes with one etcd member and one API server per control-plane node, each GPU on its node and driver, and Run:ai placing and queuing work per vendor pool.</figcaption></figure>
+<h2 id="demo"><span class="n">5</span>Power off a control-plane node</h2>
+<p>The demonstration powers off the worst node to lose: the one holding both the database primary and the ingress address. Two programs measure it:</p>
+<ul><li><code>tests/lab/t124-ha.sh</code> on another control-plane node checks, while the node is off, the Kubernetes API, the database failover, Run:ai's API, new workloads in both GPU pools, quotas and the dashboards; then that every copy is complete again once the node is back.</li><li><code>tests/lab/t124-probe.py</code> on a machine <b>outside</b> the cluster does what a user does every 5 seconds: opens the Run:ai UI, logs in to Run:ai and calls its API with the token, and searches Grafana's dashboards. It reads the credentials from the environment and never prints them.</li></ul>
+<ol><li>On the outside machine, with the oif CA certificate copied from the first node (<code>~/oif-ca.crt</code>), start the probe:</li></ol>
+<p>   ``<code>bash    export RUNAI_URL=https://runai.192-168-120-240.sslip.io RUNAI_USER=... RUNAI_PASSWORD=...    export GRAFANA_URL=https://grafana.runai.192-168-120-240.sslip.io GRAFANA_USER=admin GRAFANA_PASSWORD=...    OIF_CA=oif-ca.crt python3 t124-probe.py --seconds 1500 | tee probe.txt    </code><code></code></p>
+<ol start="2"><li>On another control-plane node, start the test with the node to lose:</li></ol>
+<p>   ``<code>bash    sudo tests/lab/t124-ha.sh cp2    </code><code></code></p>
+<ol start="3"><li>When the test asks, power the node off (the lab: <code>virsh destroy hl-cp2</code> on the host), and power it on again when it asks again (<code>virsh start hl-cp2</code>). If your connection to the lab may drop, start both programs detached (<code>systemd-run</code> on the node, <code>setsid nohup</code> on the outside machine): the test waits only 15 minutes for the power-off.</li></ol>
+<h3>Results</h3>
+<p>On the reference run cp2 held both the database primary and the ingress address. The test, while cp2 was off and after it came back:</p>
+<figure class="shot"><a href="img/h06.png" target="_blank" rel="noopener"><img src="img/h06.png" width="2010" height="1720" loading="lazy" alt="T-124 with cp2 powered off: the API and etcd keep working, every replicated service is serving 42 s after the node is declared down, the database primary moves to oif-pg-1, Run:ai logs in and places workloads in both GPU pools with the quota held, the GPU metrics and dashboards answer, and the single-copy controllers restart elsewhere after 107 s. When cp2 is back, every copy is complete again: 23 checks pass."></a><figcaption><b>Figure 6.</b> T-124 with cp2 powered off: the API and etcd keep working, every replicated service is serving 42 s after the node is declared down, the database primary moves to oif-pg-1, Run:ai logs in and places workloads in both GPU pools with the quota held, the GPU metrics and dashboards answer, and the single-copy controllers restart elsewhere after 107 s. When cp2 is back, every copy is complete again: 23 checks pass.</figcaption></figure>
+<p>What a user outside saw (seconds since the probe started, time, then 1 when each answered; cp2 went off at 04:25:35):</p>
+<figure class="shot"><a href="img/h07.png" target="_blank" rel="noopener"><img src="img/h07.png" width="1802" height="910" loading="lazy" alt="The outside probe: the UI never failed; logins with an API call failed for 67 s and Grafana for 47 s while the database failed over, then every round answered until the end, 20 minutes later."></a><figcaption><b>Figure 7.</b> The outside probe: the UI never failed; logins with an API call failed for 67 s and Grafana for 47 s while the database failed over, then every round answered until the end, 20 minutes later.</figcaption></figure>
+<div class="table"><table><thead><tr><th>Measured from outside</th><th>Away for</th><th>Limit</th></tr></thead><tbody><tr><td>Run:ai UI</td><td>0 s</td><td>90 s</td></tr><tr><td>Run:ai login and API call</td><td>67 s</td><td>90 s</td></tr><tr><td>Grafana</td><td>47 s</td><td>90 s</td></tr></tbody></table></div>
+<p>Nobody acted: no taint, no restart, no command. The login gap is the database failover itself: 20 s until Kubernetes declares the node down, then the standby promotion and Keycloak and Run:ai reconnecting to the new primary.</p>
+<h2 id="troubleshooting"><span class="n">6</span>Troubleshooting</h2>
+<div class="table"><table><thead><tr><th>Symptom</th><th>Cause and fix</th></tr></thead><tbody><tr><td><code>cluster key is not on every node</code> in the questions</td><td>Your agent did not reach sudo. Log in with <code>ssh -A</code> and run <code>sudo --preserve-env=SSH_AUTH_SOCK ./oif install</code>.</td></tr><tr><td><code>&lt;node&gt; did not come back after the reboot</code></td><td>The node took longer than 10 minutes or powered off: start it and run the install again.</td></tr><tr><td>The probe shows <code>login 0</code> long after a failover while all pods are Ready</td><td>Clients are stuck on the old database primary: check <code>systemctl status oif-conntrack-reaper</code> on every node.</td></tr><tr><td>A database instance stays <code>0/1</code> after its node returned, with <code>requested WAL segment ... has already been removed</code></td><td>The node was off longer than the log the primary keeps. Rebuild the copy: <code>kubectl -n oif-db delete pvc oif-pg-N</code> and <code>kubectl -n oif-db delete pod oif-pg-N</code>.</td></tr><tr><td>A pod in a vendor pool stays Pending with <code>NonPreemptibleOverQuota</code></td><td>The project's quota in that pool is used: the per-vendor quota working.</td></tr></tbody></table></div>
+<h2 id="uninstall"><span class="n">7</span>Uninstall</h2>
+<p>On the first node:</p>
+<div class="cmd"><button class="copy" type="button">Copy</button><pre>sudo ./oif uninstall</pre></div>
+<p>It uninstalls every node from its own change record (packages, kernel settings, the NVIDIA driver, Kubernetes, the connection reaper), then removes oif's SSH key from the other nodes. It asks first whether to reboot when done, which unloads the removed drivers (the NVIDIA server goes back to the open-source driver) and clears the network rules. <code>tests/host/verify-clean.sh</code> on each node checks that nothing is left.</p>
+<figure class="shot"><a href="img/h08.png" target="_blank" rel="noopener"><img src="img/h08.png" width="1520" height="1274" loading="lazy" alt="oif uninstall lists what it will reverse, including the connection reaper, every other node and oif&#x27;s key on them; afterwards verify-clean finds no trace of oif on any of the five nodes."></a><figcaption><b>Figure 8.</b> oif uninstall lists what it will reverse, including the connection reaper, every other node and oif's key on them; afterwards verify-clean finds no trace of oif on any of the five nodes.</figcaption></figure>
+</main>
+</div>
+<script>
+document.querySelectorAll('.copy').forEach(function (b) {
+  b.addEventListener('click', function () {
+    var pre = b.parentElement.querySelector('pre'), text = pre.innerText;
+    function done(msg) { b.textContent = msg; setTimeout(function () { b.textContent = 'Copy'; }, 1500); }
+    try {
+      navigator.clipboard.writeText(text).then(function () { done('Copied'); }, function () { select(pre); done('Select + Ctrl+C'); });
+    } catch (e) { select(pre); done('Select + Ctrl+C'); }
+  });
+});
+function select(el) { var r = document.createRange(); r.selectNodeContents(el); var s = window.getSelection(); s.removeAllRanges(); s.addRange(r); }
+</script>
+</body></html>

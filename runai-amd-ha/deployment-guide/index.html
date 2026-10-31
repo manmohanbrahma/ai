@@ -1,0 +1,181 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Deployment Guide: Highly Available Run:ai with NVIDIA and AMD GPUs</title><meta name="description" content="Plan an open-source Run:ai 3.0 cluster of five nodes, three control-plane nodes and one GPU server per vendor, that keeps working when a control-plane node loses power.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..100,500..800&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a printed technical paper - narrow reading column; tables, steps and figures may widen to 1040px */
+:root{
+  --paper:#fbfbfa; --ink:#18202a; --muted:#5b6672; --rule:#dee2e6; --panel:#f1f3f4;
+  --accent:#b8322a; --accent2:#2c5d8f; --ok:#2f7d32; --okbg:#e6f2e6; --warn:#8f5a00; --warnbg:#fbf1de;
+  --f-head:"Archivo","Arial Narrow","Helvetica Neue",Arial,sans-serif;
+  --f-body:"Source Serif 4",Georgia,"Times New Roman",serif;
+  --f-mono:"JetBrains Mono",ui-monospace,Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --paper:#13171c; --ink:#e5e9ed; --muted:#9ba6b1; --rule:#2d343c; --panel:#1b2128;
+  --accent:#ff7b6e; --accent2:#7fb2e5; --ok:#86d08a; --okbg:#1c311f; --warn:#f0b65c; --warnbg:#2e2413; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --paper:#13171c; --ink:#e5e9ed; --muted:#9ba6b1; --rule:#2d343c; --panel:#1b2128;
+  --accent:#ff7b6e; --accent2:#7fb2e5; --ok:#86d08a; --okbg:#1c311f; --warn:#f0b65c; --warnbg:#2e2413; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--paper);color:var(--ink);font:17px/1.62 var(--f-body);padding-inline:18px;padding-block:40px 80px;margin:0}
+.paper{max-width:1040px;margin:0 auto}
+.col{max-width:720px;margin-inline:auto}
+h1,h2,h3,.eyebrow,.meta,th,.fig figcaption,.step b.t{font-family:var(--f-head)}
+h1{font-size:clamp(34px,5.4vw,52px);font-stretch:85%;font-weight:750;line-height:1.05;letter-spacing:-.01em;margin:10px 0 18px;text-wrap:balance}
+h2{font-size:27px;font-stretch:88%;font-weight:700;margin:56px 0 12px;padding-top:18px;border-top:2px solid var(--ink);text-wrap:balance}
+h2 .n{color:var(--accent);margin-right:10px}
+h3{font-size:19px;font-weight:650;margin:28px 0 8px;text-wrap:balance}
+p{margin:0 0 14px} ul,ol{margin:0 0 16px;padding-left:22px} li{margin-bottom:6px}
+a{color:var(--accent2)}
+code{font-family:var(--f-mono);font-size:.82em;background:var(--panel);padding:1px 5px;border-radius:3px}
+pre{font-family:var(--f-mono);font-size:13px;line-height:1.5;background:var(--panel);border:1px solid var(--rule);padding:12px 14px;overflow-x:auto;margin:10px 0 16px}
+pre code{background:none;padding:0}
+.eyebrow{font-size:12.5px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--accent)}
+.lede{font-size:21px;line-height:1.5}
+.meta{display:flex;flex-wrap:wrap;gap:6px 26px;font-size:13.5px;color:var(--muted);margin:22px 0 0;padding-top:14px;border-top:1px solid var(--rule)}
+.meta b{color:var(--ink);font-weight:600}
+.note{background:var(--warnbg);border-left:3px solid var(--warn);padding:12px 16px;font-size:15px;margin:22px 0}
+.note b{color:var(--warn)}
+.wide{max-width:1040px;margin:22px auto}
+.tbl{overflow-x:auto;border-top:2px solid var(--ink);border-bottom:1px solid var(--ink)}
+table{border-collapse:collapse;width:100%;font-size:14.5px;font-variant-numeric:tabular-nums}
+th{font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);text-align:left;padding:9px 10px;border-bottom:1px solid var(--rule);vertical-align:bottom}
+td{padding:7px 10px;border-bottom:1px solid var(--rule);vertical-align:top}
+tr:last-child td{border-bottom:0}
+.pill{display:inline-block;font-family:var(--f-head);font-size:12px;font-weight:600;padding:1px 8px;border-radius:999px;white-space:nowrap}
+.pill.ok{background:var(--okbg);color:var(--ok)} .pill.todo{background:var(--warnbg);color:var(--warn)}
+.steps{list-style:none;padding:0;margin:18px 0;counter-reset:s}
+.step{display:grid;grid-template-columns:42px 1fr;gap:14px;padding:14px 0;border-top:1px solid var(--rule)}
+.step:first-child{border-top:0}
+.step::before{counter-increment:s;content:counter(s);font-family:var(--f-head);font-weight:750;font-size:26px;font-stretch:80%;color:var(--accent);line-height:1}
+.step>div{min-width:0}
+.step b.t{display:block;font-size:17px;font-weight:650;margin-bottom:4px}
+.step p{font-size:15.5px;margin-bottom:8px}
+.fig{margin:26px auto;max-width:1040px}
+.fig img{display:block;width:100%;height:auto;border:1px solid var(--rule)}
+.fig .slot{border:1.5px dashed var(--rule);background:var(--panel);aspect-ratio:16/8;display:flex;align-items:center;justify-content:center;padding:18px;text-align:center;color:var(--muted);font-family:var(--f-head);font-size:14px;max-width:100%}
+.fig figcaption{font-size:13.5px;color:var(--muted);margin-top:8px}
+.fig figcaption b{color:var(--ink)}
+pre.mermaid{background:var(--panel);padding:14px;overflow-x:auto;border:1px solid var(--rule);font-family:var(--f-head)}
+.two{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:22px}
+.two>*{min-width:0}
+footer{margin-top:60px;padding-top:14px;border-top:1px solid var(--rule);font-size:13.5px;color:var(--muted)}
+@media (max-width:520px){body{font-size:16px}.lede{font-size:18px}h2{font-size:23px}.step{grid-template-columns:30px 1fr}}
+</style>
+<style>
+.arch{display:block;width:100%;height:auto;font-family:var(--f-head);font-size:11.5px}
+.arch .t{fill:var(--ink)} .arch .q{fill:var(--muted)}
+.arch .bx{fill:none;stroke:var(--muted);stroke-width:1.25}
+.arch .bx.acc{fill:var(--accent2);fill-opacity:.12;stroke:var(--accent2);stroke-width:2}
+.arch .host{fill:var(--panel);stroke:var(--muted);stroke-width:1.25}
+.arch .ln path{fill:none;stroke:var(--muted);stroke-width:1.25} .arch .ah{fill:var(--muted)}
+ul.check{list-style:none;padding-left:4px} ul.check li::before{content:"\2610";margin-right:8px;color:var(--muted)}
+</style></head><body>
+<article class="paper">
+<header class="col">
+  <div class="eyebrow">Deployment Guide · October 2026</div>
+  <h1>Highly Available Run:ai with NVIDIA and AMD GPUs</h1>
+  <p class="lede">How to plan an open-source NVIDIA Run:ai 3.0 cluster across five nodes, three control-plane nodes and one GPU server per vendor, so that losing any control-plane node interrupts users for about a minute and needs nobody to act: what runs in copies, what made failover fast enough, sizing and limits. Measured on a real lab build.</p>
+  <div class="meta">
+    <span><b>Author</b> Manmohan Brahma</span>
+    <span><b>Run:ai</b> 3.0.20, open source</span>
+    <span><b>Nodes</b> 3 control plane + 2 GPU</span>
+    <span><b>GPUs</b> RTX A6000 + Radeon PRO W7900</span>
+    <span><a href="../install-guide/">Installation Guide</a></span>
+    <span><a href="https://github.com/manmohanbrahma/open-inference-fabric">oif on GitHub</a></span>
+    <span><a href="../../">All guides</a></span>
+  </div>
+  <div class="note"><b>Lab build.</b> Open-source Run:ai is community software without NVIDIA support, and it documents NVIDIA GPUs. The AMD GPU is scheduled through the standard Kubernetes device plugin; the limits observed are listed in this guide. Both GPUs are workstation cards. The lab runs the five nodes as virtual machines on one server, so it proves the software, not the hardware's redundancy.</div>
+</header>
+<section class="col">
+<h2 id="what-this-guide-covers"><span class="n">1</span>What this guide covers</h2>
+<p>This guide takes the <a href="../../runai-amd/deployment-guide/">Run:ai with NVIDIA and AMD GPUs</a> deployment from one server to a <b>cluster of five nodes</b>: three control-plane nodes that run Kubernetes and the platform, and one GPU server per vendor. Any one control-plane node can lose power and users keep working: the Run:ai UI, logins and the API, new workloads in both GPU pools, quotas and the Grafana dashboards come back within 90 seconds, with nobody acting.</p>
+<p>It is the planning half of a pair. The companion <a href="../install-guide/">Installation Guide</a> has the commands, the power-off demonstration and its measured results.</p>
+<p>It is a step of a larger project: one open-source platform that schedules, serves, benchmarks and observes LLMs on NVIDIA and AMD GPUs, so the two can be compared on equal terms.</p>
+</section>
+<section class="col">
+<h2 id="architecture"><span class="n">2</span>Architecture</h2>
+<figure class="fig"><svg class="arch" viewBox="0 0 760 660" role="img" aria-label="Three control-plane nodes run Kubernetes and the platform in copies; an NVIDIA and an AMD GPU server run the GPU work">
+<defs><marker id="arch-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path class="ah" d="M0 0L10 5L0 10z"/></marker></defs>
+<text class="t" x="24" y="30" font-size="15" font-weight="600">Any one control-plane node can stop: its copies are already running on the other two</text>
+<rect class="bx" x="40" y="52" width="332" height="56" rx="8"/><text class="t" x="56" y="76" font-size="13" font-weight="600">Run:ai UI, login and API</text><text class="q" x="56" y="96">https://runai.&lt;lb-ip&gt;.sslip.io</text>
+<rect class="bx" x="388" y="52" width="332" height="56" rx="8"/><text class="t" x="404" y="76" font-size="13" font-weight="600">Grafana: OIF Fleet, OIF Scheduling</text><text class="q" x="404" y="96">https://grafana.runai.&lt;lb-ip&gt;.sslip.io</text>
+<rect class="bx" x="40" y="128" width="680" height="40" rx="8"/><text class="t" x="56" y="153" font-size="13" font-weight="600">Ingress address (MetalLB, layer 2): announced by one control-plane node, taken over by another</text>
+<g class="ln"><path d="M206 108V126" marker-end="url(#arch-arrow)"/><path d="M554 108V126" marker-end="url(#arch-arrow)"/><path d="M140 168V194" marker-end="url(#arch-arrow)"/><path d="M380 168V194" marker-end="url(#arch-arrow)"/><path d="M620 168V194" marker-end="url(#arch-arrow)"/><path d="M240 377H278" marker-end="url(#arch-arrow)"/><path d="M480 377H518" marker-end="url(#arch-arrow)"/><path d="M200 464V494" marker-end="url(#arch-arrow)"/><path d="M560 464V494" marker-end="url(#arch-arrow)"/></g>
+<rect class="host" x="40" y="196" width="200" height="268" rx="8"/><text class="t" x="54" y="218" font-size="13" font-weight="600">cp1, control plane</text>
+<rect class="bx" x="52" y="230" width="176" height="34" rx="6"/><text class="t" x="62" y="246">etcd, API server, kube-vip</text><text class="q" x="62" y="259">API address on one node</text>
+<rect class="bx" x="52" y="272" width="176" height="24" rx="6"/><text class="t" x="62" y="288">HAProxy ingress, MetalLB</text>
+<rect class="bx acc" x="52" y="304" width="176" height="48" rx="6"/><text class="t" x="62" y="321" font-weight="600">Run:ai copy, Keycloak</text><text class="q" x="62" y="337">control plane, cluster side,</text><text class="q" x="62" y="349">KAI Scheduler</text>
+<rect class="bx acc" x="52" y="360" width="176" height="34" rx="6"/><text class="t" x="62" y="376" font-weight="600">PostgreSQL primary</text><text class="q" x="62" y="389">CloudNativePG, oif-pg-1</text>
+<rect class="bx" x="52" y="402" width="176" height="24" rx="6"/><text class="t" x="62" y="418">Prometheus, Grafana, Thanos</text>
+<rect class="bx" x="52" y="432" width="176" height="24" rx="6"/><text class="t" x="62" y="448">conntrack reaper (host)</text>
+<rect class="host" x="280" y="196" width="200" height="268" rx="8"/><text class="t" x="294" y="218" font-size="13" font-weight="600">cp2, control plane</text>
+<rect class="bx" x="292" y="230" width="176" height="34" rx="6"/><text class="t" x="302" y="246">etcd, API server, kube-vip</text><text class="q" x="302" y="259">API address on one node</text>
+<rect class="bx" x="292" y="272" width="176" height="24" rx="6"/><text class="t" x="302" y="288">HAProxy ingress, MetalLB</text>
+<rect class="bx acc" x="292" y="304" width="176" height="48" rx="6"/><text class="t" x="302" y="321" font-weight="600">Run:ai copy, Keycloak</text><text class="q" x="302" y="337">control plane, cluster side,</text><text class="q" x="302" y="349">KAI Scheduler</text>
+<rect class="bx acc" x="292" y="360" width="176" height="34" rx="6"/><text class="t" x="302" y="376" font-weight="600">PostgreSQL standby</text><text class="q" x="302" y="389">CloudNativePG, oif-pg-2</text>
+<rect class="bx" x="292" y="402" width="176" height="24" rx="6"/><text class="t" x="302" y="418">Prometheus, Grafana, Thanos</text>
+<rect class="bx" x="292" y="432" width="176" height="24" rx="6"/><text class="t" x="302" y="448">conntrack reaper (host)</text>
+<rect class="host" x="520" y="196" width="200" height="268" rx="8"/><text class="t" x="534" y="218" font-size="13" font-weight="600">cp3, control plane</text>
+<rect class="bx" x="532" y="230" width="176" height="34" rx="6"/><text class="t" x="542" y="246">etcd, API server, kube-vip</text><text class="q" x="542" y="259">API address on one node</text>
+<rect class="bx" x="532" y="272" width="176" height="24" rx="6"/><text class="t" x="542" y="288">HAProxy ingress, MetalLB</text>
+<rect class="bx acc" x="532" y="304" width="176" height="48" rx="6"/><text class="t" x="542" y="321" font-weight="600">Run:ai copy, Keycloak</text><text class="q" x="542" y="337">control plane, cluster side,</text><text class="q" x="542" y="349">KAI Scheduler</text>
+<rect class="bx acc" x="532" y="360" width="176" height="34" rx="6"/><text class="t" x="542" y="376" font-weight="600">PostgreSQL standby</text><text class="q" x="542" y="389">CloudNativePG, oif-pg-3</text>
+<rect class="bx" x="532" y="402" width="176" height="24" rx="6"/><text class="t" x="542" y="418">Prometheus, Grafana, Thanos</text>
+<rect class="bx" x="532" y="432" width="176" height="24" rx="6"/><text class="t" x="542" y="448">conntrack reaper (host)</text>
+<text class="q" x="244" y="372">copy</text><text class="q" x="484" y="372">copy</text>
+<rect class="bx" x="40" y="496" width="332" height="104" rx="8"/><text class="t" x="56" y="520" font-size="13" font-weight="600">gpu-nvidia, GPU worker</text><text class="q" x="56" y="538">NVIDIA driver 595.91.07, NVIDIA GPU Operator</text><text class="q" x="56" y="554">Run:ai node pool nvidia, resource nvidia.com/gpu</text><text class="t" x="56" y="582" font-weight="600">NVIDIA RTX A6000, 48 GB</text>
+<rect class="bx" x="388" y="496" width="332" height="104" rx="8"/><text class="t" x="404" y="520" font-size="13" font-weight="600">gpu-amd, GPU worker</text><text class="q" x="404" y="538">in-kernel amdgpu driver, AMD GPU Operator</text><text class="q" x="404" y="554">Run:ai node pool amd, resource amd.com/gpu</text><text class="t" x="404" y="582" font-weight="600">AMD Radeon PRO W7900, 48 GB</text>
+<text class="t" x="40" y="632" font-size="12">Ubuntu 26.04, Kubernetes 1.35.9 on all five nodes; installed and removed on every node by oif from the first one</text>
+</svg><figcaption><b>Figure 1.</b> Reference architecture. Every service users rely on runs in copies on different control-plane nodes; the database has one primary and two standbys; the GPU servers carry only GPU work, one Run:ai node pool per vendor.</figcaption></figure>
+<div class="wide"><div class="tbl"><table><thead><tr><th>Node</th><th>Role</th><th>Runs</th></tr></thead><tbody><tr><td>cp1, cp2, cp3</td><td>control plane</td><td>etcd and the Kubernetes API (one address held by kube-vip), and one copy of each platform service: Run:ai, Keycloak, the database, Prometheus, Grafana, the ingress</td></tr><tr><td>gpu-amd</td><td>GPU worker</td><td>AMD Radeon PRO W7900, AMD GPU Operator, Run:ai node pool <code>amd</code></td></tr><tr><td>gpu-nvidia</td><td>GPU worker</td><td>NVIDIA RTX A6000, NVIDIA GPU Operator and driver, Run:ai node pool <code>nvidia</code></td></tr></tbody></table></div></div>
+<p>What changes from the single server:</p>
+<ul><li><b>One cluster, one command.</b> <code>oif install</code> on the first control-plane node prepares every node over SSH (packages, kernel, containerd, the NVIDIA driver or the AMD firmware), builds the cluster with <code>kubeadm</code>, joins the other nodes and installs the platform. <code>oif uninstall</code> there removes it from every node.</li><li><b>Per-vendor node pools.</b> GPU nodes are labelled by vendor and Run:ai gets one node pool per vendor (<code>nvidia</code>, <code>amd</code>). A project's quota is set per pool, so per-vendor quotas are Run:ai's own and the Kubernetes ResourceQuota of the single-server design is no longer needed.</li><li><b>The platform runs on the control-plane nodes</b>, in copies on different nodes, so the GPU servers carry only GPU work.</li></ul>
+</section>
+<section class="col">
+<h2 id="how-the-platform-survives-a-node"><span class="n">3</span>How the platform survives a node</h2>
+<p>High availability here means copies, not moving things after a failure. Everything users rely on runs at least twice, on different control-plane nodes, so when a node stops the other copies are already serving.</p>
+<div class="wide"><div class="tbl"><table><thead><tr><th>Part</th><th>Copies</th><th>When a control-plane node stops</th></tr></thead><tbody><tr><td>Kubernetes API</td><td>3 API servers, 3 etcd members</td><td>the API address (kube-vip) moves to another node within seconds</td></tr><tr><td>Ingress address</td><td>MetalLB, announced only from the control-plane nodes</td><td>another control-plane node announces the address</td></tr><tr><td>HAProxy ingress</td><td>one per node</td><td>the remaining ones serve</td></tr><tr><td>Run:ai control plane</td><td>2 of every service, never on the same node</td><td>the other copy serves</td></tr><tr><td>Keycloak (Run:ai login)</td><td>3, sessions shared through the database</td><td>the others serve</td></tr><tr><td>Database</td><td>CloudNativePG, 3 PostgreSQL 16 instances, one per node</td><td>a standby is promoted</td></tr><tr><td>Thanos (Run:ai metrics), NATS</td><td>3 each</td><td>the others serve</td></tr><tr><td>Prometheus</td><td>2</td><td>the other serves</td></tr><tr><td>Grafana</td><td>2, its state in the database</td><td>the other serves</td></tr><tr><td>Run:ai cluster side, KAI Scheduler</td><td>2 with leader election</td><td>the standby takes over</td></tr></tbody></table></div></div>
+<p>Measured on the reference lab, with the node holding both the database primary and the ingress address powered off, from a machine outside the cluster: the Run:ai UI never failed, a Run:ai login with an API call failed for 67 seconds, Grafana for 47 seconds. New workloads in both GPU pools and the quotas worked while the node was off, and every copy was complete again once it was back.</p>
+<p>The parts that stay single (Run:ai's operators, kube-state-metrics, the Prometheus and MetalLB controllers) do not serve users directly. The ones whose loss users would notice, such as kube-state-metrics, which feeds the GPU panels, restart on another node about a minute after the node is declared down.</p>
+<h3>What makes it fast</h3>
+<p>Copies alone were not enough. Each of the following came out of a real power-off that failed:</p>
+<div class="wide"><div class="tbl"><table><thead><tr><th>Setting</th><th>Why</th></tr></thead><tbody><tr><td>A silent node is declared down after 20 s (Kubernetes' default is 40 s)</td><td>the database promotes a standby only after this verdict</td></tr><tr><td><code>max_connections</code> 400 in PostgreSQL</td><td>two copies of every Run:ai service filled the default 100, and Grafana was left without a connection after a failover</td></tr><tr><td>A connection reaper on every node</td><td>a client connected to the old database primary keeps retransmitting for about 15 minutes. Keycloak and Run:ai's services hung on the dead primary, and logins failed while every pod looked healthy. A small host service drops connections whose destination no longer exists, and the clients reconnect at once</td></tr><tr><td>The ingress address only on control-plane nodes</td><td>Kubernetes marks control-plane nodes as excluded from load balancers, so MetalLB had announced the address from a GPU server</td></tr><tr><td>20 s moves for the single services users miss</td><td>with the default 5 minutes the GPU panels were empty for about 8 minutes</td></tr><tr><td><code>wal_keep_size</code> 4 GB</td><td>a database copy whose node was off for hours must catch up from the primary's log; the default 512 MB lasted about 2.5 hours in the lab</td></tr></tbody></table></div></div>
+<h3>Storage</h3>
+<p>Components that copy their own data (PostgreSQL, Thanos receive, Prometheus) keep it on local disks through local-path, one volume per copy. Longhorn holds only what has no copies of its own (NATS). Replicating already-replicated data through Longhorn as well would have needed about 300 GB per node.</p>
+</section>
+<section class="col">
+<h2 id="bill-of-materials"><span class="n">4</span>Bill of materials</h2>
+<p>Added to the versions of the <a href="../../runai-amd/deployment-guide/">single-server deployment</a>. Each is pinned in <code>versions.env</code>.</p>
+<div class="wide"><div class="tbl"><table><thead><tr><th>Layer</th><th>Component</th><th>Version</th></tr></thead><tbody><tr><td>Kubernetes</td><td>Kubernetes (kubeadm), three control-plane nodes</td><td>1.35.9</td></tr><tr><td>Kubernetes</td><td>kube-vip, the API address</td><td>v1.2.4</td></tr><tr><td>Network</td><td>Calico</td><td>v3.32.2</td></tr><tr><td>Network</td><td>MetalLB, layer 2</td><td>v0.16.0</td></tr><tr><td>Storage</td><td>local-path provisioner</td><td>v0.0.37</td></tr><tr><td>Storage</td><td>Longhorn</td><td>1.12.1</td></tr><tr><td>Database</td><td>CloudNativePG (chart 0.29.1)</td><td>operator 1.30.1</td></tr><tr><td>Database</td><td>PostgreSQL</td><td>16.15</td></tr><tr><td>Platform</td><td>Run:ai, open source, external database</td><td>3.0.20</td></tr><tr><td>Platform</td><td>HAProxy ingress (chart)</td><td>1.54.2</td></tr><tr><td>Monitoring</td><td>kube-prometheus-stack</td><td>92.3.0</td></tr><tr><td>GPU</td><td>NVIDIA GPU Operator, driver 595.91.07</td><td>v26.7.1</td></tr><tr><td>GPU</td><td>AMD GPU Operator</td><td>v1.5.1</td></tr></tbody></table></div></div>
+</section>
+<section class="col">
+<h2 id="reference-hardware-and-sizing"><span class="n">5</span>Reference hardware and sizing</h2>
+<p>The reference is the <a href="../../hybrid-gpu-lab/">Hybrid GPU Cluster Lab</a>: five virtual machines on one server, each GPU passed through to its VM.</p>
+<div class="wide"><div class="tbl"><table><thead><tr><th>Node</th><th>vCPU</th><th>Memory</th><th>Disk</th><th>GPU</th></tr></thead><tbody><tr><td>cp1, cp2, cp3</td><td>24</td><td>48 GB</td><td>500 GB</td><td>none</td></tr><tr><td>gpu-amd</td><td>48</td><td>96 GB</td><td>500 GB</td><td>Radeon PRO W7900, 48 GB</td></tr><tr><td>gpu-nvidia</td><td>48</td><td>96 GB</td><td>500 GB</td><td>RTX A6000, 48 GB</td></tr></tbody></table></div></div>
+<p>With the platform in copies, a control-plane node uses about 4 to 10 GB of memory. Each one must be able to carry its share of the copies of a node that is down; 16 GB is the practical floor and 32 GB is comfortable. Plan disk for the database (20 GB volume per copy) and Prometheus on every control-plane node.</p>
+<p>Three is the minimum: etcd and the database need a majority, so a cluster of three survives one lost node. A cluster with fewer than three control-plane nodes keeps the single-server design (single copies, Run:ai's built-in database).</p>
+</section>
+<section class="col">
+<h2 id="design-decisions"><span class="n">6</span>Design decisions</h2>
+<div class="wide"><div class="tbl"><table><thead><tr><th>Decision</th><th>Why</th></tr></thead><tbody><tr><td>Copies on different nodes, not volumes that move</td><td>moving a volume and restarting a service after a node failure took about 14 minutes in the first test; copies take seconds</td></tr><tr><td>An external, replicated database (CloudNativePG)</td><td>Run:ai's built-in PostgreSQL cannot be replicated; Run:ai documents an external database for high availability</td></tr><tr><td>One node pool per vendor</td><td>quotas per pool are per-vendor quotas, set in Run:ai's UI, with no Kubernetes objects of our own</td></tr><tr><td>The platform on the control-plane nodes</td><td>GPU servers carry only GPU work and can be added or removed without touching the platform</td></tr><tr><td>Measured from outside the cluster</td><td>inside the cluster kube-proxy answers the ingress address itself, so an inside probe cannot see the address move. The acceptance test probes a real login from a machine outside</td></tr><tr><td>No automatic fencing yet</td><td>copies already avoid the outage; fencing would only restore full redundancy sooner</td></tr></tbody></table></div></div>
+</section>
+<section class="col">
+<h2 id="known-issues-and-limits"><span class="n">7</span>Known issues and limits</h2>
+<ul><li>A database copy whose node stays off for longer than about 20 hours (at the lab's write rate) cannot catch up when it returns. Rebuild it: delete its volume and pod, and CloudNativePG clones it from the primary in about a minute.</li><li>A network interruption to a node longer than 20 s counts as a node failure: the database fails over and the singles move.</li><li>Run:ai's operators keep Kubernetes' 5-minute eviction (Run:ai's own operator owns their settings). They do not serve users; changes to Run:ai's configuration wait for them while their node is down.</li><li>Every other limit of the <a href="../../runai-amd/deployment-guide/">single-server deployment</a> still applies, including GPU fractions staying off while the NVIDIA driver is older than r615.</li></ul>
+</section>
+<section class="col">
+<h2 id="day-2-operations"><span class="n">8</span>Day-2 operations</h2>
+<div class="wide"><div class="tbl"><table><thead><tr><th>Task</th><th>How</th></tr></thead><tbody><tr><td>A control-plane node goes down</td><td>nothing to do. When it returns, its copies rejoin by themselves; check with <code>kubectl -n oif-db get clusters.postgresql.cnpg.io</code> (3 ready instances)</td></tr><tr><td>A node was off for more than about 20 hours</td><td>rebuild its database copy: <code>kubectl -n oif-db delete pvc oif-pg-N</code> and <code>delete pod oif-pg-N</code></td></tr><tr><td>Planned maintenance of a node</td><td>move the database primary away first (a CloudNativePG switchover), then drain the node</td></tr><tr><td>Check the protection</td><td><code>tests/lab/t124-ha.sh</code> plus <code>tests/lab/t124-probe.py</code> from outside, as in the <a href="../install-guide/">Installation Guide</a></td></tr><tr><td>Remove everything</td><td><code>sudo ./oif uninstall</code> on the first node: every node, from its own record</td></tr></tbody></table></div></div>
+</section>
+<section class="col">
+<h2 id="checklists"><span class="n">9</span>Checklists</h2>
+<p><b>Before installing</b></p>
+<ul class="check"><li>Three control-plane machines and at least one GPU server per vendor, on one subnet, Ubuntu 26.04, one user with SSH keys and sudo without a password</li><li>A free address for the Kubernetes API and a small range for MetalLB on that subnet</li><li>Each GPU server holds GPUs of one vendor</li><li>A machine outside the cluster that reaches the ingress address, to measure what users see</li></ul>
+<p><b>After a node failure</b></p>
+<ul class="check"><li>Logins and the Run:ai API work within 90 seconds</li><li>The database has a primary on a live node; three ready instances once the node is back</li><li>The GPU panels in Grafana show both vendors</li></ul>
+</section>
+<footer class="col">Author: Manmohan Brahma · October 2026 · Written from a lab deployment; host addresses are shown as placeholders. Builds on the <a href="../../runai-amd/deployment-guide/">Run:ai with NVIDIA and AMD GPUs Deployment Guide</a> (one server). Step-by-step commands: <a href="../install-guide/">Installation Guide</a>.</footer>
+</article>
+</body></html>
