@@ -405,7 +405,7 @@ torch.cuda.empty_cache()</pre></div>
 <div class="cmd"><button class="copy" type="button">Copy</button><pre>!amd-smi static --gpu 0 --asic --vram | head -30
 !amd-smi metric --gpu 0 --usage --mem-usage</pre></div>
 <p>Expect <code>MARKET_NAME: AMD Radeon Pro W7900</code>, 48 GB of VRAM, and the GPU's current use.</p>
-<p><b>Cell 5: how fast is this half (30 seconds).</b> A matrix-multiply test. Alone on the card it reaches about 55 TFLOPS; while another half-GPU workload is busy on the same card, each gets about 24.</p>
+<p><b>Cell 5: how fast is this half (30 seconds).</b> A matrix-multiply test. Alone on the card it reached 49.8 TFLOPS in the lab; while another half-GPU workload is busy on the same card, each gets about 24.</p>
 <div class="cmd"><button class="copy" type="button">Copy</button><pre>import time, torch
 a = torch.randn(8192, 8192, device="cuda", dtype=torch.float16); torch.cuda.synchronize()
 t, n = time.time(), 0
