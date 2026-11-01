@@ -305,7 +305,7 @@ kubectl -n runai-team-c get pod amd-whole-gpu -o wide<span class="c">       # Ru
 <h3>Run AMD slices from scratch, step by step</h3>
 <ol><li><b>New workload &gt; Training</b>, a project, <b>Start from scratch</b>, a name.</li><li><b>Environment:</b> a ROCm image, for example <code>docker.io/rocm/pytorch:rocm10.1.0_ubuntu24.04_py3.12_pytorch_release_2.14.0</code>, and its command.</li><li><b>Compute resources:</b> GPU devices <code>1</code>, switch on <b>GPU fractioning</b>, GPU memory <b>% of device</b> <code>50</code>. The total reads 0.50 GPUs.</li><li><b>Nodes:</b> keep only <code>amd</code>: click the <b>X</b> on the <code>nvidia</code> and <code>default</code> rows. Otherwise the slice runs on the NVIDIA GPU first.</li><li><b>Create training</b>.</li></ol>
 <h3>Check a slice from inside (a notebook)</h3>
-<p>In a Jupyter workspace from <code>jupyter-lab-rocm-half-gpu</code>, run:</p>
+<p>In a Jupyter workspace from <code>jupyter-lab-rocm-half-gpu</code>, run the following. For the same checks cell by cell, with the output to expect and a ready notebook, see <a href="#demo">demo step 9</a>.</p>
 <div class="cmd"><button class="copy" type="button">Copy</button><pre>import os, torch
 for k in ("RUNAI_PROJECT", "RUNAI_JOB_NAME", "OIF_GPU_PCI", "OIF_GPU_MEMORY_FRACTION", "PYTORCH_ALLOC_CONF"):
     print(f"{k:25} {os.environ.get(k)}")
@@ -365,10 +365,55 @@ GPU memory 45.0 GiB, this pod's share 0.5 = 22.5 GiB
 <figure class="shot"><a href="img/13-workloads.png" target="_blank" rel="noopener"><img src="img/13-workloads.png" width="2160" height="1500" loading="lazy" alt="Workloads: two AMD halves running in pool amd with 0.5 GPU each, with the AMD logo."></a><figcaption><b>Figure 17.</b> Workloads: two AMD halves running in pool amd with 0.5 GPU each, with the AMD logo.</figcaption></figure>
 <figure class="shot"><a href="img/13-projects.png" target="_blank" rel="noopener"><img src="img/13-projects.png" width="2160" height="1500" loading="lazy" alt="Projects: team-c has 1.00 GPU allocated, the two halves of the W7900."></a><figcaption><b>Figure 18.</b> Projects: team-c has 1.00 GPU allocated, the two halves of the W7900.</figcaption></figure>
 <h3>9. A Jupyter workspace on half an AMD GPU</h3>
-<p>From template <code>jupyter-lab-rocm-half-gpu</code>. Its log starts with the share it got.</p>
+<ol><li><b>Workload manager &gt; Workloads &gt; New workload &gt; Workspace</b>.</li><li>Pick a project with AMD quota (here <code>team-c</code>), choose template <b>jupyter-lab-rocm-half-gpu</b>, give it a name (here <code>test</code>), and click <b>Create workspace</b>.</li><li>Wait until its status is <b>Running</b> (the first time takes a few minutes while the node downloads the ROCm image).</li><li>Open the workspace's <b>Logs</b> tab. The first line shows the share it got: half of the AMD GPU at <code>0000:03:00.0</code>.</li><li>Click <b>Connect &gt; Jupyter</b>. JupyterLab opens in a new browser tab. If the page stays blank, open the link in a private window.</li><li>In JupyterLab: <b>File &gt; New &gt; Notebook</b>, kernel <b>Python 3</b>.</li><li>Paste each cell below into its own notebook cell and run it with <b>Shift+Enter</b>.</li></ol>
 <figure class="shot"><a href="img/u-workspace-log.png" target="_blank" rel="noopener"><img src="img/u-workspace-log.png" width="1904" height="1127" loading="lazy" alt="The workspace&#x27;s log: GPU share 0.5 of the AMD GPU at 0000:03:00.0, then JupyterLab starting."></a><figcaption><b>Figure 19.</b> The workspace's log: GPU share 0.5 of the AMD GPU at 0000:03:00.0, then JupyterLab starting.</figcaption></figure>
+<div class="note">Want the cells ready-made? Download <a href="oif-amd-half-gpu.ipynb" download>oif-amd-half-gpu.ipynb</a>, then in JupyterLab click the <b>Upload</b> arrow at the top of the file list, choose the file, open it and use <b>Run &gt; Run All Cells</b>.</div>
+<p><b>Cell 1: who am I, and what share did Run:ai give me.</b> Run:ai sets the project and workload names; oif's plugin sets the GPU's address and the share.</p>
+<div class="cmd"><button class="copy" type="button">Copy</button><pre>import os
+for k in ("RUNAI_PROJECT", "RUNAI_JOB_NAME", "OIF_GPU_PCI", "OIF_GPU_MEMORY_FRACTION", "PYTORCH_ALLOC_CONF"):
+    print(f"{k:25} {os.environ.get(k)}")</pre></div>
+<div class="cmd"><button class="copy" type="button">Copy</button><pre>RUNAI_PROJECT             team-c
+RUNAI_JOB_NAME            test
+OIF_GPU_PCI               0000:03:00.0
+OIF_GPU_MEMORY_FRACTION   0.5
+PYTORCH_ALLOC_CONF        per_process_memory_fraction:0.5</pre></div>
+<p><b>Cell 2: which GPU this container can reach.</b> Only the AMD GPU's own device files are inside, and PyTorch sees the W7900.</p>
+<div class="cmd"><button class="copy" type="button">Copy</button><pre>import os, torch
+print("device files:", sorted(os.listdir("/dev/dri")), "| /dev/kfd:", os.path.exists("/dev/kfd"))
+p = torch.cuda.get_device_properties(0)
+print(f"{p.name} | {p.gcnArchName} | {p.multi_processor_count} compute units | {p.total_memory/2**30:.1f} GiB physical")
+print("PyTorch", torch.__version__, "| HIP", torch.version.hip)</pre></div>
+<div class="cmd"><button class="copy" type="button">Copy</button><pre>device files: ['card0', 'renderD128'] | /dev/kfd: True
+AMD Radeon Pro W7900 | gfx1100 | 48 compute units | 45.0 GiB physical
+PyTorch 2.14.0+rocm10.1.0 | HIP 7.16.26385</pre></div>
+<p>PyTorch counts 48 "compute units" where <code>amd-smi</code> says 96: PyTorch counts pairs (work-group processors). It is the same whole chip.</p>
+<p><b>Cell 3: the card's memory and this pod's share.</b> The share is a limit that PyTorch keeps: 20 GiB fits in the half, 25 GiB does not.</p>
+<div class="cmd"><button class="copy" type="button">Copy</button><pre>import os, torch
+free, total = torch.cuda.mem_get_info()
+share = float(os.environ.get("OIF_GPU_MEMORY_FRACTION", "1"))
+print(f"GPU memory {total/2**30:.1f} GiB, free {free/2**30:.1f} GiB, this pod's share {share} = {share*total/2**30:.1f} GiB")
+for gib in (20, 25):
+    try:
+        x = torch.empty(int(gib * 2**30) // 2, dtype=torch.float16, device="cuda"); print(f"{gib} GiB: allocated"); del x
+    except torch.OutOfMemoryError:
+        print(f"{gib} GiB: refused (over the share)")
+torch.cuda.empty_cache()</pre></div>
+<div class="cmd"><button class="copy" type="button">Copy</button><pre>GPU memory 45.0 GiB, free 44.9 GiB, this pod's share 0.5 = 22.5 GiB
+20 GiB: allocated
+25 GiB: refused (over the share)</pre></div>
+<p><b>Cell 4: what the driver sees.</b> <code>amd-smi</code> shows the whole card, because a W7900 has no hardware partitions. The <code>!</code> runs a shell command from the notebook.</p>
+<div class="cmd"><button class="copy" type="button">Copy</button><pre>!amd-smi static --gpu 0 --asic --vram | head -30
+!amd-smi metric --gpu 0 --usage --mem-usage</pre></div>
+<p>Expect <code>MARKET_NAME: AMD Radeon Pro W7900</code>, 48 GB of VRAM, and the GPU's current use.</p>
+<p><b>Cell 5: how fast is this half (30 seconds).</b> A matrix-multiply test. Alone on the card it reaches about 55 TFLOPS; while another half-GPU workload is busy on the same card, each gets about 24.</p>
+<div class="cmd"><button class="copy" type="button">Copy</button><pre>import time, torch
+a = torch.randn(8192, 8192, device="cuda", dtype=torch.float16); torch.cuda.synchronize()
+t, n = time.time(), 0
+while time.time() - t &lt; 30: a @ a; n += 1
+torch.cuda.synchronize(); print(f"fp16 matmul: {n * 2 * 8192**3 / (time.time() - t) / 1e12:.1f} TFLOPS")</pre></div>
+<div class="cmd"><button class="copy" type="button">Copy</button><pre>fp16 matmul: 24.2 TFLOPS</pre></div>
 <h3>10. Inside the notebook</h3>
-<p>The notebook from <a href="#amd-slices">Check a slice from inside</a>: the share, the device files, and 25 GiB refused.</p>
+<p>Cells 1 to 3 as they ran in the lab: the share, the device files, and 25 GiB refused.</p>
 <figure class="shot"><a href="img/u-notebook.png" target="_blank" rel="noopener"><img src="img/u-notebook.png" width="1905" height="1127" loading="lazy" alt="The notebook: Run:ai project and workload, the share 0.5, only the AMD GPU&#x27;s device files, the W7900 with 45 GiB, 20 GiB allocated and 25 GiB refused."></a><figcaption><b>Figure 20.</b> The notebook: Run:ai project and workload, the share 0.5, only the AMD GPU's device files, the W7900 with 45 GiB, 20 GiB allocated and 25 GiB refused.</figcaption></figure>
 <h3>11. The limit holds from the terminal too</h3>
 <p>In the workspace's <b>Terminal</b> tab:</p>
