@@ -73,32 +73,11 @@ footer{font-size:12.5px;color:var(--muted);border-top:1px solid var(--line);padd
     <div class="tags"><span class="tag">oif</span><span class="tag">amd.com/gpu</span><span class="tag">ResourceQuota</span><span class="tag">Grafana</span><span class="tag">Run:ai patches</span><span class="tag">Runbook</span></div>
     <span class="go">Open guide →</span>
   </a>
-  <a class="card" href="runai-ha-lab/">
-    <span class="eyebrow">Demo Guide · October 2026</span>
-    <h2>Creating a Virtual Lab to Run Run:ai in HA Mode</h2>
-    <p class="muted">A simple demo flow for anyone: one GPU server becomes three control-plane VMs and an NVIDIA and an AMD GPU worker VM, Run:ai is installed in high-availability mode, a workload runs on each vendor, then a control-plane node is powered off while Run:ai keeps working.</p>
-    <div class="tags"><span class="tag">Demo</span><span class="tag">Run:ai HA</span><span class="tag">3 + 2 VMs</span><span class="tag">NVIDIA + AMD</span><span class="tag">Start here</span></div>
-    <span class="go">Open guide →</span>
-  </a>
-  <a class="card" href="runai-amd-ha/deployment-guide/">
-    <span class="eyebrow">Deployment Guide · October 2026</span>
-    <h2>Highly Available Run:ai with NVIDIA and AMD GPUs: Deployment Guide</h2>
-    <p class="muted">Run:ai across three control-plane nodes and one GPU server per vendor: every platform service in copies, a replicated database, what made failover fast enough, sizing and limits. Losing a control-plane node interrupts logins for about a minute.</p>
-    <div class="tags"><span class="tag">Run:ai 3.0.20</span><span class="tag">5 nodes</span><span class="tag">CloudNativePG</span><span class="tag">kube-vip</span><span class="tag">MetalLB</span></div>
-    <span class="go">Open guide →</span>
-  </a>
-  <a class="card" href="runai-amd-ha/install-guide/">
-    <span class="eyebrow">Installation Guide · October 2026</span>
-    <h2>Highly Available Run:ai with NVIDIA and AMD GPUs: Installation Guide</h2>
-    <p class="muted">One command installs Run:ai across five nodes with oif, with node pools per vendor and every service in copies; then a control-plane node is powered off and a probe outside the cluster measures what users see.</p>
-    <div class="tags"><span class="tag">oif</span><span class="tag">Node pools</span><span class="tag">Failover test</span><span class="tag">Uninstall</span><span class="tag">Runbook</span></div>
-    <span class="go">Open guide →</span>
-  </a>
-  <a class="card" href="hybrid-gpu-lab/">
-    <span class="eyebrow">Installation Guide · October 2026</span>
-    <h2>Hybrid GPU Cluster Lab: NVIDIA and AMD GPUs in Separate Nodes</h2>
-    <p class="muted">One server emulates a hybrid GPU cluster with KVM: three control-plane VMs and two GPU workers, an AMD Radeon PRO W7900 and an NVIDIA RTX A6000 through PCI passthrough, on one private subnet. One command creates it, one destroys it.</p>
-    <div class="tags"><span class="tag">KVM</span><span class="tag">PCI passthrough</span><span class="tag">Ubuntu 26.04</span><span class="tag">3 + 2 VMs</span><span class="tag">Runbook</span></div>
+  <a class="card" href="runai-nvidia-amd/">
+    <span class="eyebrow">Planning · Design · Installation · Demo · November 2026</span>
+    <h2>Run:ai with NVIDIA and AMD GPUs: Planning, Design, Installation and Demo Guide</h2>
+    <p class="muted">One guide for anyone: plan the servers, see how the pieces fit, install Run:ai with one command, keep it running when a server fails (HA), use AMD GPUs whole and in slices next to NVIDIA's, show every feature step by step, and read every patch applied to Run:ai and the KAI Scheduler.</p>
+    <div class="tags"><span class="tag">Run:ai 3.0.20</span><span class="tag">HA, 3 + 2 nodes</span><span class="tag">AMD GPU slices</span><span class="tag">NVIDIA + AMD</span><span class="tag">Patches</span><span class="tag">Start here</span></div>
     <span class="go">Open guide →</span>
   </a>
 </section>

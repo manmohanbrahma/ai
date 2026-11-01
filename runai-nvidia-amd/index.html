@@ -1,0 +1,1589 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Run:ai with NVIDIA and AMD GPUs: Planning, Design, Installation and Demo Guide</title><meta name="description" content="One guide for running Run:ai with NVIDIA and AMD GPUs: plan the servers, the design, a step-by-step install with open-inference-fabric, high availability, AMD GPUs whole and in slices, a demo of every feature, and every patch in full.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@600;700&family=Source+Sans+3:wght@400;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: single reading column (~72ch) with a sticky step index on wide screens; code and logs scroll inside their own boxes */
+:root {
+  --bg: #f6f7f8; --surface: #ffffff; --fg: #1b2228; --muted: #5a6670; --line: #d9dee2;
+  --accent: #0b7a75; --accent-soft: #e2f2f0; --warn: #9a5b00; --warn-soft: #fbf0dc; --bad: #a1262c;
+  --code-bg: #0f1a20; --code-fg: #d7e3e8; --code-dim: #7f939c; --code-ok: #6fd1a4; --code-warn: #f0c36a; --code-err: #ff8f8f;
+  --f-display: "Barlow Semi Condensed", "Arial Narrow", Arial, sans-serif;
+  --f-body: "Source Sans 3", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --f-mono: "JetBrains Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0e1418; --surface: #151d22; --fg: #e3e9ec; --muted: #9aa8b0; --line: #2a353c;
+  --accent: #4fc1b8; --accent-soft: #15302e; --warn: #f0b85a; --warn-soft: #33270f; --bad: #ff8a8f;
+  --code-bg: #091014; --code-fg: #d7e3e8; --code-dim: #7f939c; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #0e1418; --surface: #151d22; --fg: #e3e9ec; --muted: #9aa8b0; --line: #2a353c;
+  --accent: #4fc1b8; --accent-soft: #15302e; --warn: #f0b85a; --warn-soft: #33270f; --bad: #ff8a8f;
+  --code-bg: #091014; --code-fg: #d7e3e8; --code-dim: #7f939c; color-scheme: dark }
+* { box-sizing: border-box }
+body { background: var(--bg); color: var(--fg); font: 17px/1.6 var(--f-body); margin: 0; padding-inline: 16px; padding-block: 0 64px }
+.wrap { max-width: 1120px; margin: 0 auto; display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 48px }
+@media (max-width: 900px) { .wrap { grid-template-columns: minmax(0, 1fr) } nav.toc { display: none } }
+nav.toc { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 24px); align-self: start; padding-top: 40px; font-size: 14px }
+nav.toc ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; counter-reset: s }
+nav.toc a { color: var(--muted); text-decoration: none; display: block; padding: 2px 0 2px 10px; border-left: 2px solid var(--line) }
+nav.toc a:hover, nav.toc a:focus-visible { color: var(--accent); border-left-color: var(--accent); outline: none }
+main { min-width: 0; padding-top: 40px }
+header.doc { border-bottom: 1px solid var(--line); padding-bottom: 24px; margin-bottom: 8px }
+.eyebrow { font: 600 13px/1 var(--f-body); letter-spacing: .12em; text-transform: uppercase; color: var(--accent) }
+h1, h2, h3 { font-family: var(--f-display); text-wrap: balance; line-height: 1.15; margin: 0 }
+h1 { font-size: clamp(32px, 5vw, 46px); font-weight: 700; margin-top: 10px }
+h2 { font-size: 28px; font-weight: 600; margin: 56px 0 12px; scroll-margin-top: 20px }
+h2 .n { color: var(--accent); margin-right: 10px; font-variant-numeric: tabular-nums }
+h3 { font-size: 20px; font-weight: 600; margin: 28px 0 8px }
+p, li { max-width: 72ch }
+p { margin: 10px 0 }
+.meta { display: flex; flex-wrap: wrap; gap: 8px 24px; color: var(--muted); font-size: 15px; margin-top: 14px }
+.meta b { color: var(--fg); font-weight: 600 }
+.lede { font-size: 19px; color: var(--fg); margin-top: 14px }
+a { color: var(--accent) }
+code { font: 0.86em var(--f-mono); background: var(--accent-soft); padding: 1px 5px; border-radius: 4px; overflow-wrap: anywhere }
+.cmd, pre.log { position: relative; background: var(--code-bg); color: var(--code-fg); border-radius: 8px; margin: 12px 0; font: 13.5px/1.55 var(--f-mono) }
+.cmd pre, pre.log { margin: 0; padding: 14px 16px; overflow-x: auto; white-space: pre }
+pre.log { max-height: 460px; overflow: auto }
+.cmd .c { color: var(--code-dim) }
+.copy { position: absolute; top: 8px; right: 8px; font: 600 12px var(--f-body); color: var(--code-fg); background: transparent; border: 1px solid #3a4a52; border-radius: 6px; padding: 3px 9px; cursor: pointer }
+.copy:hover, .copy:focus-visible { border-color: var(--accent); color: #fff; outline: none }
+.log .ok { color: var(--code-ok) } .log .w { color: var(--code-warn) } .log .e { color: var(--code-err) } .log .s { color: #9cc7ff; font-weight: 600 }
+.table { overflow-x: auto; margin: 12px 0; border: 1px solid var(--line); border-radius: 8px; background: var(--surface) }
+table { border-collapse: collapse; width: 100%; font-size: 15px }
+th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); vertical-align: top }
+th { font: 600 13px var(--f-body); letter-spacing: .04em; text-transform: uppercase; color: var(--muted); background: var(--bg) }
+tr:last-child td { border-bottom: 0 }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap }
+.facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin: 18px 0 }
+.fact { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; min-width: 0 }
+.fact .k { font-size: 13px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em }
+.fact .v { font: 600 22px/1.2 var(--f-display); margin-top: 4px; font-variant-numeric: tabular-nums }
+.note { background: var(--warn-soft); border-radius: 8px; padding: 12px 16px; margin: 14px 0; max-width: 78ch }
+.note b { color: var(--warn) }
+.qa { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 0.8fr); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: var(--surface); margin: 12px 0 }
+.qa > div { padding: 8px 12px; border-bottom: 1px solid var(--line); min-width: 0; overflow-wrap: anywhere }
+.qa > div:nth-child(odd) { color: var(--muted) }
+.qa > div:nth-child(even) { font-family: var(--f-mono); font-size: 14px }
+.qa > div:nth-last-child(-n+2) { border-bottom: 0 }
+@media (max-width: 560px) { .qa { grid-template-columns: minmax(0, 1fr) } .qa > div:nth-child(odd) { border-bottom: 0; padding-bottom: 0 } }
+details { border: 1px solid var(--line); border-radius: 8px; background: var(--surface); margin: 12px 0 }
+details > summary { cursor: pointer; padding: 10px 14px; font-weight: 600 }
+details[open] > summary { border-bottom: 1px solid var(--line) }
+details .inner { padding: 4px 14px 14px; min-width: 0 }
+ol.steps li { margin: 6px 0 }
+@media (prefers-reduced-motion: no-preference) { nav.toc a { transition: color .15s, border-color .15s } }
+</style>
+<style>
+figure.shot{margin:20px 0 24px}
+figure.shot a{display:block;border:1px solid var(--line);border-radius:8px;overflow:hidden;box-shadow:0 1px 2px rgba(0,0,0,.06),0 6px 20px rgba(0,0,0,.08);cursor:zoom-in}
+figure.shot img{display:block;width:100%;height:auto}
+figure.shot figcaption{font-size:13.5px;color:var(--muted);margin-top:8px;line-height:1.45}
+figure.shot figcaption b{color:var(--fg)}
+
+.arch{display:block;width:100%;height:auto;font-family:var(--f-body);font-size:11.5px}
+.arch .t{fill:var(--fg)} .arch .q{fill:var(--muted)}
+.arch .bx{fill:var(--surface);stroke:var(--muted);stroke-width:1.25}
+.arch .bx.acc{fill:var(--accent-soft);stroke:var(--accent);stroke-width:2}
+.arch .host{fill:var(--bg);stroke:var(--muted);stroke-width:1.25}
+.arch .ln path{fill:none;stroke:var(--muted);stroke-width:1.25} .arch .ah{fill:var(--muted)}
+figure.fig{margin:24px 0}
+ul.check{list-style:none;padding-left:4px} ul.check li::before{content:"\2610";margin-right:8px;color:var(--muted)}
+.note{border-left:4px solid var(--accent);background:var(--accent-soft);padding:12px 16px;margin:18px 0;border-radius:4px}
+details.patch{border:1px solid var(--line, #d0d0d0);border-radius:6px;margin:10px 0;background:var(--surface)}
+details.patch summary{cursor:pointer;padding:10px 14px;font-weight:600}
+details.patch .inner{padding:0 10px 10px}
+details.patch pre{max-height:520px;overflow:auto;font-size:12px}
+</style></head><body>
+<div class="wrap">
+<nav class="toc" aria-label="Contents">
+  <ol>
+    <li><a href="#overview">What you get</a></li>
+    <li><a href="#words">Words used in this guide</a></li>
+    <li><a href="#plan">Plan your cluster</a></li>
+    <li><a href="#design">Design: how the pieces fit</a></li>
+    <li><a href="#machines">Build the machines</a></li>
+    <li><a href="#install">Install Run:ai with oif</a></li>
+    <li><a href="#check">Check it worked</a></li>
+    <li><a href="#ha">High availability</a></li>
+    <li><a href="#amd-whole">AMD GPUs, whole GPU ("basic passthrough")</a></li>
+    <li><a href="#amd-slices">AMD GPU slices</a></li>
+    <li><a href="#one-vendor">One job, one vendor</a></li>
+    <li><a href="#demo">The demo, step by step</a></li>
+    <li><a href="#patches">The patches</a></li>
+    <li><a href="#troubleshooting">When something goes wrong</a></li>
+    <li><a href="#limits">Limits</a></li>
+    <li><a href="#cleanup">Remove everything</a></li>
+  </ol>
+</nav>
+<main>
+<header class="doc">
+  <div class="eyebrow">Planning · Design · Installation · Demo</div>
+  <h1>Run:ai with NVIDIA and AMD GPUs: Planning, Design, Installation and Demo Guide</h1>
+  <p class="lede">Run:ai schedules NVIDIA and AMD GPUs side by side: whole GPUs and GPU slices on both vendors, per-vendor quotas, and a platform that keeps working when a server fails. Written for anyone: plan it, install it with one command, then show every feature. Every command and screen is from a real run.</p>
+  <div class="meta"><span>Author <b>Manmohan Brahma</b></span><span>November <b>2026</b></span><span>Run:ai <b>3.0.20</b></span><span>KAI <b>v0.18.3</b></span><span>GPUs <b>RTX A6000 + Radeon PRO W7900</b></span><span><a href="https://github.com/manmohanbrahma/open-inference-fabric">open-inference-fabric</a></span><span><a href="https://github.com/manmohanbrahma/hybrid-gpu-lab">hybrid-gpu-lab</a></span><span><a href="../">All guides</a></span></div>
+</header>
+<h2 id="overview"><span class="n">1</span>What you get</h2>
+<p>This guide builds a Run:ai cluster that runs <b>NVIDIA and AMD GPUs side by side</b>, on servers you own, with Run:ai's own web screens, quotas and scheduler for both. It covers the whole journey: what to buy and plan, how the pieces fit together, how to install it step by step, how it survives a server failure, and a demo of every feature with screenshots.</p>
+<p>When you are done you have:</p>
+<ul><li><b>Run:ai 3.0</b> (the open-source release) with its web UI, projects, quotas and scheduler.</li><li><b>High availability (HA):</b> three control-plane servers; any one of them can lose power and users keep working.</li><li><b>NVIDIA GPUs:</b> whole GPUs and GPU slices (for example half a GPU per workload), as Run:ai does them.</li><li><b>AMD GPUs, whole:</b> an AMD GPU given to one workload, counted and limited by Run:ai's quotas like an NVIDIA one.</li><li><b>AMD GPUs, sliced:</b> two or more workloads sharing one AMD GPU, chosen in the same Run:ai screen as an NVIDIA slice.</li><li><b>One job, one vendor:</b> every workload runs on one vendor's GPUs, never across both.</li><li><b>Dashboards</b> in Grafana that show both vendors' GPUs side by side.</li></ul>
+<p>Run:ai does not support AMD GPUs out of the box. Everything AMD in this guide comes from <b>open-inference-fabric (oif)</b>, an open-source installer that installs Run:ai and applies a small set of patches to it. Every patch is listed, explained and shown in full in <a href="#patches">The patches</a>. You do not edit any code yourself: oif applies the patches when it installs.</p>
+<figure class="fig"><svg class="arch" viewBox="0 0 760 660" role="img" aria-label="Three control-plane nodes run Kubernetes and the platform in copies; an NVIDIA and an AMD GPU server run the GPU work">
+<defs><marker id="arch-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path class="ah" d="M0 0L10 5L0 10z"/></marker></defs>
+<text class="t" x="24" y="30" font-size="15" font-weight="600">Any one control-plane node can stop: its copies are already running on the other two</text>
+<rect class="bx" x="40" y="52" width="332" height="56" rx="8"/><text class="t" x="56" y="76" font-size="13" font-weight="600">Run:ai UI, login and API</text><text class="q" x="56" y="96">https://runai.&lt;lb-ip&gt;.sslip.io</text>
+<rect class="bx" x="388" y="52" width="332" height="56" rx="8"/><text class="t" x="404" y="76" font-size="13" font-weight="600">Grafana: OIF Fleet, OIF Scheduling</text><text class="q" x="404" y="96">https://grafana.runai.&lt;lb-ip&gt;.sslip.io</text>
+<rect class="bx" x="40" y="128" width="680" height="40" rx="8"/><text class="t" x="56" y="153" font-size="13" font-weight="600">Ingress address (MetalLB, layer 2): announced by one control-plane node, taken over by another</text>
+<g class="ln"><path d="M206 108V126" marker-end="url(#arch-arrow)"/><path d="M554 108V126" marker-end="url(#arch-arrow)"/><path d="M140 168V194" marker-end="url(#arch-arrow)"/><path d="M380 168V194" marker-end="url(#arch-arrow)"/><path d="M620 168V194" marker-end="url(#arch-arrow)"/><path d="M240 377H278" marker-end="url(#arch-arrow)"/><path d="M480 377H518" marker-end="url(#arch-arrow)"/><path d="M200 464V494" marker-end="url(#arch-arrow)"/><path d="M560 464V494" marker-end="url(#arch-arrow)"/></g>
+<rect class="host" x="40" y="196" width="200" height="268" rx="8"/><text class="t" x="54" y="218" font-size="13" font-weight="600">cp1, control plane</text>
+<rect class="bx" x="52" y="230" width="176" height="34" rx="6"/><text class="t" x="62" y="246">etcd, API server, kube-vip</text><text class="q" x="62" y="259">API address on one node</text>
+<rect class="bx" x="52" y="272" width="176" height="24" rx="6"/><text class="t" x="62" y="288">HAProxy ingress, MetalLB</text>
+<rect class="bx acc" x="52" y="304" width="176" height="48" rx="6"/><text class="t" x="62" y="321" font-weight="600">Run:ai copy, Keycloak</text><text class="q" x="62" y="337">control plane, cluster side,</text><text class="q" x="62" y="349">KAI Scheduler</text>
+<rect class="bx acc" x="52" y="360" width="176" height="34" rx="6"/><text class="t" x="62" y="376" font-weight="600">PostgreSQL primary</text><text class="q" x="62" y="389">CloudNativePG, oif-pg-1</text>
+<rect class="bx" x="52" y="402" width="176" height="24" rx="6"/><text class="t" x="62" y="418">Prometheus, Grafana, Thanos</text>
+<rect class="bx" x="52" y="432" width="176" height="24" rx="6"/><text class="t" x="62" y="448">conntrack reaper (host)</text>
+<rect class="host" x="280" y="196" width="200" height="268" rx="8"/><text class="t" x="294" y="218" font-size="13" font-weight="600">cp2, control plane</text>
+<rect class="bx" x="292" y="230" width="176" height="34" rx="6"/><text class="t" x="302" y="246">etcd, API server, kube-vip</text><text class="q" x="302" y="259">API address on one node</text>
+<rect class="bx" x="292" y="272" width="176" height="24" rx="6"/><text class="t" x="302" y="288">HAProxy ingress, MetalLB</text>
+<rect class="bx acc" x="292" y="304" width="176" height="48" rx="6"/><text class="t" x="302" y="321" font-weight="600">Run:ai copy, Keycloak</text><text class="q" x="302" y="337">control plane, cluster side,</text><text class="q" x="302" y="349">KAI Scheduler</text>
+<rect class="bx acc" x="292" y="360" width="176" height="34" rx="6"/><text class="t" x="302" y="376" font-weight="600">PostgreSQL standby</text><text class="q" x="302" y="389">CloudNativePG, oif-pg-2</text>
+<rect class="bx" x="292" y="402" width="176" height="24" rx="6"/><text class="t" x="302" y="418">Prometheus, Grafana, Thanos</text>
+<rect class="bx" x="292" y="432" width="176" height="24" rx="6"/><text class="t" x="302" y="448">conntrack reaper (host)</text>
+<rect class="host" x="520" y="196" width="200" height="268" rx="8"/><text class="t" x="534" y="218" font-size="13" font-weight="600">cp3, control plane</text>
+<rect class="bx" x="532" y="230" width="176" height="34" rx="6"/><text class="t" x="542" y="246">etcd, API server, kube-vip</text><text class="q" x="542" y="259">API address on one node</text>
+<rect class="bx" x="532" y="272" width="176" height="24" rx="6"/><text class="t" x="542" y="288">HAProxy ingress, MetalLB</text>
+<rect class="bx acc" x="532" y="304" width="176" height="48" rx="6"/><text class="t" x="542" y="321" font-weight="600">Run:ai copy, Keycloak</text><text class="q" x="542" y="337">control plane, cluster side,</text><text class="q" x="542" y="349">KAI Scheduler</text>
+<rect class="bx acc" x="532" y="360" width="176" height="34" rx="6"/><text class="t" x="542" y="376" font-weight="600">PostgreSQL standby</text><text class="q" x="542" y="389">CloudNativePG, oif-pg-3</text>
+<rect class="bx" x="532" y="402" width="176" height="24" rx="6"/><text class="t" x="542" y="418">Prometheus, Grafana, Thanos</text>
+<rect class="bx" x="532" y="432" width="176" height="24" rx="6"/><text class="t" x="542" y="448">conntrack reaper (host)</text>
+<text class="q" x="244" y="372">copy</text><text class="q" x="484" y="372">copy</text>
+<rect class="bx" x="40" y="496" width="332" height="104" rx="8"/><text class="t" x="56" y="520" font-size="13" font-weight="600">gpu-nvidia, GPU worker</text><text class="q" x="56" y="538">NVIDIA driver 615, GPU Operator, GPU slices</text><text class="q" x="56" y="554">Run:ai node pool nvidia, resource nvidia.com/gpu</text><text class="t" x="56" y="582" font-weight="600">NVIDIA RTX A6000, 48 GB</text>
+<rect class="bx" x="388" y="496" width="332" height="104" rx="8"/><text class="t" x="404" y="520" font-size="13" font-weight="600">gpu-amd, GPU worker</text><text class="q" x="404" y="538">amdgpu driver, AMD GPU Operator, slices (oif)</text><text class="q" x="404" y="554">Run:ai node pool amd, resource amd.com/gpu</text><text class="t" x="404" y="582" font-weight="600">AMD Radeon PRO W7900, 48 GB</text>
+<text class="t" x="40" y="632" font-size="12">Ubuntu 26.04, Kubernetes 1.35.9 on all five nodes; installed and removed on every node by oif from the first one</text>
+</svg><figcaption><b>Figure 1.</b> The cluster this guide builds. Three control-plane nodes run Kubernetes and every Run:ai service in copies; each GPU server holds one vendor's GPUs and is its own Run:ai node pool. In the lab all five are VMs on one server.</figcaption></figure>
+<div class="table"><table><thead><tr><th>You need</th><th>Where it comes from</th></tr></thead><tbody><tr><td>The servers (or one server that pretends to be five, for a lab)</td><td>you; for a lab, <a href="https://github.com/manmohanbrahma/hybrid-gpu-lab">hybrid-gpu-lab</a> builds the five machines as VMs</td></tr><tr><td>The installer and the patches</td><td><a href="https://github.com/manmohanbrahma/open-inference-fabric">open-inference-fabric</a> (oif)</td></tr><tr><td>Run:ai</td><td>the open-source release, downloaded by oif</td></tr></tbody></table></div>
+<p>Every command and screen in this guide comes from a real run on the reference lab: one AMD EPYC server with an <b>NVIDIA RTX A6000</b> and an <b>AMD Radeon PRO W7900</b>, split into five virtual machines, in October and November 2026.</p>
+<h2 id="words"><span class="n">2</span>Words used in this guide</h2>
+<div class="table"><table><thead><tr><th>Word</th><th>Meaning</th></tr></thead><tbody><tr><td>Node</td><td>One server (or one VM) in the cluster.</td></tr><tr><td>Control-plane node</td><td>A node that runs Kubernetes itself and the Run:ai platform (web UI, login, database). Three of them give high availability.</td></tr><tr><td>GPU worker</td><td>A node that runs only GPU workloads. In this design each GPU worker has GPUs of <b>one</b> vendor.</td></tr><tr><td>Kubernetes</td><td>The software that runs containers across the nodes. Run:ai runs on top of it.</td></tr><tr><td>oif</td><td>open-inference-fabric: the installer this guide uses. One command, <code>sudo ./oif install</code>, builds everything.</td></tr><tr><td>Node pool</td><td>A Run:ai group of nodes. oif makes one per vendor: <code>nvidia</code> and <code>amd</code> (and <code>default</code> for the control-plane nodes).</td></tr><tr><td>Project, quota</td><td>A Run:ai team space and how many GPUs it may use in each node pool.</td></tr><tr><td>Workload</td><td>A job you run: a training, a Jupyter workspace, an inference server.</td></tr><tr><td>Whole GPU ("passthrough")</td><td>A workload gets a full GPU for itself. In the lab, each physical GPU is also passed through to its VM.</td></tr><tr><td>GPU slice (GPU fraction)</td><td>A workload gets part of a GPU, for example 0.5. Several workloads share one GPU.</td></tr><tr><td>KAI Scheduler</td><td>The scheduler inside Run:ai that decides where each workload runs.</td></tr><tr><td>HA</td><td>High availability: every important service runs in copies on different nodes.</td></tr></tbody></table></div>
+<h2 id="plan"><span class="n">3</span>Plan your cluster</h2>
+<h3>Choose real servers or a lab on one server</h3>
+<div class="table"><table><thead><tr><th></th><th>Real servers</th><th>Lab on one server</th></tr></thead><tbody><tr><td>Use it for</td><td>a team or production trial</td><td>learning, demos, testing this guide</td></tr><tr><td>Machines</td><td>3 control-plane servers + 1 or more GPU servers per vendor</td><td>1 server with an NVIDIA and an AMD GPU; it becomes 5 VMs</td></tr><tr><td>Extra step</td><td>none</td><td>build the VMs with hybrid-gpu-lab (<a href="#machines">Build the machines</a>)</td></tr></tbody></table></div>
+<h3>Hardware and sizes</h3>
+<div class="table"><table><thead><tr><th>Node</th><th>CPU</th><th>Memory</th><th>Disk</th><th>GPU</th></tr></thead><tbody><tr><td>3 control-plane nodes</td><td>16 cores or more (lab: 24 vCPU)</td><td>32 GB comfortable, 16 GB minimum (lab: 48 GB)</td><td>500 GB</td><td>none</td></tr><tr><td>GPU worker, NVIDIA</td><td>32 or more (lab: 48 vCPU)</td><td>64 GB or more (lab: 96 GB)</td><td>500 GB or more for images</td><td>NVIDIA, Turing or newer (lab: RTX A6000, 48 GB)</td></tr><tr><td>GPU worker, AMD</td><td>32 or more (lab: 48 vCPU)</td><td>64 GB or more (lab: 96 GB)</td><td>500 GB or more for images</td><td>AMD with ROCm support (lab: Radeon PRO W7900, 48 GB)</td></tr></tbody></table></div>
+<p>Why three control-plane nodes: Kubernetes (etcd) and the database need a majority to keep working. With three, one can fail. With one control-plane node oif installs everything in single copies (no HA).</p>
+<p>For the <b>lab on one server</b> the host needs: virtualisation (AMD-V or VT-x) and the IOMMU turned on in the BIOS, an NVIDIA and an AMD GPU that are not driving the host's screen, and room for the VMs: 168 vCPUs, 336 GB of memory and about 3.1 TB of thin disk with the default sizes.</p>
+<h3>Network</h3>
+<p>Put every node on one network (one subnet) and reserve, on that subnet:</p>
+<div class="table"><table><thead><tr><th>What</th><th>Example (lab)</th><th>Used for</th></tr></thead><tbody><tr><td>One address per node</td><td>192.168.120.11-13 (control plane), .21 (AMD), .22 (NVIDIA)</td><td>the nodes</td></tr><tr><td>One free address</td><td>192.168.120.10</td><td>the Kubernetes API, which moves between control-plane nodes (<code>OIF_API_VIP</code>)</td></tr><tr><td>A small free range</td><td>192.168.120.240-244</td><td>load-balancer addresses; Run:ai uses the first (<code>METALLB_RANGE</code>)</td></tr></tbody></table></div>
+<p>You do not need a DNS server: Run:ai's address is a free <code>sslip.io</code> name that contains the IP address, for example <code>runai.192-168-120-240.sslip.io</code>. oif creates its own certificate authority for HTTPS.</p>
+<h3>Software (pinned by oif)</h3>
+<div class="table"><table><thead><tr><th>Layer</th><th>Component</th><th>Version</th></tr></thead><tbody><tr><td>Operating system</td><td>Ubuntu Server</td><td>26.04</td></tr><tr><td>Kubernetes</td><td>kubeadm, three control-plane nodes</td><td>1.35.9</td></tr><tr><td>Kubernetes</td><td>kube-vip (API address), Calico (network), MetalLB (load balancer)</td><td>v1.2.4, v3.32.2, v0.16.0</td></tr><tr><td>Storage</td><td>local-path, Longhorn</td><td>v0.0.37, 1.12.1</td></tr><tr><td>Database</td><td>CloudNativePG with PostgreSQL</td><td>1.30.1, 16.15</td></tr><tr><td>NVIDIA</td><td>GPU Operator; driver branch (from Ubuntu)</td><td>v26.7.1; 615-server (615.71.09)</td></tr><tr><td>AMD</td><td>GPU Operator; driver</td><td>v1.5.1; the kernel's own <code>amdgpu</code></td></tr><tr><td>Run:ai</td><td>open source, with oif's patches</td><td>3.0.20</td></tr><tr><td>Scheduler</td><td>KAI Scheduler, with oif's patches</td><td>v0.18.3</td></tr><tr><td>Monitoring</td><td>kube-prometheus-stack (Prometheus, Grafana)</td><td>92.3.0</td></tr></tbody></table></div>
+<h3>Checklist before you start</h3>
+<ul class="check"><li>Three control-plane machines and at least one GPU server per vendor (or one lab server), Ubuntu 26.04 installed</li><li>Each GPU server holds GPUs of one vendor only</li><li>One user with sudo on every machine, reachable over SSH with your key from the first control-plane node</li><li>The API address and the load-balancer range are free on the subnet</li><li>Internet access from every machine (packages, container images; the install downloads tens of GB)</li><li>A workstation with a browser that can reach the load-balancer address</li></ul>
+<h2 id="design"><span class="n">4</span>Design: how the pieces fit</h2>
+<h3>The layers</h3>
+<div class="table"><table><thead><tr><th>Layer</th><th>NVIDIA nodes</th><th>AMD nodes</th></tr></thead><tbody><tr><td>Driver on the host</td><td>NVIDIA 615 driver from Ubuntu (oif installs it, one reboot)</td><td>the Linux kernel's <code>amdgpu</code> driver (oif adds the firmware if missing)</td></tr><tr><td>Kubernetes sees the GPU through</td><td>NVIDIA GPU Operator: <code>nvidia.com/gpu</code></td><td>AMD GPU Operator: <code>amd.com/gpu</code></td></tr><tr><td>Run:ai node pool</td><td><code>nvidia</code></td><td><code>amd</code></td></tr><tr><td>Whole GPU</td><td>Run:ai, stock</td><td>Run:ai with oif's patches R1 to R3 (inventory, icon, status)</td></tr><tr><td>GPU slices</td><td>Run:ai, stock (NVIDIA's driver enforces each slice's memory)</td><td>KAI Scheduler with oif's patches K1 to K4, plus oif's device plugin for slices</td></tr><tr><td>Metrics</td><td>DCGM exporter</td><td>AMD metrics exporter; oif maps both onto one set of <code>oif:gpu_*</code> metrics for Grafana</td></tr></tbody></table></div>
+<h3>Why one node pool per vendor</h3>
+<p>A workload must run on one vendor: a CUDA program cannot run on an AMD GPU and a ROCm program cannot run on an NVIDIA GPU. Pools make this simple: each project gets a quota <b>per pool</b>, so "team-c may use 1 NVIDIA GPU and 1 AMD GPU" is an ordinary Run:ai quota. oif also lists the GPU pools first (<code>nvidia</code>, <code>amd</code>, <code>default</code>) for every project, so a workload submitted without choosing a pool lands on a GPU, and it refuses any pod that asks for both vendors at once (<a href="#one-vendor">One job, one vendor</a>).</p>
+<h3>How high availability is done</h3>
+<p>Every service users depend on runs <b>at least twice, on different control-plane nodes</b>. When a node stops, the other copies are already running: nothing has to move or restart. Details and the measured results are in <a href="#ha">High availability</a>.</p>
+<h3>How AMD slices are done</h3>
+<p>Run:ai's slicing (KAI Scheduler) was written for NVIDIA only. oif changes four small parts of KAI and adds one small program on the AMD nodes. The result: in the Run:ai screen you pick "GPU fractioning, 50 %" and pool <code>amd</code>, exactly as for NVIDIA, and two workloads share the AMD GPU. Step by step in <a href="#amd-slices">AMD GPU slices</a>.</p>
+<h2 id="machines"><span class="n">5</span>Build the machines</h2>
+<h3>Option A: real servers</h3>
+<p>Install Ubuntu Server 26.04 on every machine, with the same user (for example <code>oif</code>) and your SSH public key in its <code>~/.ssh/authorized_keys</code>, and give that user sudo. Put the GPUs in their servers (one vendor per GPU server). Nothing else: oif installs the drivers.</p>
+<h3>Option B: a lab on one server (hybrid-gpu-lab)</h3>
+<p>The lab tool turns one GPU server into five VMs and gives each GPU to its own VM (PCI passthrough), so each GPU VM behaves like a separate GPU server.</p>
+<p>On the lab host, get the tool and tell it which GPUs to use:</p>
+<div class="cmd"><button class="copy" type="button">Copy</button><pre>git clone https://github.com/manmohanbrahma/hybrid-gpu-lab.git &amp;&amp; cd hybrid-gpu-lab
+cp lab.conf.example lab.conf
+lspci -D | grep -Ei 'vga|3d|display|audio'<span class="c">      # find each GPU and its HDMI audio part</span>
+nano lab.conf<span class="c">                                    # put those PCI addresses on the gpu-amd and gpu-nvidia lines</span></pre></div>
+<p>Each GPU line lists the GPU and its audio part, for example:</p>
+<div class="cmd"><button class="copy" type="button">Copy</button><pre>gpu-amd    worker  48 96 800 21 0000:c8:00.0,0000:c8:00.1
+gpu-nvidia worker  48 96 800 22 0000:82:00.0,0000:82:00.1</pre></div>
+<p>Check the host, then build the VMs:</p>
+<div class="cmd"><button class="copy" type="button">Copy</button><pre>./lab check<span class="c">          # read-only: KVM, IOMMU groups, CPUs, memory, disk</span>
+sudo ./lab create<span class="c">    # installs KVM if needed, gives the GPUs to vfio-pci, builds the network and the five VMs</span></pre></div>
+<figure class="shot"><a href="img/lab-create.png" target="_blank" rel="noopener"><img src="img/lab-create.png" width="2486" height="1436" loading="lazy" alt="The first lab create: KVM installed, both GPUs and their audio parts handed to vfio-pci, the Ubuntu image verified, your key put on all VMs, five VMs started and the two GPU VMs seeing their cards."></a><figcaption><b>Figure 1.</b> The first lab create: KVM installed, both GPUs and their audio parts handed to vfio-pci, the Ubuntu image verified, your key put on all VMs, five VMs started and the two GPU VMs seeing their cards.</figcaption></figure>
+<div class="table"><table><thead><tr><th>VM</th><th>Address</th><th>Role</th></tr></thead><tbody><tr><td>cp1, cp2, cp3</td><td>192.168.120.11, .12, .13</td><td>control plane</td></tr><tr><td>gpu-amd</td><td>192.168.120.21</td><td>AMD GPU worker</td></tr><tr><td>gpu-nvidia</td><td>192.168.120.22</td><td>NVIDIA GPU worker</td></tr><tr><td>(free)</td><td>192.168.120.10</td><td>Kubernetes API address</td></tr><tr><td>(free)</td><td>192.168.120.240-244</td><td>Run:ai and Grafana addresses</td></tr></tbody></table></div>
+<p>To start over at any time: <code>sudo ./lab recreate</code>. To remove the lab: <code>sudo ./lab destroy</code>.</p>
+<h2 id="install"><span class="n">6</span>Install Run:ai with oif</h2>
+<h3>1. Log in to the first control-plane node</h3>
+<p>Use SSH with your agent forwarded (<code>-A</code>): oif uses your key once to place its own key on the other nodes. For the lab, jump through the host (<code>-J</code>):</p>
+<div class="cmd"><button class="copy" type="button">Copy</button><pre>eval $(ssh-agent -s); ssh-add ~/.ssh/id_ed25519
+ssh -A -J &lt;user&gt;@&lt;host-ip&gt; oif@192.168.120.11<span class="c">       # lab; for real servers: ssh -A oif@&lt;first-node&gt;</span>
+ssh-add -l<span class="c">                                           # your key must be listed</span></pre></div>
+<h3>2. Get oif and fill in the settings</h3>
+<div class="cmd"><button class="copy" type="button">Copy</button><pre>git clone https://github.com/manmohanbrahma/open-inference-fabric.git &amp;&amp; cd open-inference-fabric
+cp .env.example .env
+nano .env</pre></div>
+<p>Set these lines (edit the existing lines, do not add new ones at the end):</p>
+<div class="cmd"><button class="copy" type="button">Copy</button><pre>HOST_IP=192.168.120.11
+METALLB_RANGE=192.168.120.240-192.168.120.244
+OIF_NODES="192.168.120.11:control 192.168.120.12:control 192.168.120.13:control 192.168.120.21:worker 192.168.120.22:worker"
+OIF_API_VIP=192.168.120.10
+RUNAI_ADMIN_EMAIL=you@example.com
+RUNAI_ADMIN_PASSWORD=choose-one
+GRAFANA_ADMIN_PASSWORD=choose-one</pre></div>
+<ul><li><code>OIF_NODES</code>: every node as <code>address:role</code>, this node first. <code>control</code> for control-plane nodes, <code>worker</code> for GPU servers.</li><li>Passwords: 12 characters or more; the Run:ai one also needs upper and lower case, a digit and a symbol.</li><li>Leave everything else empty: AMD slices are on by default (<code>AMD_FRACTIONS=</code> empty), and so are oif's patches (<code>RUNAI_PATCHES=</code> empty).</li></ul>
+<h3>3. Install</h3>
+<div class="cmd"><button class="copy" type="button">Copy</button><pre>sudo --preserve-env=SSH_AUTH_SOCK ./oif install</pre></div>
+<p>oif asks a few questions first:</p>
+<div class="table"><table><thead><tr><th>Question</th><th>Answer</th></tr></thead><tbody><tr><td>Data folder</td><td>Enter (the default)</td></tr><tr><td>NVIDIA GPUs / AMD GPUs for Kubernetes</td><td>Enter (all)</td></tr><tr><td>AMD display cards to keep away from Kubernetes</td><td><code>none</code>, unless a server's AMD card drives its screen</td></tr><tr><td>Put your SSH key on the other control-plane nodes too</td><td><code>y</code></td></tr></tbody></table></div>
+<p>Then it continues in the background, so a dropped SSH session does not stop it. A GPU node that needs a reboot for its NVIDIA driver is rebooted by oif, which waits for it and carries on. Follow it with <code>sudo tail -f /var/log/oif-install.log</code>. It takes about <b>90 minutes</b> the first time, most of it downloading.</p>
+<figure class="shot"><a href="img/ha-nodes.png" target="_blank" rel="noopener"><img src="img/ha-nodes.png" width="1832" height="830" loading="lazy" alt="oif prepares every node over SSH: the AMD node&#x27;s GPU is already on the kernel&#x27;s amdgpu driver; the NVIDIA node gets the NVIDIA driver and one reboot."></a><figcaption><b>Figure 2.</b> oif prepares every node over SSH: the AMD node's GPU is already on the kernel's amdgpu driver; the NVIDIA node gets the NVIDIA driver and one reboot.</figcaption></figure>
+<figure class="shot"><a href="img/ha-kubernetes.png" target="_blank" rel="noopener"><img src="img/ha-kubernetes.png" width="1832" height="1760" loading="lazy" alt="Kubernetes on five nodes: the API address on cp1, the other control-plane nodes and the two GPU nodes join."></a><figcaption><b>Figure 3.</b> Kubernetes on five nodes: the API address on cp1, the other control-plane nodes and the two GPU nodes join.</figcaption></figure>
+<figure class="shot"><a href="img/ha-platform.png" target="_blank" rel="noopener"><img src="img/ha-platform.png" width="1832" height="870" loading="lazy" alt="The platform in copies: a database of three instances, one per control-plane node, then Run:ai with every service in two copies on different nodes."></a><figcaption><b>Figure 4.</b> The platform in copies: a database of three instances, one per control-plane node, then Run:ai with every service in two copies on different nodes.</figcaption></figure>
+<h3>What oif does, in order</h3>
+<div class="table"><table><thead><tr><th>Phase</th><th>What happens</th><th>Where</th></tr></thead><tbody><tr><td>1. This node</td><td>checks, packages, kernel settings, container runtime, GPU driver, one reboot if needed</td><td>first node</td></tr><tr><td>2. Other nodes</td><td>the same on every other node, over SSH, rebooting GPU nodes for their driver</td><td>each node</td></tr><tr><td>3. Kubernetes</td><td>cluster on the API address, the others join, network, storage, load balancer</td><td>all nodes</td></tr><tr><td>4. GPUs</td><td>NVIDIA GPU Operator on NVIDIA nodes, AMD GPU Operator on AMD nodes, a test pod on each</td><td>GPU nodes</td></tr><tr><td>5. Platform</td><td>replicated database, Prometheus and Grafana, the web entrance (ingress), certificates</td><td>control plane</td></tr><tr><td>6. Run:ai</td><td>control plane and cluster together, two copies of every service, node pools per vendor, your admin account, oif's patches, test projects and quotas, AMD templates, AMD slices</td><td>control plane</td></tr><tr><td>7. Dashboards</td><td>one set of GPU metrics for both vendors, Grafana dashboards</td><td>control plane</td></tr></tbody></table></div>
+<p>You do not use Run:ai's own <b>New cluster</b> page: oif has already created the cluster, named <code>oif</code>. Its page explains this (<a href="#demo">The demo</a>, step 14).</p>
+<h2 id="check"><span class="n">7</span>Check it worked</h2>
+<p>On the first node, in <code>open-inference-fabric</code>:</p>
+<div class="cmd"><button class="copy" type="button">Copy</button><pre>sudo ./oif status<span class="c">                # every stage [x]</span>
+sudo tests/lab/t120-nodes.sh<span class="c">     # every node prepared</span>
+sudo tests/lab/t121-cluster.sh<span class="c">   # all nodes Ready, the API on its shared address</span>
+sudo tests/lab/t122-gpus.sh<span class="c">      # each GPU on its node and driver</span>
+sudo tests/lab/t123-runai.sh<span class="c">     # Run:ai pools per vendor, placement, quotas, one job one vendor</span></pre></div>
+<figure class="shot"><a href="img/ha-checks.png" target="_blank" rel="noopener"><img src="img/ha-checks.png" width="1520" height="1436" loading="lazy" alt="The checks on a fresh install: every node prepared, five nodes with one etcd member and one API server per control-plane node, each GPU on its node and driver, Run:ai placing and queuing work per vendor pool."></a><figcaption><b>Figure 5.</b> The checks on a fresh install: every node prepared, five nodes with one etcd member and one API server per control-plane node, each GPU on its node and driver, Run:ai placing and queuing work per vendor pool.</figcaption></figure>
+<h3>Open the Run:ai screens</h3>
+<p>From your workstation, open <code>https://runai.192-168-120-240.sslip.io</code> (your first load-balancer address, with dashes). For the lab, the address is inside the host, so use an SSH SOCKS tunnel and a browser that uses it:</p>
+<div class="cmd"><button class="copy" type="button">Copy</button><pre>ssh -N -D 127.0.0.1:11080 &lt;user&gt;@&lt;host-ip&gt;<span class="c">          # leave it running</span>
+chrome --user-data-dir=$HOME/lab-chrome --proxy-server="socks5://127.0.0.1:11080" https://runai.192-168-120-240.sslip.io</pre></div>
+<p>To avoid the browser's certificate warning, copy <code>~/oif-ca.crt</code> from the first node and trust it on your workstation. Log in with <code>RUNAI_ADMIN_EMAIL</code> and its password. The first page load downloads a few MB; over a slow link give it a minute, and do not force-reload (Ctrl+F5).</p>
+<h2 id="ha"><span class="n">8</span>High availability</h2>
+<h3>What runs in copies</h3>
+<div class="table"><table><thead><tr><th>Part</th><th>Copies</th><th>When a control-plane node stops</th></tr></thead><tbody><tr><td>Kubernetes API</td><td>3 API servers, 3 etcd members</td><td>the API address (kube-vip) moves to another node in seconds</td></tr><tr><td>Web entrance address</td><td>MetalLB, only from control-plane nodes</td><td>another control-plane node announces it</td></tr><tr><td>HAProxy ingress</td><td>one per control-plane node</td><td>the others serve</td></tr><tr><td>Run:ai services</td><td>2 of each, never on the same node</td><td>the other copy serves</td></tr><tr><td>Keycloak (Run:ai login)</td><td>3, sessions shared through the database</td><td>the others serve</td></tr><tr><td>Database</td><td>CloudNativePG, 3 PostgreSQL instances, one per node</td><td>a standby becomes the primary</td></tr><tr><td>Thanos, NATS</td><td>3 each</td><td>the others serve</td></tr><tr><td>Prometheus, Grafana</td><td>2 each</td><td>the other serves</td></tr><tr><td>KAI Scheduler, Run:ai cluster side</td><td>2 with leader election</td><td>the standby takes over</td></tr></tbody></table></div>
+<p>Single on purpose: Run:ai's operators (they do not serve users) and <code>cluster-redis</code>. Redis copies do not share their data, and Run:ai's workspace logins (Jupyter links) are kept in it: two copies made those logins loop. A restart of the one copy only means logging in again.</p>
+<h3>The settings that make it fast</h3>
+<p>Copies alone were not enough. Each setting below came from a real power-off test that failed:</p>
+<div class="table"><table><thead><tr><th>Setting</th><th>Why</th></tr></thead><tbody><tr><td>A silent node is declared down after 20 s (default 40 s)</td><td>the database promotes a standby only after this</td></tr><tr><td>PostgreSQL <code>max_connections</code> 400</td><td>two copies of every Run:ai service filled the default 100</td></tr><tr><td>A connection reaper on every node</td><td>clients connected to a dead database kept waiting for about 15 minutes; the reaper drops those connections so they reconnect at once</td></tr><tr><td>The web entrance address only on control-plane nodes</td><td>otherwise MetalLB announced it from a GPU server</td></tr><tr><td>20 s moves for the single services users notice</td><td>with the default 5 minutes the GPU dashboards were empty for about 8 minutes</td></tr><tr><td>PostgreSQL <code>wal_keep_size</code> 4 GB</td><td>a database copy whose node was off for hours can still catch up</td></tr><tr><td><code>cluster-redis</code> at one copy</td><td>workspace logins looped with two unreplicated copies</td></tr></tbody></table></div>
+<h3>Test it: power off a control-plane node, step by step</h3>
+<ol><li>Find the node that hurts most to lose, the one with the database primary (on the first node):</li></ol>
+<div class="cmd"><button class="copy" type="button">Copy</button><pre>kubectl -n oif-db get pods -l cnpg.io/instanceRole=primary -o wide<span class="c">     # NODE column, e.g. cp2</span></pre></div>
+<ol start="2"><li>On a machine outside the cluster (the lab host), start a watch that does what a user does, every 5 seconds:</li></ol>
+<div class="cmd"><button class="copy" type="button">Copy</button><pre>while sleep 5; do
+  printf '%s  ui %s  grafana %s\n' "$(date +%T)" \
+    "$(curl -s -o /dev/null -w '%{http_code}' --max-time 4 --cacert oif-ca.crt https://runai.192-168-120-240.sslip.io)" \
+    "$(curl -s -o /dev/null -w '%{http_code}' --max-time 4 --cacert oif-ca.crt https://grafana.runai.192-168-120-240.sslip.io/api/health)"
+done</pre></div>
+<ol start="3"><li>Pull the power of that node. Lab: <code>sudo virsh destroy hl-cp2</code> on the host. Real server: its power button or BMC.</li><li>Watch, and keep using the Run:ai UI in the browser:</li></ol>
+<div class="cmd"><button class="copy" type="button">Copy</button><pre>kubectl get nodes -w<span class="c">               # cp2 turns NotReady after about 20 s</span>
+kubectl -n oif-db get pods -l cnpg.io/instanceRole=primary -o wide<span class="c">     # a new primary on another node</span></pre></div>
+<ol start="5"><li>Power it on again (lab: <code>sudo virsh start hl-cp2</code>) and watch it rejoin.</li></ol>
+<p>What users saw on the reference run, measured from outside the cluster, with the powered-off node holding both the database primary and the web entrance address:</p>
+<div class="table"><table><thead><tr><th>Service</th><th>Away for</th><th>Target</th></tr></thead><tbody><tr><td>Run:ai UI</td><td>0 s</td><td>under 90 s</td></tr><tr><td>Run:ai login and API call</td><td>67 s</td><td>under 90 s</td></tr><tr><td>Grafana</td><td>47 s</td><td>under 90 s</td></tr></tbody></table></div>
+<p>Nobody acted. New workloads in both GPU pools and the quotas worked while the node was off.</p>
+<figure class="shot"><a href="img/ha-poweroff.png" target="_blank" rel="noopener"><img src="img/ha-poweroff.png" width="2010" height="1720" loading="lazy" alt="The scripted test with cp2 powered off: the API keeps working, the database primary moves, Run:ai logs in and places workloads in both GPU pools with the quota held, and when cp2 is back every copy is complete again."></a><figcaption><b>Figure 6.</b> The scripted test with cp2 powered off: the API keeps working, the database primary moves, Run:ai logs in and places workloads in both GPU pools with the quota held, and when cp2 is back every copy is complete again.</figcaption></figure>
+<p>The scripted version (<code>tests/lab/t124-ha.sh</code> with the outside probe <code>tests/lab/t124-probe.py</code>) runs 23 checks.</p>
+<h3>Day-2 care</h3>
+<div class="table"><table><thead><tr><th>Task</th><th>How</th></tr></thead><tbody><tr><td>A control-plane node goes down</td><td>nothing; when it returns its copies rejoin. Check <code>kubectl -n oif-db get clusters.postgresql.cnpg.io</code> shows 3 ready</td></tr><tr><td>A node was off for more than about 20 hours</td><td>rebuild its database copy: <code>kubectl -n oif-db delete pvc oif-pg-N</code> and <code>delete pod oif-pg-N</code></td></tr><tr><td>Planned maintenance of a node</td><td>move the database primary away first (a CloudNativePG switchover), then drain the node</td></tr></tbody></table></div>
+<h2 id="amd-whole"><span class="n">9</span>AMD GPUs, whole GPU ("basic passthrough")</h2>
+<h3>How it works</h3>
+<ol><li><b>The GPU reaches the server.</b> On real servers it is simply in the server. In the lab it is passed through to the <code>gpu-amd</code> VM (PCI passthrough), so the VM owns the whole physical card.</li><li><b>The driver.</b> AMD's driver is part of the Linux kernel (<code>amdgpu</code>). oif only checks it holds the GPU and that <code>/dev/kfd</code> exists, and adds the GPU firmware if the image left it out.</li><li><b>Kubernetes sees it.</b> oif installs the AMD GPU Operator. Its device plugin offers the GPU as <code>amd.com/gpu</code>, its node labeller adds labels (product name, memory size, family), and its metrics exporter feeds Prometheus. For the Radeon PRO W7900 oif raises one health threshold (kernel 7.0 reports false memory errors on that card).</li><li><b>Run:ai sees it.</b> Stock Run:ai schedules <code>amd.com/gpu</code> but does not list the GPU in its screens. oif's patch R1 teaches Run:ai's inventory the AMD labels, R2 gives ROCm workloads the AMD logo, R3 keeps nodes Ready when NVIDIA's slicing daemons have no node (<a href="#patches">The patches</a>).</li><li><b>Pools and quotas.</b> The AMD node goes into node pool <code>amd</code>. A project's quota in pool <code>amd</code> limits how many AMD GPUs it uses, exactly like NVIDIA.</li><li><b>Templates.</b> oif adds Run:ai templates: <code>pytorch-rocm-1-gpu</code> (a training) and <code>jupyter-lab-rocm-1-gpu</code> (a Jupyter workspace), each asking for one whole AMD GPU with the ROCm PyTorch image.</li></ol>
+<h3>Run a workload on a whole AMD GPU, step by step</h3>
+<ol><li>Open Run:ai: <b>Workload manager &gt; Workloads &gt; New workload &gt; Training</b>.</li><li>Pick a project with AMD quota (oif's test project <code>team-c</code> has 1 NVIDIA and 1 AMD GPU).</li><li>Pick the template <b>pytorch-rocm-1-gpu</b>, give it a name, <b>Create training</b>.</li><li>In <b>Workloads</b>, it runs in pool <code>amd</code> on the AMD node, with the AMD logo. Its <b>Logs</b> show the GPU's name.</li></ol>
+<p>From the command line, the same with a plain pod (a whole AMD GPU, through Run:ai's scheduler):</p>
+<div class="cmd"><button class="copy" type="button">Copy</button><pre>kubectl apply -f - &lt;&lt;'EOF'
+apiVersion: v1
+kind: Pod
+metadata: {name: amd-whole-gpu, namespace: runai-team-c, labels: {runai/node-pool: amd}}
+spec:
+  schedulerName: runai-scheduler
+  containers:
+  - {name: gpu, image: docker.io/library/busybox:1.37.0, command: [sh, -c, "ls /dev/kfd /dev/dri &amp;&amp; sleep 3600"], resources: {limits: {amd.com/gpu: 1}}}
+EOF
+kubectl -n runai-team-c get pod amd-whole-gpu -o wide<span class="c">       # Running on the AMD node</span></pre></div>
+<h2 id="amd-slices"><span class="n">10</span>AMD GPU slices</h2>
+<h3>How it works</h3>
+<p>Run:ai's slicing is done by its scheduler, KAI. On NVIDIA it works out of the box. On AMD, five things happen, four of them added by oif:</p>
+<ol><li><b>You ask for a slice</b> in the Run:ai screen: GPU devices 1, <b>GPU fractioning</b> on, 50 % of the device, pool <code>amd</code>. (Or with the pod annotation <code>gpu-fraction: "0.5"</code>.) Nothing AMD-specific to learn.</li><li><b>The scheduler places it</b> on the AMD node and counts 0.5 GPU against the project's quota. oif's patch K2 removes a check that only NVIDIA nodes could pass.</li><li><b>The GPU is reserved.</b> KAI starts a small "reservation" pod that holds the whole GPU while slices of it are in use, so nobody else can take it whole. oif's patch K3 makes that pod ask for <code>amd.com/gpu</code> on an AMD node, and K4 lets it find which AMD GPU it holds (by its PCI address) without NVIDIA's tools.</li><li><b>The slice is named.</b> KAI's binder writes the GPU's address and the share on the workload's pod (<code>oif.ai/amd-gpu</code>, <code>oif.ai/amd-gpu-fraction</code>). A Kubernetes policy lets only the binder write these, so nobody can grab a GPU outside the quotas.</li><li><b>The container gets the GPU.</b> A slice asks Kubernetes for no <code>amd.com/gpu</code>, so AMD's device plugin gives it nothing. oif's small program <b>oif-amd-share</b> (an NRI plugin, running on each AMD node) gives the container the GPU's device files (<code>/dev/kfd</code>, <code>/dev/dri/...</code>) when it starts, and tells it its share: <code>OIF_GPU_MEMORY_FRACTION=0.5</code> and PyTorch's memory cap <code>PYTORCH_ALLOC_CONF=per_process_memory_fraction:0.5</code>.</li></ol>
+<div class="note"><b>Memory limits on AMD are soft.</b> AMD's driver cannot limit a process's GPU memory, and the Radeon PRO W7900 cannot be split into hardware partitions. So <code>amd-smi</code> inside a slice always shows the whole card. PyTorch (and what runs on it, such as vLLM) keeps to its share automatically through the cap oif sets. Other programs must keep to <code>OIF_GPU_MEMORY_FRACTION</code> themselves. Compute is shared in time: two busy halves get about half the speed each, one half alone gets the full GPU. On NVIDIA, slices are hard limits enforced by the driver.</div>
+<h3>Run AMD slices from a template, step by step</h3>
+<ol><li><b>Workload manager &gt; Workloads &gt; New workload &gt; Training</b>, project <code>team-c</code>.</li><li>Template <b>pytorch-rocm-half-gpu</b> (half an AMD GPU, pool <code>amd</code>, ROCm PyTorch already set), a name, <b>Create training</b>.</li><li>Create a second one the same way. Both run on the AMD node, 0.5 GPU each.</li><li>Their <b>Logs</b> print the GPU, the share, the memory each may use, and after 5 minutes their compute speed.</li><li>For Jupyter: <b>New workload &gt; Workspace</b>, template <b>jupyter-lab-rocm-half-gpu</b>, then <b>Connect</b> to open JupyterLab.</li></ol>
+<h3>Run AMD slices from scratch, step by step</h3>
+<ol><li><b>New workload &gt; Training</b>, a project, <b>Start from scratch</b>, a name.</li><li><b>Environment:</b> a ROCm image, for example <code>docker.io/rocm/pytorch:rocm10.1.0_ubuntu24.04_py3.12_pytorch_release_2.14.0</code>, and its command.</li><li><b>Compute resources:</b> GPU devices <code>1</code>, switch on <b>GPU fractioning</b>, GPU memory <b>% of device</b> <code>50</code>. The total reads 0.50 GPUs.</li><li><b>Nodes:</b> keep only <code>amd</code>: click the <b>X</b> on the <code>nvidia</code> and <code>default</code> rows. Otherwise the slice runs on the NVIDIA GPU first.</li><li><b>Create training</b>.</li></ol>
+<h3>Check a slice from inside (a notebook)</h3>
+<p>In a Jupyter workspace from <code>jupyter-lab-rocm-half-gpu</code>, run:</p>
+<div class="cmd"><button class="copy" type="button">Copy</button><pre>import os, torch
+for k in ("RUNAI_PROJECT", "RUNAI_JOB_NAME", "OIF_GPU_PCI", "OIF_GPU_MEMORY_FRACTION", "PYTORCH_ALLOC_CONF"):
+    print(f"{k:25} {os.environ.get(k)}")
+free, total = torch.cuda.mem_get_info()
+share = float(os.environ["OIF_GPU_MEMORY_FRACTION"])
+print(f"GPU memory {total/2**30:.1f} GiB, this pod's share {share} = {share*total/2**30:.1f} GiB")
+for gib in (20, 25):
+    try:
+        x = torch.empty(int(gib * 2**30) // 2, dtype=torch.float16, device="cuda"); print(f"{gib} GiB: allocated"); del x
+    except torch.OutOfMemoryError:
+        print(f"{gib} GiB: refused (over the share)")</pre></div>
+<div class="cmd"><button class="copy" type="button">Copy</button><pre>RUNAI_PROJECT             team-c
+RUNAI_JOB_NAME            test
+OIF_GPU_PCI               0000:03:00.0
+OIF_GPU_MEMORY_FRACTION   0.5
+PYTORCH_ALLOC_CONF        per_process_memory_fraction:0.5
+GPU memory 45.0 GiB, this pod's share 0.5 = 22.5 GiB
+20 GiB: allocated
+25 GiB: refused (over the share)</pre></div>
+<h3>NVIDIA slices, for comparison</h3>
+<p>The same screen with pool <code>nvidia</code> gives an NVIDIA slice. It needs NVIDIA driver 615 or later (oif installs the 615 branch) and Run:ai's own GPU-fractioning daemons. There, the driver enforces the memory: <code>nvidia-smi</code> inside a half shows 24,570 MiB of the A6000's 49,140 MiB.</p>
+<h2 id="one-vendor"><span class="n">11</span>One job, one vendor</h2>
+<ul><li><b>Pool order.</b> oif sets every Run:ai department's default node pools to <code>nvidia</code>, <code>amd</code>, <code>default</code>; projects inherit</li></ul>
+<p>  it. A workload submitted without choosing a pool tries the GPU pools first, instead of waiting in <code>default</code>, which has   no GPUs.</p>
+<ul><li><b>One pod group, one pool.</b> KAI schedules all the pods of a workload as one group in one node pool, so a multi-pod</li></ul>
+<p>  job never spreads over both vendors.</p>
+<ul><li><b>Refused if it asks for both.</b> A Kubernetes policy (<code>oif-one-gpu-vendor</code>) refuses a pod that asks for</li></ul>
+<p>  <code>nvidia.com/gpu</code> and <code>amd.com/gpu</code> together: it could never run.</p>
+<h2 id="demo"><span class="n">12</span>The demo, step by step</h2>
+<p>Everything below is on the reference lab, in the order you would show it.</p>
+<h3>1. Overview</h3>
+<p>Log in. <b>Analytics &gt; Overview</b> shows the GPU nodes and GPUs, running and pending workloads.</p>
+<figure class="shot"><a href="img/g-overview.png" target="_blank" rel="noopener"><img src="img/g-overview.png" width="2160" height="1500" loading="lazy" alt="Overview: GPU nodes and GPUs ready, workloads running."></a><figcaption><b>Figure 7.</b> Overview: GPU nodes and GPUs ready, workloads running.</figcaption></figure>
+<h3>2. The cluster</h3>
+<p><b>Resources &gt; Clusters</b>: one cluster, <code>oif</code>, Connected, Run:ai 3.0.20.</p>
+<figure class="shot"><a href="img/g-clusters.png" target="_blank" rel="noopener"><img src="img/g-clusters.png" width="2160" height="1500" loading="lazy" alt="Clusters: oif, Connected."></a><figcaption><b>Figure 8.</b> Clusters: oif, Connected.</figcaption></figure>
+<h3>3. Nodes and their pools</h3>
+<p><b>Resources &gt; Nodes</b>: the three control-plane nodes in pool <code>default</code>, <code>gpu-amd</code> in pool <code>amd</code> with its Radeon PRO W7900, <code>gpu-nvidia</code> in pool <code>nvidia</code> with its RTX A6000.</p>
+<figure class="shot"><a href="img/g-nodes.png" target="_blank" rel="noopener"><img src="img/g-nodes.png" width="2160" height="1500" loading="lazy" alt="Nodes: each GPU node in its vendor&#x27;s pool, with its GPU type."></a><figcaption><b>Figure 9.</b> Nodes: each GPU node in its vendor's pool, with its GPU type.</figcaption></figure>
+<figure class="shot"><a href="img/g-nodepools.png" target="_blank" rel="noopener"><img src="img/g-nodepools.png" width="2160" height="1500" loading="lazy" alt="Node pools: amd, nvidia and default."></a><figcaption><b>Figure 10.</b> Node pools: amd, nvidia and default.</figcaption></figure>
+<h3>4. Projects and quotas</h3>
+<p><b>Organization &gt; Projects</b>: <code>team-a</code>, <code>team-b</code>, <code>team-c</code>, each with GPU quota per pool.</p>
+<figure class="shot"><a href="img/g-projects.png" target="_blank" rel="noopener"><img src="img/g-projects.png" width="2160" height="1500" loading="lazy" alt="Projects: team-c with its GPU quota and allocation."></a><figcaption><b>Figure 11.</b> Projects: team-c with its GPU quota and allocation.</figcaption></figure>
+<h3>5. Templates for both vendors</h3>
+<p><b>Workload manager &gt; Templates</b>: Run:ai's NVIDIA templates and oif's AMD ones, for a whole GPU and for half a GPU.</p>
+<figure class="shot"><a href="img/g-templates.png" target="_blank" rel="noopener"><img src="img/g-templates.png" width="2160" height="1500" loading="lazy" alt="Templates: pytorch-rocm-1-gpu, jupyter-lab-rocm-1-gpu, pytorch-rocm-half-gpu, jupyter-lab-rocm-half-gpu next to Run:ai&#x27;s own."></a><figcaption><b>Figure 12.</b> Templates: pytorch-rocm-1-gpu, jupyter-lab-rocm-1-gpu, pytorch-rocm-half-gpu, jupyter-lab-rocm-half-gpu next to Run:ai's own.</figcaption></figure>
+<h3>6. A whole GPU per vendor, and the quota holding</h3>
+<p>Run one NVIDIA workload, one AMD workload, then a second NVIDIA workload in <code>team-c</code> (1 GPU of each vendor). The first two run, each on its vendor's node; the third waits, because team-c's NVIDIA quota is used.</p>
+<figure class="shot"><a href="img/r05-workloads.png" target="_blank" rel="noopener"><img src="img/r05-workloads.png" width="2160" height="1500" loading="lazy" alt="Workloads: one AMD and one NVIDIA workload running in their pools, a second NVIDIA one pending on the quota."></a><figcaption><b>Figure 13.</b> Workloads: one AMD and one NVIDIA workload running in their pools, a second NVIDIA one pending on the quota.</figcaption></figure>
+<h3>7. NVIDIA slices</h3>
+<p>Two trainings at 50 % of the device in pool <code>nvidia</code> share the A6000; a third waits on the quota.</p>
+<figure class="shot"><a href="img/11-form.png" target="_blank" rel="noopener"><img src="img/11-form.png" width="2160" height="1824" loading="lazy" alt="The training form: one GPU device, GPU fractioning at 50 %, 0.50 GPUs."></a><figcaption><b>Figure 14.</b> The training form: one GPU device, GPU fractioning at 50 %, 0.50 GPUs.</figcaption></figure>
+<figure class="shot"><a href="img/11-workloads.png" target="_blank" rel="noopener"><img src="img/11-workloads.png" width="2160" height="1500" loading="lazy" alt="Workloads: two NVIDIA halves running on the A6000, a third pending."></a><figcaption><b>Figure 15.</b> Workloads: two NVIDIA halves running on the A6000, a third pending.</figcaption></figure>
+<h3>8. AMD slices</h3>
+<p>The same form with pool <code>amd</code> only.</p>
+<figure class="shot"><a href="img/13-form.png" target="_blank" rel="noopener"><img src="img/13-form.png" width="1220" height="2610" loading="lazy" alt="The training form: ROCm PyTorch image, GPU fractioning at 50 %, 0.50 GPUs, node pool amd only."></a><figcaption><b>Figure 16.</b> The training form: ROCm PyTorch image, GPU fractioning at 50 %, 0.50 GPUs, node pool amd only.</figcaption></figure>
+<figure class="shot"><a href="img/13-workloads.png" target="_blank" rel="noopener"><img src="img/13-workloads.png" width="2160" height="1500" loading="lazy" alt="Workloads: two AMD halves running in pool amd with 0.5 GPU each, with the AMD logo."></a><figcaption><b>Figure 17.</b> Workloads: two AMD halves running in pool amd with 0.5 GPU each, with the AMD logo.</figcaption></figure>
+<figure class="shot"><a href="img/13-projects.png" target="_blank" rel="noopener"><img src="img/13-projects.png" width="2160" height="1500" loading="lazy" alt="Projects: team-c has 1.00 GPU allocated, the two halves of the W7900."></a><figcaption><b>Figure 18.</b> Projects: team-c has 1.00 GPU allocated, the two halves of the W7900.</figcaption></figure>
+<h3>9. A Jupyter workspace on half an AMD GPU</h3>
+<p>From template <code>jupyter-lab-rocm-half-gpu</code>. Its log starts with the share it got.</p>
+<figure class="shot"><a href="img/u-workspace-log.png" target="_blank" rel="noopener"><img src="img/u-workspace-log.png" width="1904" height="1127" loading="lazy" alt="The workspace&#x27;s log: GPU share 0.5 of the AMD GPU at 0000:03:00.0, then JupyterLab starting."></a><figcaption><b>Figure 19.</b> The workspace's log: GPU share 0.5 of the AMD GPU at 0000:03:00.0, then JupyterLab starting.</figcaption></figure>
+<h3>10. Inside the notebook</h3>
+<p>The notebook from <a href="#amd-slices">Check a slice from inside</a>: the share, the device files, and 25 GiB refused.</p>
+<figure class="shot"><a href="img/u-notebook.png" target="_blank" rel="noopener"><img src="img/u-notebook.png" width="1905" height="1127" loading="lazy" alt="The notebook: Run:ai project and workload, the share 0.5, only the AMD GPU&#x27;s device files, the W7900 with 45 GiB, 20 GiB allocated and 25 GiB refused."></a><figcaption><b>Figure 20.</b> The notebook: Run:ai project and workload, the share 0.5, only the AMD GPU's device files, the W7900 with 45 GiB, 20 GiB allocated and 25 GiB refused.</figcaption></figure>
+<h3>11. The limit holds from the terminal too</h3>
+<p>In the workspace's <b>Terminal</b> tab:</p>
+<div class="cmd"><button class="copy" type="button">Copy</button><pre>python3 -c "import torch; x = torch.empty(int(30*2**30)//2, dtype=torch.float16, device='cuda')"</pre></div>
+<figure class="shot"><a href="img/u-oom.png" target="_blank" rel="noopener"><img src="img/u-oom.png" width="1906" height="1127" loading="lazy" alt="Terminal: asking for 30 GiB fails with OutOfMemoryError, 22.49 GiB allowed."></a><figcaption><b>Figure 21.</b> Terminal: asking for 30 GiB fails with OutOfMemoryError, 22.49 GiB allowed.</figcaption></figure>
+<h3>12. What the driver sees</h3>
+<p><code>amd-smi</code> in the same container shows the whole card: there is no hardware partition on a W7900. Under load the card runs at its 241 W power cap.</p>
+<figure class="shot"><a href="img/u-amdsmi.png" target="_blank" rel="noopener"><img src="img/u-amdsmi.png" width="1905" height="1130" loading="lazy" alt="amd-smi in the workspace: the W7900 at 0000:03:00.0, 100 % busy during a test, 241/241 W."></a><figcaption><b>Figure 22.</b> amd-smi in the workspace: the W7900 at 0000:03:00.0, 100 % busy during a test, 241/241 W.</figcaption></figure>
+<h3>13. Run:ai's record of the slice</h3>
+<p>On the first node:</p>
+<div class="cmd"><button class="copy" type="button">Copy</button><pre>kubectl -n runai-team-c get pod -l workloadName=test -o jsonpath='{.items[0].metadata.annotations}' | tr ',' '\n' | grep -E 'runai-allocated|gpu-fraction|oif.ai'</pre></div>
+<figure class="shot"><a href="img/u-annotations.png" target="_blank" rel="noopener"><img src="img/u-annotations.png" width="1580" height="230" loading="lazy" alt="Run:ai&#x27;s record: gpu-fraction 0.5, runai-allocated-gpus 0.5, runai-allocated-gpu-memory 22500, and the binder&#x27;s oif.ai/amd-gpu 0000:03:00.0."></a><figcaption><b>Figure 23.</b> Run:ai's record: gpu-fraction 0.5, runai-allocated-gpus 0.5, runai-allocated-gpu-memory 22500, and the binder's oif.ai/amd-gpu 0000:03:00.0.</figcaption></figure>
+<h3>14. The New cluster page</h3>
+<p><b>Resources &gt; Clusters &gt; New cluster</b> explains that clusters are added with oif, instead of offering NVIDIA's stock install command (which has no AMD support).</p>
+<figure class="shot"><a href="img/speed-clusters-new.png" target="_blank" rel="noopener"><img src="img/speed-clusters-new.png" width="2160" height="1500" loading="lazy" alt="New cluster: &quot;Clusters are added with open-inference-fabric&quot;, with a link to how oif builds the cluster."></a><figcaption><b>Figure 24.</b> New cluster: "Clusters are added with open-inference-fabric", with a link to how oif builds the cluster.</figcaption></figure>
+<h3>15. Both vendors in Grafana</h3>
+<p>Grafana (<code>https://grafana.runai.192-168-120-240.sslip.io</code>, user <code>admin</code>), dashboard <b>OIF Fleet</b>: both GPUs side by side.</p>
+<figure class="shot"><a href="img/g03-fleet.png" target="_blank" rel="noopener"><img src="img/g03-fleet.png" width="2160" height="1950" loading="lazy" alt="Grafana, OIF Fleet: both GPUs&#x27; use, memory, power, temperature and clock."></a><figcaption><b>Figure 25.</b> Grafana, OIF Fleet: both GPUs' use, memory, power, temperature and clock.</figcaption></figure>
+<h3>16. Power off a control-plane node</h3>
+<p>The HA test from <a href="#ha">High availability</a>: users keep working, logins return within 90 seconds.</p>
+<h2 id="patches"><span class="n">13</span>The patches</h2>
+<p>oif changes two projects, always at install time, from the pinned release's source:</p>
+<ol><li>downloads the source of the pinned release and checks its checksum;</li><li>applies the patches with <code>git apply</code>, checks formatting, runs the unit tests (the patches bring their own tests);</li><li>builds the changed program and puts it on top of the original container image (no Docker, no registry needed);</li><li>loads the new image on every node and points Run:ai at it.</li></ol>
+<p><code>RUNAI_PATCHES=none</code> (Run:ai patches) and <code>AMD_FRACTIONS=none</code> (KAI patches and the AMD slice plugin) in <code>.env</code>, then <code>sudo ./oif install --reconfigure</code>, put the original images back.</p>
+<div class="table"><table><thead><tr><th>#</th><th>Project</th><th>File</th><th>What it changes</th></tr></thead><tbody><tr><td>R1</td><td>Run:ai cluster-sync</td><td><code>patches/runai/3.0.20/0001-cluster-sync-count-amd-gpus-on-mixed-nodes.patch</code></td><td>Run:ai's inventory counts AMD GPUs (type, count, memory)</td></tr><tr><td>R2</td><td>Run:ai web UI</td><td><code>patches/runai/3.0.20/0002-frontend-amd-logo-for-rocm-images.patch</code></td><td>the AMD logo for workloads on ROCm images</td></tr><tr><td>R3</td><td>Run:ai operator</td><td><code>patches/runai/3.0.20/0003-go-operator-fractions-unavailable-without-target-nodes.patch</code></td><td>nodes stay Ready when NVIDIA's slicing daemons have no node</td></tr><tr><td>R4</td><td>Run:ai web UI</td><td><code>patches/runai/3.0.20/0004-frontend-new-cluster-points-to-oif.patch</code></td><td>the New cluster page explains clusters are added with oif</td></tr><tr><td>K1</td><td>KAI common</td><td><code>patches/kai/v0.18.3/0001-common-amd-gpu-node.patch</code></td><td>recognises an AMD GPU node</td></tr><tr><td>K2</td><td>KAI scheduler</td><td><code>patches/kai/v0.18.3/0002-scheduler-fractions-on-amd-gpu-nodes.patch</code></td><td>allows slices on AMD GPU nodes</td></tr><tr><td>K3</td><td>KAI binder</td><td><code>patches/kai/v0.18.3/0003-binder-fractions-on-amd-gpu-nodes.patch</code></td><td>reserves an <code>amd.com/gpu</code> and names the slice's GPU</td></tr><tr><td>K4</td><td>KAI reservation</td><td><code>patches/kai/v0.18.3/0004-resourcereservation-amd-gpu-device.patch</code></td><td>finds the AMD GPU it holds</td></tr><tr><td>P</td><td>new program</td><td><code>images/oif-amd-share/</code></td><td>gives a slice's container the AMD GPU and its share</td></tr></tbody></table></div>
+<p>Settings oif makes without patching code: <code>cluster-redis</code> at one copy; KAI's images set through Run:ai's own configuration; on AMD-only nodes, containerd's runtime name <code>nvidia</code> runs the normal runtime (KAI gives every slice that name, before it knows the vendor); the policies <code>oif-one-gpu-vendor</code> and <code>oif-amd-share-annotations</code>.</p>
+<p>What oif proposes to send to the Run:ai and KAI projects, item by item with its status, is in <a href="https://github.com/manmohanbrahma/open-inference-fabric/blob/main/docs/UPSTREAM.md">docs/UPSTREAM.md</a>.</p>
+<h3>The full patches</h3>
+<details class="patch"><summary><code>patches/runai/3.0.20/0001-cluster-sync-count-amd-gpus-on-mixed-nodes.patch</code> (97 lines added, 9 removed)</summary><div class="inner"><div class="cmd"><button class="copy" type="button">Copy</button><pre>diff --git a/runai-cluster/cluster/cluster-sync/pkg/handlers/parsers/node_parser.go b/runai-cluster/cluster/cluster-sync/pkg/handlers/parsers/node_parser.go
+index dd4d3141..e0f011bb 100644
+--- a/runai-cluster/cluster/cluster-sync/pkg/handlers/parsers/node_parser.go
++++ b/runai-cluster/cluster/cluster-sync/pkg/handlers/parsers/node_parser.go
+@@ -54,10 +54,15 @@ const (
+ 	NotReadyPhase             = "NotReady"
+ 	MissingPrerequisitesPhase = "MissingPrerequisites"
+ 
+-	NvidiaGpuCountLabelKey         = "nvidia.com/gpu.count"
+-	NvidiaGpuTypeLabelKey          = "nvidia.com/gpu.product"
+-	NvidiaGpuMemoryLabelKey        = "nvidia.com/gpu.memory"
+-	AmdGpuTypeLabelPrefix          = "beta.amd.com/gpu.family."
++	NvidiaGpuCountLabelKey  = "nvidia.com/gpu.count"
++	NvidiaGpuTypeLabelKey   = "nvidia.com/gpu.product"
++	NvidiaGpuMemoryLabelKey = "nvidia.com/gpu.memory"
++	AmdGpuTypeLabelPrefix   = "beta.amd.com/gpu.family."
++	// The AMD GPU Operator's node labeller: amd.com/gpu.product-name=&lt;name&gt;, and the legacy
++	// beta.amd.com/gpu.product-name.&lt;name&gt;=&lt;count of GPUs with that name on the node&gt;.
++	AmdGpuProductNameLabelKey      = "amd.com/gpu.product-name"
++	AmdGpuProductCountLabelPrefix  = "beta.amd.com/gpu.product-name."
++	AmdGpuVramLabelKey             = "amd.com/gpu.vram"
+ 	GPUNetworkAccelerationLabelKey = "gpuNetworkAccelerationLabelKey"
+ 	NvidiaGpuCliqueLabel           = "nvidia.com/gpu.clique"
+ 
+@@ -588,12 +593,20 @@ func parseTaints(taints []corev1.Taint) []swagger.NodeTaint {
+ 
+ func getGpuInfo(nodeLabels map[string]string, nodeName string) *swagger.GpuInfo {
+ 	nvidiaGpuInfo := getNvidiaGpuInfo(nodeLabels, nodeName)
+-	if nvidiaGpuInfo != nil {
+-		return nvidiaGpuInfo
+-	}
+-
+ 	amdGpuInfo := getAmdGpuInfo(nodeLabels, nodeName)
+-	if amdGpuInfo != nil {
++
++	switch {
++	case nvidiaGpuInfo != nil &amp;&amp; amdGpuInfo != nil:
++		// A node with GPUs of both vendors: one GpuInfo per node, so report both types and the
++		// total count. The memory stays the NVIDIA GPU's (the field holds one device's memory).
++		return &amp;swagger.GpuInfo{
++			GpuType:        nvidiaGpuInfo.GpuType + " + " + amdGpuInfo.GpuType,
++			GpuCount:       nvidiaGpuInfo.GpuCount + amdGpuInfo.GpuCount,
++			GpuMemoryBytes: nvidiaGpuInfo.GpuMemoryBytes,
++		}
++	case nvidiaGpuInfo != nil:
++		return nvidiaGpuInfo
++	case amdGpuInfo != nil:
+ 		return amdGpuInfo
+ 	}
+ 
+@@ -657,6 +670,52 @@ func getNvidiaGpuMemoryBytes(nodeLabels map[string]string, nodeName string) *int
+ }
+ 
+ func getAmdGpuInfo(nodeLabels map[string]string, nodeName string) *swagger.GpuInfo {
++	if info := getAmdGpuInfoByProductName(nodeLabels, nodeName); info != nil {
++		return info
++	}
++	return getAmdGpuInfoByFamily(nodeLabels, nodeName)
++}
++
++// The product name ("AMD_Radeon_Pro_W7900") names the GPU model like nvidia.com/gpu.product does;
++// the family table below predates current AMD GPUs (a W7900 is family "GC_11_0_0").
++func getAmdGpuInfoByProductName(nodeLabels map[string]string, nodeName string) *swagger.GpuInfo {
++	productName, found := nodeLabels[AmdGpuProductNameLabelKey]
++	if !found || productName == "" {
++		return nil
++	}
++
++	result := &amp;swagger.GpuInfo{
++		GpuType:        strings.ReplaceAll(productName, "_", "-"),
++		GpuMemoryBytes: getAmdGpuMemoryBytes(nodeLabels[AmdGpuVramLabelKey]),
++	}
++
++	countStr, countFound := nodeLabels[AmdGpuProductCountLabelPrefix+productName]
++	if !countFound {
++		zap.S().Warnf("Found amd gpu type &lt;%s&gt; on node &lt;%s&gt;, but can't find gpu count", productName, nodeName)
++		return result
++	}
++
++	count, err := strconv.Atoi(countStr)
++	if err != nil {
++		zap.S().Errorf("Failed to parse amd gpu count label value: &lt;%s&gt; for node &lt;%s&gt;, error: %s",
++			countStr, nodeName, err.Error())
++		return result
++	}
++
++	result.GpuCount = int32(count)
++	return result
++}
++
++// amd.com/gpu.vram is a size in GiB with a G suffix ("45G"); nil when it is missing or unusable.
++func getAmdGpuMemoryBytes(vram string) *int64 {
++	gib, err := strconv.Atoi(strings.TrimSuffix(vram, "G"))
++	if err != nil || gib &lt;= 0 {
++		return nil
++	}
++	return ptr.To(int64(gib) * 1024 * bytesInMib)
++}
++
++func getAmdGpuInfoByFamily(nodeLabels map[string]string, nodeName string) *swagger.GpuInfo {
+ 	for key, value := range nodeLabels {
+ 		if !strings.HasPrefix(key, AmdGpuTypeLabelPrefix) {
+ 			continue
+diff --git a/runai-cluster/cluster/cluster-sync/pkg/handlers/parsers/parsers_test.go b/runai-cluster/cluster/cluster-sync/pkg/handlers/parsers/parsers_test.go
+index 9f391685..44d6f358 100644
+--- a/runai-cluster/cluster/cluster-sync/pkg/handlers/parsers/parsers_test.go
++++ b/runai-cluster/cluster/cluster-sync/pkg/handlers/parsers/parsers_test.go
+@@ -1059,6 +1059,35 @@ var _ = Describe("Parsers", Ordered, func() {
+ 			Expect(gpuInfo.GpuCount).To(BeEquivalentTo(0))
+ 		})
+ 
++		It("Parse Node To Update Info Request - AMD Gpu - product name from the AMD GPU Operator", func() {
++			node.Status.Conditions = []corev1.NodeCondition{readyCondition}
++			node.Labels[parsers.AmdGpuProductNameLabelKey] = "AMD_Radeon_Pro_W7900"
++			node.Labels[parsers.AmdGpuProductCountLabelPrefix+"AMD_Radeon_Pro_W7900"] = "1"
++			node.Labels[parsers.AmdGpuVramLabelKey] = "45G"
++			node.Labels[parsers.AmdGpuTypeLabelPrefix+"GC_11_0_0"] = "1"
++
++			parsedNodeInfo := nodeParser.ParseNodeToServerScheme(node)
++			gpuInfo := parsedNodeInfo.GpuInfo.Get()
++			Expect(gpuInfo.GpuType).To(Equal("AMD-Radeon-Pro-W7900"))
++			Expect(gpuInfo.GpuCount).To(BeEquivalentTo(1))
++			Expect(*gpuInfo.GpuMemoryBytes).To(BeEquivalentTo(int64(45) * 1024 * 1024 * 1024))
++		})
++
++		It("Parse Node To Update Info Request - NVIDIA and AMD Gpus on one node", func() {
++			node.Status.Conditions = []corev1.NodeCondition{readyCondition}
++			node.Labels[parsers.NvidiaGpuTypeLabelKey] = testGpuTypeA100
++			node.Labels[parsers.NvidiaGpuCountLabelKey] = "2"
++			node.Labels[parsers.NvidiaGpuMemoryLabelKey] = "40960"
++			node.Labels[parsers.AmdGpuProductNameLabelKey] = "AMD_Radeon_Pro_W7900"
++			node.Labels[parsers.AmdGpuProductCountLabelPrefix+"AMD_Radeon_Pro_W7900"] = "1"
++
++			parsedNodeInfo := nodeParser.ParseNodeToServerScheme(node)
++			gpuInfo := parsedNodeInfo.GpuInfo.Get()
++			Expect(gpuInfo.GpuType).To(Equal(testGpuTypeA100 + " + AMD-Radeon-Pro-W7900"))
++			Expect(gpuInfo.GpuCount).To(BeEquivalentTo(3))
++			Expect(*gpuInfo.GpuMemoryBytes).To(BeEquivalentTo(int64(40960) * 1024 * 1024))
++		})
++
+ 		It("Parse Node To Update Info Request - NV Link DomainUid and CliqueID.", func() {
+ 			node.Annotations = map[string]string{parsers.GPUNetworkAccelerationLabelKey: parsers.NvidiaGpuCliqueLabel}
+ 			node.Labels[parsers.NvidiaGpuCliqueLabel] = testDomainCliqueValue
+</pre></div></div></details>
+<details class="patch"><summary><code>patches/runai/3.0.20/0002-frontend-amd-logo-for-rocm-images.patch</code> (35 lines added, 3 removed)</summary><div class="inner"><div class="cmd"><button class="copy" type="button">Copy</button><pre>diff --git a/control-plane/frontend/src/common/icon.util/icon.util.test.ts b/control-plane/frontend/src/common/icon.util/icon.util.test.ts
+index 6815a1dc..aaba1a95 100644
+--- a/control-plane/frontend/src/common/icon.util/icon.util.test.ts
++++ b/control-plane/frontend/src/common/icon.util/icon.util.test.ts
+@@ -4,14 +4,14 @@
+  */
+ 
+ import { describe, it, expect } from "vitest";
+-import { getNimIconIfNimImage, getHuggingFaceIcon } from "./icon.util";
++import { getNimIconIfNimImage, getHuggingFaceIcon, getNvidiaImageBasedIcon, isAmdImage } from "./icon.util";
+ import {
+   NIM_WORKLOAD_LABEL,
+   NIM_IMAGE_PREFIX,
+   LLM_IMAGE_FOR_HUGGING_FACE,
+   LLM_IMAGE_FOR_TGI,
+ } from "@/models/inference.model";
+-import { allWorkloadsIconsMap } from "../icons.constant";
++import { allWorkloadsIconsMap, AMD_WORKLOAD_ICON } from "../icons.constant";
+ import { EWorkloadType } from "@/models/workload.model";
+ import type { Label } from "@/swagger-models/assets-service-client";
+ 
+@@ -378,3 +378,20 @@ describe("getHuggingFaceIcon", () =&gt; {
+     });
+   });
+ });
++
++describe("getNvidiaImageBasedIcon - AMD ROCm images", () =&gt; {
++  it("should return the AMD icon for ROCm images", () =&gt; {
++    expect(getNvidiaImageBasedIcon("docker.io/rocm/pytorch:rocm10.1.0_ubuntu24.04_py3.12_pytorch_release_2.14.0")).toBe(
++      AMD_WORKLOAD_ICON,
++    );
++    expect(getNvidiaImageBasedIcon("rocm/vllm:latest")).toBe(AMD_WORKLOAD_ICON);
++    expect(getNvidiaImageBasedIcon("registry.example.com/mirror/rocm/pytorch@sha256:abc")).toBe(AMD_WORKLOAD_ICON);
++  });
++
++  it("should keep the NVIDIA icons and ignore look-alikes", () =&gt; {
++    expect(getNvidiaImageBasedIcon("nvcr.io/nvidia/pytorch:25.06-py3")).toBe("pytorch");
++    expect(getNvidiaImageBasedIcon("nvcr.io/nvidia/nemo:25.07")).toBe("nvidia");
++    expect(getNvidiaImageBasedIcon("myrocm/tool:1")).toBeNull();
++    expect(isAmdImage("jupyter/scipy-notebook")).toBe(false);
++  });
++});
+diff --git a/control-plane/frontend/src/common/icon.util/icon.util.ts b/control-plane/frontend/src/common/icon.util/icon.util.ts
+index ea6ae585..1704514d 100644
+--- a/control-plane/frontend/src/common/icon.util/icon.util.ts
++++ b/control-plane/frontend/src/common/icon.util/icon.util.ts
+@@ -9,7 +9,7 @@ import {
+   NIM_IMAGE_PREFIX,
+   NIM_WORKLOAD_LABEL,
+ } from "@/models/inference.model";
+-import { allWorkloadsIconsMap } from "../icons.constant";
++import { allWorkloadsIconsMap, AMD_WORKLOAD_ICON } from "../icons.constant";
+ import { EWorkloadType } from "@/models/workload.model";
+ import type { Label } from "@/swagger-models/assets-service-client";
+ 
+@@ -23,6 +23,12 @@ export function isNvidiaPytorch(image: string | null | undefined): boolean {
+   return image.includes("nvcr.io/nvidia/pytorch");
+ }
+ 
++// AMD's ROCm images live under rocm/ (docker.io/rocm/pytorch, rocm/vllm, a mirror's .../rocm/...).
++export function isAmdImage(image: string | null | undefined): boolean {
++  if (!image) return false;
++  return /(^|\/)rocm\//.test(image);
++}
++
+ export function getNvidiaImageBasedIcon(image: string | null | undefined): string | null {
+   if (!image) return null;
+ 
+@@ -30,6 +36,8 @@ export function getNvidiaImageBasedIcon(image: string | null | undefined): strin
+ 
+   if (isNvidiaImage(image)) return "nvidia";
+ 
++  if (isAmdImage(image)) return AMD_WORKLOAD_ICON;
++
+   return null;
+ }
+ 
+diff --git a/control-plane/frontend/src/common/icons.constant.ts b/control-plane/frontend/src/common/icons.constant.ts
+index bc1e87dd..a9b614b9 100644
+--- a/control-plane/frontend/src/common/icons.constant.ts
++++ b/control-plane/frontend/src/common/icons.constant.ts
+@@ -20,6 +20,7 @@ export const toolTypeIconsMap: Record&lt;string, string&gt; = {
+ };
+ 
+ export const NVIDIA_WORKLOAD_ICON = "nvidia";
++export const AMD_WORKLOAD_ICON = "amd";
+ export const GENERIC_WORKLOAD_ICON = "custom-tool";
+ 
+ export const jobKindIconsMap: Record&lt;string, string&gt; = {
+@@ -45,6 +46,7 @@ export const jobKindIconsMap: Record&lt;string, string&gt; = {
+   HuggingFace: "hugging-face",
+   NvidiaNim: "nvidianim",
+   Nvidia: NVIDIA_WORKLOAD_ICON,
++  Amd: AMD_WORKLOAD_ICON,
+   VLLM: "vllm",
+   TGI: "tgi",
+ };
+diff --git a/control-plane/frontend/src/assets/icons/svg/amd.svg b/control-plane/frontend/src/assets/icons/svg/amd.svg
+new file mode 100644
+index 00000000..88db75ca
+--- /dev/null
++++ b/control-plane/frontend/src/assets/icons/svg/amd.svg
+@@ -0,0 +1,5 @@
++&lt;?xml version="1.0" encoding="utf-8"?&gt;
++&lt;!-- AMD arrow mark. Path data from Simple Icons (CC0-1.0); the view box shows only the arrow, not the wordmark. --&gt;
++&lt;svg version="1.1" xmlns="http://www.w3.org/2000/svg" viewBox="18.1 8.9 6.1 6.1"&gt;
++&lt;path fill="#000000" d="M18.324 9.137l1.559 1.56h2.556v2.557L24 14.814V9.137zM2 9.52l-2 4.96h1.309l.37-.982H3.9l.408.982h1.338L3.432 9.52zm4.209 0v4.955h1.238v-3.092l1.338 1.562h.188l1.338-1.556v3.091h1.238V9.52H10.47l-1.592 1.845L7.287 9.52zm6.283 0v4.96h2.057c1.979 0 2.88-1.046 2.88-2.472 0-1.36-.937-2.488-2.747-2.488zm1.237.91h.792c1.17 0 1.63.711 1.63 1.57 0 .728-.372 1.572-1.616 1.572h-.806zm-10.985.273l.791 1.932H2.008zm17.137.307l-1.604 1.603v2.25h2.246l1.604-1.607h-2.246z"/&gt;
++&lt;/svg&gt;
+</pre></div></div></details>
+<details class="patch"><summary><code>patches/runai/3.0.20/0003-go-operator-fractions-unavailable-without-target-nodes.patch</code> (56 lines added, 0 removed)</summary><div class="inner"><div class="cmd"><button class="copy" type="button">Copy</button><pre>diff --git a/runai-cluster/cluster/go-operator/pkg/controller-utils/gpu_fractioning_checker.go b/runai-cluster/cluster/go-operator/pkg/controller-utils/gpu_fractioning_checker.go
+index 69e01970..81aae179 100644
+--- a/runai-cluster/cluster/go-operator/pkg/controller-utils/gpu_fractioning_checker.go
++++ b/runai-cluster/cluster/go-operator/pkg/controller-utils/gpu_fractioning_checker.go
+@@ -46,6 +46,16 @@ func CheckGpuFractioningReadiness(ctx context.Context, reader client.Reader) run
+ 	}
+ 
+ 	if status != "False" {
++		// Ready is also True when the fractioning daemons have no node to run on (their node selector
++		// matches none), and then no node can run fractions: report that instead of "available", or
++		// every GPU node shows a missing fractions prerequisite and counts as not ready.
++		if conditionReason(config, "FractiondReady") == noTargetNodesReason &amp;&amp;
++			conditionReason(config, "MpsdReady") == noTargetNodesReason {
++			return runv1.PublicStatus{
++				Available: runv1.AvailableStatus(false),
++				Reason:    "GPU fractions are not deployed on any node: kai-gpu-fractioning has no target nodes",
++			}
++		}
+ 		return runv1.PublicStatus{Available: runv1.AvailableStatus(true)}
+ 	}
+ 
+@@ -61,6 +71,27 @@ func CheckGpuFractioningReadiness(ctx context.Context, reader client.Reader) run
+ 
+ var validConditionStatuses = map[string]bool{"True": true, "False": true, "Unknown": true}
+ 
++const noTargetNodesReason = "NoTargetNodes"
++
++// conditionReason returns the reason of the condition of that type, or "" when there is none.
++func conditionReason(config *unstructured.Unstructured, conditionType string) string {
++	conditions, ok, err := unstructured.NestedSlice(config.Object, "status", "conditions")
++	if err != nil || !ok {
++		return ""
++	}
++	for _, c := range conditions {
++		condMap, ok := c.(map[string]interface{})
++		if !ok {
++			continue
++		}
++		if condType, _, _ := unstructured.NestedString(condMap, "type"); condType == conditionType {
++			reason, _, _ := unstructured.NestedString(condMap, "reason")
++			return reason
++		}
++	}
++	return ""
++}
++
+ func readyCondition(config *unstructured.Unstructured) (status, message string, found bool) {
+ 	conditions, ok, err := unstructured.NestedSlice(config.Object, "status", "conditions")
+ 	if err != nil || !ok {
+diff --git a/runai-cluster/cluster/go-operator/pkg/controller-utils/gpu_fractioning_checker_test.go b/runai-cluster/cluster/go-operator/pkg/controller-utils/gpu_fractioning_checker_test.go
+index e38eb943..27939ee1 100644
+--- a/runai-cluster/cluster/go-operator/pkg/controller-utils/gpu_fractioning_checker_test.go
++++ b/runai-cluster/cluster/go-operator/pkg/controller-utils/gpu_fractioning_checker_test.go
+@@ -110,6 +110,31 @@ var _ = Describe("CheckGpuFractioningReadiness", func() {
+ 		Expect(status.Reason).To(Equal("not ready: MpsdReady"))
+ 	})
+ 
++	It("reports unavailable when the fractioning daemons have no target nodes", func() {
++		obj := newGpuFractioningConfig(
++			map[string]interface{}{"type": "FractiondReady", "status": "True", "reason": "NoTargetNodes"},
++			map[string]interface{}{"type": "MpsdReady", "status": "True", "reason": "NoTargetNodes"},
++			readyCond("True", "all components are healthy"),
++		)
++		k8s = newClient(obj)
++
++		status := CheckGpuFractioningReadiness(apiAccessContext, k8s)
++		Expect(*status.Available).To(BeFalse())
++		Expect(status.Reason).To(ContainSubstring("no target nodes"))
++	})
++
++	It("reports available when the fractioning daemons run on some nodes", func() {
++		obj := newGpuFractioningConfig(
++			map[string]interface{}{"type": "FractiondReady", "status": "True", "reason": "AllPodsReady"},
++			map[string]interface{}{"type": "MpsdReady", "status": "True", "reason": "AllPodsReady"},
++			readyCond("True", "all components are healthy"),
++		)
++		k8s = newClient(obj)
++
++		status := CheckGpuFractioningReadiness(apiAccessContext, k8s)
++		Expect(*status.Available).To(BeTrue())
++	})
++
+ 	It("reports available when the CR has no conditions yet", func() {
+ 		obj := newGpuFractioningConfig()
+ 		k8s = newClient(obj)
+</pre></div></div></details>
+<details class="patch"><summary><code>patches/runai/3.0.20/0004-frontend-new-cluster-points-to-oif.patch</code> (39 lines added, 2 removed)</summary><div class="inner"><div class="cmd"><button class="copy" type="button">Copy</button><pre>diff --git a/control-plane/frontend/src/views/cluster/cluster-new.vue b/control-plane/frontend/src/views/cluster/cluster-new.vue
+index 0e9f2ac..779eebf 100644
+--- a/control-plane/frontend/src/views/cluster/cluster-new.vue
++++ b/control-plane/frontend/src/views/cluster/cluster-new.vue
+@@ -5,7 +5,31 @@
+ 
+ &lt;template&gt;
+   &lt;runai-wizard-layout :steps="steps" :active-step="activeStepName" disable-navigation&gt;
+-    &lt;div class="main-content cluster-creation" v-if="currentStep === 1"&gt;
++    &lt;!-- oif patch (open-inference-fabric T-127): this control plane's GPU cluster is built by oif install --&gt;
++    &lt;div class="main-content cluster-creation" v-if="oifNoNewCluster"&gt;
++      &lt;div class="justify-center"&gt;
++        &lt;div class="oif-note q-pa-lg" aid="oif-new-cluster-note"&gt;
++          &lt;div class="text-h6 q-mb-md"&gt;Clusters are added with open-inference-fabric&lt;/div&gt;
++          &lt;p&gt;
++            This Run:ai control plane was installed by open-inference-fabric (oif), together with its GPU cluster
++            &lt;b&gt;oif&lt;/b&gt;, which runs NVIDIA and AMD GPUs side by side: a node pool per vendor, GPU fractions on both, quotas
++            per vendor.
++          &lt;/p&gt;
++          &lt;p&gt;
++            The Helm command this page would generate installs NVIDIA's stock Run:ai cluster, without AMD GPU support
++            and without oif's changes, so it is not offered here. To add GPU servers, list them in &lt;code&gt;OIF_NODES&lt;/code&gt;
++            in oif's &lt;code&gt;.env&lt;/code&gt; on the first control-plane node and run
++            &lt;code&gt;sudo ./oif install --reconfigure&lt;/code&gt;.
++          &lt;/p&gt;
++          &lt;p&gt;
++            How oif builds the cluster, node by node:
++            &lt;a href="https://github.com/manmohanbrahma/open-inference-fabric/blob/main/docs/guides/14-build-the-cluster.md"
++              target="_blank" rel="noopener"&gt;guide 14&lt;/a&gt;.
++          &lt;/p&gt;
++        &lt;/div&gt;
++      &lt;/div&gt;
++    &lt;/div&gt;
++    &lt;div class="main-content cluster-creation" v-else-if="currentStep === 1"&gt;
+       &lt;div class="justify-center"&gt;
+         &lt;runai-form-wrapper class="cluster-form" :form-state="clusterFormModel" ref="elClusterForm"&gt;
+           &lt;cluster-creation-step
+@@ -34,7 +58,10 @@
+     &lt;/div&gt;
+ 
+     &lt;template #content-footer&gt;
+-      &lt;div v-if="currentStep === 1" class="stepper-controls row justify-between full-width"&gt;
++      &lt;div v-if="oifNoNewCluster" class="stepper-controls row justify-end full-width"&gt;
++        &lt;runai-btn aid="leave-btn" @click="leave" color="primary" label="Done" /&gt;
++      &lt;/div&gt;
++      &lt;div v-else-if="currentStep === 1" class="stepper-controls row justify-between full-width"&gt;
+         &lt;q-field class="col-4 form-hint no-padding" :model-value="displayFormHint" :rules="[isFormIncomplete]"&gt;&lt;/q-field&gt;
+         &lt;runai-btn aid="continue-btn" @click="goNext" :loading="loading" color="primary" label="Continue" /&gt;
+       &lt;/div&gt;
+@@ -109,6 +136,9 @@ export default defineComponent({
+     this.clusterCreationStepLoading = true;
+   },
+   computed: {
++    oifNoNewCluster(): boolean {
++      return !this.$route.params.id; // oif patch: no new cluster registration; editing a cluster stays as it was
++    },
+     activeStepName(): string {
+       return String(this.currentStep);
+     },
+@@ -279,4 +309,11 @@ export default defineComponent({
+ .stepper-controls {
+   padding-right: 20px;
+ }
++.oif-note {
++  max-width: 760px;
++  margin: 24px auto;
++  background: white;
++  border: 1px solid #e0e0e0;
++  line-height: 1.5;
++}
+ &lt;/style&gt;
+</pre></div></div></details>
+<details class="patch"><summary><code>patches/kai/v0.18.3/0001-common-amd-gpu-node.patch</code> (78 lines added, 0 removed)</summary><div class="inner"><div class="cmd"><button class="copy" type="button">Copy</button><pre>diff --git a/pkg/common/resources/oif_amd_gpu.go b/pkg/common/resources/oif_amd_gpu.go
+new file mode 100644
+index 0000000..fa04bcf
+--- /dev/null
++++ b/pkg/common/resources/oif_amd_gpu.go
+@@ -0,0 +1,37 @@
++// oif patch (open-inference-fabric T-126, ADR-032): GPU fractions on AMD GPUs. KAI's fraction path is written for
++// NVIDIA; on a node whose GPUs are AMD, the reservation pod holds an amd.com/gpu and oif's NRI plugin gives the
++// fractional pod that GPU (named by the annotations below), with soft memory isolation.
++
++package resources
++
++import (
++	v1 "k8s.io/api/core/v1"
++
++	"github.com/kai-scheduler/KAI-scheduler/pkg/common/constants"
++)
++
++const (
++	AmdGpuResource = v1.ResourceName("amd.com/gpu")
++
++	// Written by the binder, read by oif's NRI plugin (oif-amd-share); only the binder may set them.
++	OifAmdGpuAnnotation          = "oif.ai/amd-gpu"           // PCI address of the shared GPU
++	OifAmdGpuContainerAnnotation = "oif.ai/amd-gpu-container" // the container that gets it
++	OifAmdGpuFractionAnnotation  = "oif.ai/amd-gpu-fraction"  // the share of the GPU
++)
++
++// IsAmdGpuNode: the node offers amd.com/gpu and no nvidia.com/gpu.
++func IsAmdGpuNode(node *v1.Node) bool {
++	if node == nil {
++		return false
++	}
++	amd, nv := node.Status.Allocatable[AmdGpuResource], node.Status.Allocatable[constants.NvidiaGpuResource]
++	return amd.Value() &gt; 0 &amp;&amp; nv.Value() == 0
++}
++
++// GpuResourceOfNode is the extended resource that holds a whole GPU on the node.
++func GpuResourceOfNode(node *v1.Node) v1.ResourceName {
++	if IsAmdGpuNode(node) {
++		return AmdGpuResource
++	}
++	return constants.NvidiaGpuResource
++}
+diff --git a/pkg/common/resources/oif_amd_gpu_test.go b/pkg/common/resources/oif_amd_gpu_test.go
+new file mode 100644
+index 0000000..99e3f2c
+--- /dev/null
++++ b/pkg/common/resources/oif_amd_gpu_test.go
+@@ -0,0 +1,41 @@
++package resources
++
++import (
++	"testing"
++
++	v1 "k8s.io/api/core/v1"
++	"k8s.io/apimachinery/pkg/api/resource"
++)
++
++func oifNode(res map[v1.ResourceName]string) *v1.Node {
++	n := &amp;v1.Node{Status: v1.NodeStatus{Allocatable: v1.ResourceList{}}}
++	for r, q := range res {
++		n.Status.Allocatable[r] = resource.MustParse(q)
++	}
++	return n
++}
++
++func TestOifAmdGpuNode(t *testing.T) {
++	for name, c := range map[string]struct {
++		node *v1.Node
++		amd  bool
++	}{
++		"amd":         {oifNode(map[v1.ResourceName]string{"amd.com/gpu": "1"}), true},
++		"nvidia":      {oifNode(map[v1.ResourceName]string{"nvidia.com/gpu": "1"}), false},
++		"both":        {oifNode(map[v1.ResourceName]string{"amd.com/gpu": "1", "nvidia.com/gpu": "1"}), false},
++		"cpu only":    {oifNode(nil), false},
++		"amd, 0 left": {oifNode(map[v1.ResourceName]string{"amd.com/gpu": "0"}), false},
++		"nil":         {nil, false},
++	} {
++		if got := IsAmdGpuNode(c.node); got != c.amd {
++			t.Errorf("%s: IsAmdGpuNode = %v", name, got)
++		}
++		want := v1.ResourceName("nvidia.com/gpu")
++		if c.amd {
++			want = AmdGpuResource
++		}
++		if got := GpuResourceOfNode(c.node); got != want {
++			t.Errorf("%s: GpuResourceOfNode = %s", name, got)
++		}
++	}
++}
+</pre></div></div></details>
+<details class="patch"><summary><code>patches/kai/v0.18.3/0002-scheduler-fractions-on-amd-gpu-nodes.patch</code> (34 lines added, 0 removed)</summary><div class="inner"><div class="cmd"><button class="copy" type="button">Copy</button><pre>diff --git a/pkg/scheduler/plugins/gpusharingnodevalidation/gpusharingnodevalidation.go b/pkg/scheduler/plugins/gpusharingnodevalidation/gpusharingnodevalidation.go
+index d191a26..bae9846 100644
+--- a/pkg/scheduler/plugins/gpusharingnodevalidation/gpusharingnodevalidation.go
++++ b/pkg/scheduler/plugins/gpusharingnodevalidation/gpusharingnodevalidation.go
+@@ -11,6 +11,7 @@ import (
+ 
+ 	kaiv1common "github.com/kai-scheduler/KAI-scheduler/pkg/apis/kai/v1/common"
+ 	"github.com/kai-scheduler/KAI-scheduler/pkg/common/constants"
++	"github.com/kai-scheduler/KAI-scheduler/pkg/common/resources"
+ 	"github.com/kai-scheduler/KAI-scheduler/pkg/scheduler/api"
+ 	"github.com/kai-scheduler/KAI-scheduler/pkg/scheduler/api/common_info"
+ 	"github.com/kai-scheduler/KAI-scheduler/pkg/scheduler/api/node_info"
+@@ -42,6 +43,10 @@ func checkNvFractionalGPUReadyCondition(task *pod_info.PodInfo, node *node_info.
+ 	if !nvFractionsMode || !task.IsSharedGPURequest() {
+ 		return nil
+ 	}
++	// oif patch (T-126): GPU fractioning (NVIDIA) never covers an AMD GPU node; oif shares its GPU itself.
++	if resources.IsAmdGpuNode(node.Node) {
++		return nil
++	}
+ 
+ 	conditionStatus := v1.ConditionUnknown
+ 	conditionReason := fractionalGPUReadyReasonMissing
+diff --git a/pkg/scheduler/plugins/gpusharingnodevalidation/oif_amd_gpu_test.go b/pkg/scheduler/plugins/gpusharingnodevalidation/oif_amd_gpu_test.go
+new file mode 100644
+index 0000000..e517afd
+--- /dev/null
++++ b/pkg/scheduler/plugins/gpusharingnodevalidation/oif_amd_gpu_test.go
+@@ -0,0 +1,29 @@
++package gpusharingnodevalidation
++
++import (
++	"testing"
++
++	v1 "k8s.io/api/core/v1"
++	"k8s.io/apimachinery/pkg/api/resource"
++
++	kaiv1common "github.com/kai-scheduler/KAI-scheduler/pkg/apis/kai/v1/common"
++	"github.com/kai-scheduler/KAI-scheduler/pkg/scheduler/api/pod_info"
++)
++
++// oif patch (T-126): a fraction on an AMD GPU node needs no gpu-fractioning condition; NVIDIA nodes still do.
++func TestOifAmdNodeSkipsNvFractionsReadyCondition(t *testing.T) {
++	task := &amp;pod_info.PodInfo{Name: "shared-pod", Namespace: "ns", ResourceRequestType: pod_info.RequestTypeFraction}
++	nvMode := isNvFractionsMode(newSessionWithMode(kaiv1common.GpuSharingModeNvFractions))
++
++	amd := newNode("gpu-amd")
++	amd.Node.Status.Allocatable = v1.ResourceList{"amd.com/gpu": resource.MustParse("1")}
++	if err := checkNvFractionalGPUReadyCondition(task, amd, nvMode); err != nil {
++		t.Errorf("AMD node refused: %v", err)
++	}
++
++	nv := newNode("gpu-nvidia")
++	nv.Node.Status.Allocatable = v1.ResourceList{"nvidia.com/gpu": resource.MustParse("1")}
++	if err := checkNvFractionalGPUReadyCondition(task, nv, nvMode); err == nil {
++		t.Errorf("NVIDIA node without the gpu-fractioning condition accepted")
++	}
++}
+</pre></div></div></details>
+<details class="patch"><summary><code>patches/kai/v0.18.3/0003-binder-fractions-on-amd-gpu-nodes.patch</code> (146 lines added, 6 removed)</summary><div class="inner"><div class="cmd"><button class="copy" type="button">Copy</button><pre>diff --git a/pkg/binder/binding/resourcereservation/oif_amd_gpu_test.go b/pkg/binder/binding/resourcereservation/oif_amd_gpu_test.go
+new file mode 100644
+index 0000000..c45fdaf
+--- /dev/null
++++ b/pkg/binder/binding/resourcereservation/oif_amd_gpu_test.go
+@@ -0,0 +1,46 @@
++package resourcereservation
++
++import (
++	"context"
++
++	. "github.com/onsi/ginkgo/v2"
++	. "github.com/onsi/gomega"
++	v1 "k8s.io/api/core/v1"
++	"k8s.io/apimachinery/pkg/api/resource"
++	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
++	"sigs.k8s.io/controller-runtime/pkg/client/fake"
++
++	schedulingv1alpha2 "github.com/kai-scheduler/KAI-scheduler/pkg/apis/scheduling/v1alpha2"
++	"github.com/kai-scheduler/KAI-scheduler/pkg/common/constants"
++)
++
++// oif patch (T-126): on an AMD GPU node the reservation pod holds an amd.com/gpu.
++var _ = Describe("oif: GPU reservation pod on an AMD GPU node", func() {
++	It("requests amd.com/gpu and no nvidia.com/gpu", func() {
++		node := &amp;v1.Node{
++			ObjectMeta: metav1.ObjectMeta{Name: "gpu-amd"},
++			Status:     v1.NodeStatus{Allocatable: v1.ResourceList{"amd.com/gpu": resource.MustParse("1")}},
++		}
++		rsc := &amp;service{
++			namespace:           "kai-resource-reservation",
++			appLabelValue:       "kai-reservation",
++			serviceAccountName:  "kai-sa",
++			reservationPodImage: "test-image:latest",
++			kubeClient:          fake.NewClientBuilder().WithScheme(testScheme).WithObjects(node).Build(),
++			podResources: &amp;v1.ResourceRequirements{Limits: v1.ResourceList{
++				constants.NvidiaGpuResource: resource.MustParse("1"), v1.ResourceCPU: resource.MustParse("100m")}},
++			scalingPodNamespace: scalingPodsNamespace,
++		}
++		pod, err := rsc.createGPUReservationPod(context.TODO(), nil, "gpu-amd", schedulingv1alpha2.FractionalGpuGroup{
++			ID: "g1", ComputeSharingMode: schedulingv1alpha2.GPUComputeSharingModeTimeSlicing,
++		})
++		Expect(err).To(BeNil())
++		r := pod.Spec.Containers[0].Resources
++		amd := r.Limits["amd.com/gpu"]
++		Expect(amd.Value()).To(Equal(int64(1)))
++		Expect(r.Limits).NotTo(HaveKey(v1.ResourceName(constants.NvidiaGpuResource)))
++		Expect(r.Requests).NotTo(HaveKey(v1.ResourceName(constants.NvidiaGpuResource)))
++		Expect(r.Limits).To(HaveKey(v1.ResourceCPU))
++		Expect(rsc.podResources.Limits).To(HaveKey(v1.ResourceName(constants.NvidiaGpuResource)), "the shared config is not changed")
++	})
++})
+diff --git a/pkg/binder/binding/resourcereservation/resource_reservation.go b/pkg/binder/binding/resourcereservation/resource_reservation.go
+index c8d47eb..c5144bf 100644
+--- a/pkg/binder/binding/resourcereservation/resource_reservation.go
++++ b/pkg/binder/binding/resourcereservation/resource_reservation.go
+@@ -488,24 +488,38 @@ func (rsc *service) createGPUReservationPod(
+ 
+ 	podName := reservationPodName(nodeName, fractionalGpuGroup.ID)
+ 
++	// oif patch (T-126): the reservation pod holds a whole GPU of the node's kind (amd.com/gpu on an AMD GPU node)
++	node := &amp;v1.Node{}
++	if err := rsc.kubeClient.Get(ctx, client.ObjectKey{Name: nodeName}, node); err != nil {
++		if !apierrors.IsNotFound(err) {
++			return nil, fmt.Errorf("failed to get node %s for the GPU reservation pod: %w", nodeName, err)
++		}
++		node = nil // unknown node: nvidia.com/gpu, as before the patch
++	}
++	gpuResource, amdGpuResource := resources.GpuResourceOfNode(node), resources.AmdGpuResource // before the local shadows the package
++
+ 	// Build resource requirements starting with GPU resources
+ 	resources := v1.ResourceRequirements{
+ 		Limits: v1.ResourceList{
+-			constants.NvidiaGpuResource: *resource.NewQuantity(numberOfGPUsToReserve, resource.DecimalSI),
++			gpuResource: *resource.NewQuantity(numberOfGPUsToReserve, resource.DecimalSI),
+ 		},
+ 		Requests: v1.ResourceList{
+-			constants.NvidiaGpuResource: *resource.NewQuantity(numberOfGPUsToReserve, resource.DecimalSI),
++			gpuResource: *resource.NewQuantity(numberOfGPUsToReserve, resource.DecimalSI),
+ 		},
+ 	}
+ 
+ 	if rsc.podResources != nil {
+ 		if rsc.podResources.Limits != nil {
+-			delete(rsc.podResources.Limits, constants.NvidiaGpuResource)
+-			maps.Copy(resources.Limits, rsc.podResources.Limits)
++			limits := maps.Clone(rsc.podResources.Limits)
++			delete(limits, constants.NvidiaGpuResource)
++			delete(limits, amdGpuResource)
++			maps.Copy(resources.Limits, limits)
+ 		}
+ 		if rsc.podResources.Requests != nil {
+-			delete(rsc.podResources.Requests, constants.NvidiaGpuResource)
+-			maps.Copy(resources.Requests, rsc.podResources.Requests)
++			requests := maps.Clone(rsc.podResources.Requests)
++			delete(requests, constants.NvidiaGpuResource)
++			delete(requests, amdGpuResource)
++			maps.Copy(resources.Requests, requests)
+ 		}
+ 	}
+ 
+diff --git a/pkg/binder/plugins/nvfractions/nv_fractions.go b/pkg/binder/plugins/nvfractions/nv_fractions.go
+index 80355e5..5c23082 100644
+--- a/pkg/binder/plugins/nvfractions/nv_fractions.go
++++ b/pkg/binder/plugins/nvfractions/nv_fractions.go
+@@ -57,6 +57,10 @@ func (p *Plugin) PreBind(
+ 		bindingState.BindingPodAnnotations = map[string]string{}
+ 	}
+ 
++	if resources.IsAmdGpuNode(node) {
++		return setOifAmdShareAnnotations(bindRequest, containerRef.Container.Name, bindingState)
++	}
++
+ 	if err := setNvFractionsMemoryAnnotation(pod, node, bindRequest, containerRef.Container.Name, bindingState); err != nil {
+ 		return fmt.Errorf("failed to set NvFractions memory annotation: %w", err)
+ 	}
+@@ -78,6 +82,26 @@ func (p *Plugin) PreBind(
+ 	return nil
+ }
+ 
++// setOifAmdShareAnnotations (oif patch, T-126): on an AMD GPU node the reserved GPU id is the GPU's PCI address
++// (reported by the reservation pod); oif's NRI plugin gives the container that GPU. No driver limits its memory:
++// the share is passed on for the workload to respect (OIF_GPU_MEMORY_FRACTION).
++func setOifAmdShareAnnotations(bindRequest *v1alpha2.BindRequest, containerName string, bindingState *state.BindingState) error {
++	if len(bindingState.ReservedGPUIds) != 1 {
++		return fmt.Errorf("oif: a pod shares one AMD GPU, got %d reserved", len(bindingState.ReservedGPUIds))
++	}
++	if bindRequest == nil || bindRequest.Spec.ReceivedGPU == nil {
++		return fmt.Errorf("missing received GPU portion for the AMD GPU share")
++	}
++	portion, err := strconv.ParseFloat(bindRequest.Spec.ReceivedGPU.Portion, 64)
++	if err != nil || portion &lt;= 0 || portion &gt; 1 {
++		return fmt.Errorf("invalid received gpu portion %q", bindRequest.Spec.ReceivedGPU.Portion)
++	}
++	bindingState.BindingPodAnnotations[resources.OifAmdGpuAnnotation] = bindingState.ReservedGPUIds[0]
++	bindingState.BindingPodAnnotations[resources.OifAmdGpuContainerAnnotation] = containerName
++	bindingState.BindingPodAnnotations[resources.OifAmdGpuFractionAnnotation] = strconv.FormatFloat(portion, 'f', -1, 64)
++	return nil
++}
++
+ // setNvFractionsMemoryAnnotation computes the allocated GPU memory from the node
+ // total and the received portion and records it as the NvFractions request
+ // annotation. The arithmetic is intentionally kept local to avoid depending on
+diff --git a/pkg/binder/plugins/nvfractions/oif_amd_gpu_test.go b/pkg/binder/plugins/nvfractions/oif_amd_gpu_test.go
+new file mode 100644
+index 0000000..447ef15
+--- /dev/null
++++ b/pkg/binder/plugins/nvfractions/oif_amd_gpu_test.go
+@@ -0,0 +1,56 @@
++package nvfractions
++
++import (
++	"context"
++	"testing"
++
++	"github.com/stretchr/testify/assert"
++	v1 "k8s.io/api/core/v1"
++	"k8s.io/apimachinery/pkg/api/resource"
++	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
++
++	"github.com/kai-scheduler/KAI-scheduler/pkg/apis/scheduling/v1alpha2"
++	bindercommon "github.com/kai-scheduler/KAI-scheduler/pkg/binder/common"
++	"github.com/kai-scheduler/KAI-scheduler/pkg/binder/plugins/state"
++	"github.com/kai-scheduler/KAI-scheduler/pkg/common/resources"
++)
++
++func oifAmdCase(portion string, ids ...string) (*v1.Pod, *v1.Node, *v1alpha2.BindRequest, *state.BindingState) {
++	pod := &amp;v1.Pod{
++		ObjectMeta: metav1.ObjectMeta{Annotations: map[string]string{}},
++		Spec:       v1.PodSpec{Containers: []v1.Container{{Name: "main"}}},
++	}
++	node := &amp;v1.Node{Status: v1.NodeStatus{Allocatable: v1.ResourceList{"amd.com/gpu": resource.MustParse("1")}}}
++	br := &amp;v1alpha2.BindRequest{Spec: v1alpha2.BindRequestSpec{
++		ReceivedResourceType: bindercommon.ReceivedTypeFraction,
++		ReceivedGPU:          &amp;v1alpha2.ReceivedGPU{Portion: portion},
++	}}
++	return pod, node, br, &amp;state.BindingState{ReservedGPUIds: ids}
++}
++
++// oif patch (T-126): on an AMD GPU node the binder names the GPU for oif's NRI plugin instead of NVIDIA's annotations.
++func TestOifPreBindAmdNode(t *testing.T) {
++	pod, node, br, st := oifAmdCase("0.5", "0000:03:00.0")
++	assert.NoError(t, New(false).PreBind(context.Background(), pod, node, br, st))
++	a := st.BindingPodAnnotations
++	assert.Equal(t, "0000:03:00.0", a[resources.OifAmdGpuAnnotation])
++	assert.Equal(t, "main", a[resources.OifAmdGpuContainerAnnotation])
++	assert.Equal(t, "0.5", a[resources.OifAmdGpuFractionAnnotation])
++	assert.Empty(t, a[resources.CalcGpuVisibleDevicesAnnotationForContainer("main")], "no NVIDIA visible devices on an AMD node")
++	assert.Empty(t, a[resources.CalcGpuFractionAnnotationForContainer("main")], "no NVIDIA memory request on an AMD node")
++}
++
++func TestOifPreBindAmdNodeRefused(t *testing.T) {
++	for name, c := range map[string]struct {
++		portion string
++		ids     []string
++	}{
++		"two GPUs":     {"0.5", []string{"0000:03:00.0", "0000:04:00.0"}},
++		"no GPU":       {"0.5", nil},
++		"bad portion":  {"x", []string{"0000:03:00.0"}},
++		"zero portion": {"0", []string{"0000:03:00.0"}},
++	} {
++		pod, node, br, st := oifAmdCase(c.portion, c.ids...)
++		assert.Error(t, New(false).PreBind(context.Background(), pod, node, br, st), name)
++	}
++}
+</pre></div></div></details>
+<details class="patch"><summary><code>patches/kai/v0.18.3/0004-resourcereservation-amd-gpu-device.patch</code> (93 lines added, 0 removed)</summary><div class="inner"><div class="cmd"><button class="copy" type="button">Copy</button><pre>diff --git a/pkg/resourcereservation/discovery/discovery.go b/pkg/resourcereservation/discovery/discovery.go
+index 4663e44..e89bc76 100644
+--- a/pkg/resourcereservation/discovery/discovery.go
++++ b/pkg/resourcereservation/discovery/discovery.go
+@@ -14,6 +14,10 @@ import (
+ func GetGPUDevice(ctx context.Context) (string, error) {
+ 	logger := log.FromContext(ctx)
+ 
++	if id, ok, err := amdGPUDevice(); ok { // oif patch (T-126)
++		return id, err
++	}
++
+ 	ret := nvml.Init()
+ 	if ret != nvml.SUCCESS {
+ 		return "", fmt.Errorf("unable to initialize NVML: %v", nvml.ErrorString(ret))
+diff --git a/pkg/resourcereservation/discovery/oif_amd_gpu.go b/pkg/resourcereservation/discovery/oif_amd_gpu.go
+new file mode 100644
+index 0000000..30ad16c
+--- /dev/null
++++ b/pkg/resourcereservation/discovery/oif_amd_gpu.go
+@@ -0,0 +1,36 @@
++// oif patch (open-inference-fabric T-126): on an AMD GPU node the reservation pod holds an amd.com/gpu; the AMD
++// device plugin gave it /dev/kfd and one render node. The pod reports that GPU's PCI address as its device id, which
++// the binder passes to oif's NRI plugin (oif.ai/amd-gpu).
++
++package discovery
++
++import (
++	"fmt"
++	"os"
++	"path/filepath"
++)
++
++var (
++	oifDevRoot = "/dev"
++	oifSysRoot = "/sys"
++)
++
++// amdGPUDevice returns the PCI address of the one AMD GPU given to this container; ok is false when the container
++// has no AMD GPU (an NVIDIA node), so NVML is asked as before.
++func amdGPUDevice() (id string, ok bool, err error) {
++	if _, err := os.Stat(filepath.Join(oifDevRoot, "kfd")); err != nil {
++		return "", false, nil
++	}
++	nodes, err := filepath.Glob(filepath.Join(oifDevRoot, "dri", "renderD*"))
++	if err != nil {
++		return "", true, err
++	}
++	if len(nodes) != 1 {
++		return "", true, fmt.Errorf("found %d AMD render nodes, 1 was expected", len(nodes))
++	}
++	dev, err := filepath.EvalSymlinks(filepath.Join(oifSysRoot, "class", "drm", filepath.Base(nodes[0]), "device"))
++	if err != nil {
++		return "", true, fmt.Errorf("cannot find the PCI device of %s: %w", nodes[0], err)
++	}
++	return filepath.Base(dev), true, nil
++}
+diff --git a/pkg/resourcereservation/discovery/oif_amd_gpu_test.go b/pkg/resourcereservation/discovery/oif_amd_gpu_test.go
+new file mode 100644
+index 0000000..04e0196
+--- /dev/null
++++ b/pkg/resourcereservation/discovery/oif_amd_gpu_test.go
+@@ -0,0 +1,53 @@
++package discovery
++
++import (
++	"os"
++	"path/filepath"
++	"testing"
++)
++
++// fakeRoots: /dev with kfd and the given render nodes; /sys/class/drm/&lt;node&gt;/device -&gt; a PCI device folder.
++func fakeRoots(t *testing.T, kfd bool, render ...string) {
++	t.Helper()
++	base := t.TempDir()
++	oifDevRoot, oifSysRoot = filepath.Join(base, "dev"), filepath.Join(base, "sys")
++	t.Cleanup(func() { oifDevRoot, oifSysRoot = "/dev", "/sys" })
++	must := func(err error) {
++		if err != nil {
++			t.Fatal(err)
++		}
++	}
++	must(os.MkdirAll(filepath.Join(oifDevRoot, "dri"), 0o755))
++	if kfd {
++		must(os.WriteFile(filepath.Join(oifDevRoot, "kfd"), nil, 0o644))
++	}
++	pci := filepath.Join(oifSysRoot, "devices", "pci0000:00", "0000:03:00.0")
++	must(os.MkdirAll(pci, 0o755))
++	for _, r := range render {
++		must(os.WriteFile(filepath.Join(oifDevRoot, "dri", r), nil, 0o644))
++		must(os.MkdirAll(filepath.Join(oifSysRoot, "class", "drm", r), 0o755))
++		must(os.Symlink(pci, filepath.Join(oifSysRoot, "class", "drm", r, "device")))
++	}
++}
++
++func TestOifAmdGPUDevice(t *testing.T) {
++	fakeRoots(t, true, "renderD128")
++	id, ok, err := amdGPUDevice()
++	if !ok || err != nil || id != "0000:03:00.0" {
++		t.Fatalf("got %q %v %v", id, ok, err)
++	}
++}
++
++func TestOifNoAmdGPU(t *testing.T) {
++	fakeRoots(t, false)
++	if _, ok, _ := amdGPUDevice(); ok {
++		t.Fatal("an NVIDIA node was taken for AMD")
++	}
++}
++
++func TestOifTwoRenderNodes(t *testing.T) {
++	fakeRoots(t, true, "renderD128", "renderD129")
++	if _, ok, err := amdGPUDevice(); !ok || err == nil {
++		t.Fatal("two GPUs accepted")
++	}
++}
+</pre></div></div></details>
+<details class="patch"><summary><code>images/oif-amd-share/share.go</code> (134 lines)</summary><div class="inner"><div class="cmd"><button class="copy" type="button">Copy</button><pre>// T-126 (ADR-032): give a pod that shares an AMD GPU (a GPU fraction placed by KAI) the devices of that GPU. The pod
+// asks for no amd.com/gpu, so the AMD device plugin gives it nothing; KAI's binder names the GPU in an annotation and
+// this NRI plugin adds /dev/kfd and the GPU's DRM nodes when containerd creates the container.
+package main
+
+import (
+	"fmt"
+	"os"
+	"path/filepath"
+	"sort"
+	"strconv"
+	"strings"
+
+	"github.com/containerd/nri/pkg/api"
+)
+
+// Annotations written by KAI's binder (oif patch); a ValidatingAdmissionPolicy keeps everyone else from setting them.
+const (
+	gpuKey       = "oif.ai/amd-gpu"           // PCI address of the shared GPU, e.g. 0000:07:00.0
+	containerKey = "oif.ai/amd-gpu-container" // the container that gets it; all containers when absent
+	fractionKey  = "oif.ai/amd-gpu-fraction"  // the share of the GPU, e.g. 0.5
+	kfd          = "/dev/kfd"
+)
+
+// devNode is what the plugin needs to know about a device file on the host.
+type devNode struct {
+	major, minor int64
+	mode         os.FileMode
+	gid          uint32
+}
+
+type host struct {
+	sysRoot string                             // /sys, or a fake tree in tests
+	stat    func(path string) (devNode, error) // a character device on the host
+}
+
+// adjust returns the changes for one container, nil when the pod shares no AMD GPU or the container is not the one
+// named. An annotated GPU that cannot be found is an error: containerd then refuses the container instead of starting
+// it without its GPU.
+func (h host) adjust(ann map[string]string, ctrName string, ctrDevices, ctrEnv []string) (*api.ContainerAdjustment, error) {
+	bdf, ok := ann[gpuKey]
+	if !ok {
+		return nil, nil
+	}
+	if c, ok := ann[containerKey]; ok &amp;&amp; c != ctrName {
+		return nil, nil
+	}
+	for _, d := range ctrDevices {
+		if d == kfd { // a whole-GPU container: the device plugin already gave it the GPU
+			return nil, nil
+		}
+	}
+	paths, err := h.drmNodes(bdf)
+	if err != nil {
+		return nil, err
+	}
+	a := &amp;api.ContainerAdjustment{}
+	for _, p := range append([]string{kfd}, paths...) {
+		n, err := h.stat(p)
+		if err != nil {
+			return nil, fmt.Errorf("GPU %s: %w", bdf, err)
+		}
+		a.AddDevice(&amp;api.LinuxDevice{Path: p, Type: "c", Major: n.major, Minor: n.minor,
+			FileMode: api.FileMode(uint32(n.mode.Perm())), Gid: api.UInt32(n.gid)})
+	}
+	a.AddEnv("OIF_GPU_PCI", bdf)
+	if f, ok := ann[fractionKey]; ok {
+		if v, err := strconv.ParseFloat(f, 64); err != nil || v &lt;= 0 || v &gt; 1 {
+			return nil, fmt.Errorf("%s=%q is not a fraction between 0 and 1", fractionKey, f)
+		}
+		a.AddEnv("OIF_GPU_MEMORY_FRACTION", f)
+		conf := allocConf(ctrEnv, f)
+		for _, k := range allocConfVars {
+			a.AddEnv(k, conf)
+		}
+	}
+	return a, nil
+}
+
+// PyTorch's GPU allocator settings (the generic name and the two older ones a ROCm build also reads). Every one gets
+// the pod's share as per_process_memory_fraction, so PyTorch (and what runs on it, e.g. vLLM) refuses to allocate
+// more than its share: the soft limit is kept without changing the workload.
+var allocConfVars = []string{"PYTORCH_ALLOC_CONF", "PYTORCH_HIP_ALLOC_CONF", "PYTORCH_CUDA_ALLOC_CONF"}
+
+// allocConf: the image's own allocator settings (the first of allocConfVars it sets) with the share added.
+func allocConf(env []string, fraction string) string {
+	have := map[string]string{}
+	for _, e := range env {
+		if k, v, ok := strings.Cut(e, "="); ok {
+			have[k] = v
+		}
+	}
+	var parts []string
+	for _, k := range allocConfVars {
+		if v, ok := have[k]; ok {
+			for _, p := range strings.Split(v, ",") {
+				if p = strings.TrimSpace(p); p != "" &amp;&amp; !strings.HasPrefix(p, "per_process_memory_fraction:") {
+					parts = append(parts, p)
+				}
+			}
+			break
+		}
+	}
+	return strings.Join(append(parts, "per_process_memory_fraction:"+fraction), ",")
+}
+
+// drmNodes lists the /dev/dri nodes of the GPU at a PCI address (its card and render node).
+func (h host) drmNodes(bdf string) ([]string, error) {
+	if !validBDF(bdf) { // also keeps the value from walking out of the sysfs folder
+		return nil, fmt.Errorf("%s=%q is not a PCI address", gpuKey, bdf)
+	}
+	entries, err := os.ReadDir(filepath.Join(h.sysRoot, "bus/pci/devices", bdf, "drm"))
+	if err != nil {
+		return nil, fmt.Errorf("GPU %s not on this node: %w", bdf, err)
+	}
+	var paths []string
+	for _, e := range entries {
+		if n := e.Name(); strings.HasPrefix(n, "card") || strings.HasPrefix(n, "renderD") {
+			paths = append(paths, "/dev/dri/"+n)
+		}
+	}
+	if len(paths) == 0 {
+		return nil, fmt.Errorf("GPU %s has no DRM device (is amdgpu bound to it?)", bdf)
+	}
+	sort.Strings(paths)
+	return paths, nil
+}
+
+// validBDF accepts domain:bus:device.function in hex, e.g. 0000:07:00.0.
+func validBDF(s string) bool {
+	var d, b, dev, fn uint
+	n, err := fmt.Sscanf(s, "%4x:%2x:%2x.%1x", &amp;d, &amp;b, &amp;dev, &amp;fn)
+	return err == nil &amp;&amp; n == 4 &amp;&amp; len(s) == 12
+}
+</pre></div></div></details>
+<details class="patch"><summary><code>images/oif-amd-share/main.go</code> (62 lines)</summary><div class="inner"><div class="cmd"><button class="copy" type="button">Copy</button><pre>package main
+
+import (
+	"context"
+	"flag"
+	"fmt"
+	"log"
+	"os"
+	"syscall"
+
+	"github.com/containerd/nri/pkg/api"
+	"github.com/containerd/nri/pkg/stub"
+	"golang.org/x/sys/unix"
+)
+
+type plugin struct{ host host }
+
+func (p *plugin) CreateContainer(_ context.Context, pod *api.PodSandbox, ctr *api.Container) (*api.ContainerAdjustment, []*api.ContainerUpdate, error) {
+	var have []string
+	for _, d := range ctr.GetLinux().GetDevices() {
+		have = append(have, d.Path)
+	}
+	a, err := p.host.adjust(pod.GetAnnotations(), ctr.GetName(), have, ctr.GetEnv())
+	name := pod.GetNamespace() + "/" + pod.GetName() + "/" + ctr.GetName()
+	if err != nil {
+		log.Printf("%s: %v", name, err)
+		return nil, nil, err
+	}
+	if a != nil {
+		log.Printf("%s: AMD GPU %s shared (%d devices)", name, pod.GetAnnotations()[gpuKey], len(a.GetLinux().GetDevices()))
+	}
+	return a, nil, nil
+}
+
+// statDevice reads a character device on the host (the plugin runs with the host's /dev).
+func statDevice(path string) (devNode, error) {
+	fi, err := os.Stat(path)
+	if err != nil {
+		return devNode{}, err
+	}
+	st, ok := fi.Sys().(*syscall.Stat_t)
+	if !ok || fi.Mode()&amp;os.ModeCharDevice == 0 {
+		return devNode{}, fmt.Errorf("%s is not a character device", path)
+	}
+	rdev := uint64(st.Rdev) // already uint64 on amd64; other platforms need the conversion
+	return devNode{major: int64(unix.Major(rdev)), minor: int64(unix.Minor(rdev)), mode: fi.Mode(), gid: st.Gid}, nil
+}
+
+func main() {
+	idx := flag.String("idx", "90", "NRI plugin index (order among plugins)")
+	flag.Parse()
+	log.SetFlags(0)
+	p := &amp;plugin{host: host{sysRoot: "/sys", stat: statDevice}}
+	s, err := stub.New(p, stub.WithPluginName("oif-amd-share"), stub.WithPluginIdx(*idx))
+	if err != nil {
+		log.Fatalf("NRI stub: %v", err)
+	}
+	log.Printf("oif-amd-share: registered with containerd (NRI index %s)", *idx)
+	if err := s.Run(context.Background()); err != nil {
+		log.Fatalf("NRI plugin stopped: %v", err)
+	}
+}
+</pre></div></div></details>
+<details class="patch"><summary><code>platform/gpu-amd/amd-share.yaml</code> (78 lines)</summary><div class="inner"><div class="cmd"><button class="copy" type="button">Copy</button><pre># T-126 (ADR-032): GPU fractions on AMD GPUs. KAI's binder (patched by oif) names the shared GPU in pod annotations
+# oif.ai/amd-gpu*; the oif-amd-share NRI plugin on every AMD GPU node gives that pod the GPU's devices when containerd
+# creates its containers. The policy lets only the binder set those annotations: anyone else could otherwise give a
+# pod a GPU outside Run:ai's quotas. Rendered by stage amd-fractions; ${...} from the installer.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: oif-system
+  labels: {app.kubernetes.io/managed-by: oif}
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: oif-amd-share
+  namespace: oif-system
+  labels: {app.kubernetes.io/managed-by: oif, app: oif-amd-share}
+spec:
+  selector:
+    matchLabels: {app: oif-amd-share}
+  template:
+    metadata:
+      labels: {app: oif-amd-share}
+    spec:
+      nodeSelector: {oif.ai/gpu-vendor: amd}
+      priorityClassName: system-node-critical
+      automountServiceAccountToken: false
+      containers:
+        - name: plugin
+          image: ${AMD_SHARE_IMAGE}
+          imagePullPolicy: IfNotPresent   # built by oif, loaded on every node
+          command: [/oif-amd-share]
+          # root for containerd's NRI socket; reads the host's /dev (device numbers) and /sys (which GPU is which)
+          securityContext: {runAsUser: 0, readOnlyRootFilesystem: true, allowPrivilegeEscalation: false, capabilities: {drop: [ALL]}}
+          resources:
+            requests: {cpu: 10m, memory: 16Mi}
+            limits: {memory: 64Mi}
+          volumeMounts:
+            - {name: nri, mountPath: /var/run/nri}
+            - {name: dev, mountPath: /dev, readOnly: true}
+      volumes:
+        - {name: nri, hostPath: {path: /var/run/nri, type: Directory}}
+        - {name: dev, hostPath: {path: /dev, type: Directory}}
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: oif-amd-share-annotations
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: ["v1"]
+        operations: ["CREATE", "UPDATE"]
+        resources: ["pods"]
+  variables:
+    - name: mine
+      expression: &gt;-
+        has(object.metadata.annotations) ?
+          object.metadata.annotations.filter(k, k.startsWith('oif.ai/amd-gpu')).map(k, k + '=' + object.metadata.annotations[k]) : []
+    - name: before
+      expression: &gt;-
+        request.operation == 'UPDATE' &amp;&amp; has(oldObject.metadata.annotations) ?
+          oldObject.metadata.annotations.filter(k, k.startsWith('oif.ai/amd-gpu')).map(k, k + '=' + oldObject.metadata.annotations[k]) : []
+  validations:
+    - expression: &gt;-
+        request.userInfo.username == '${KAI_BINDER_USER}' ||
+        (size(variables.mine) == size(variables.before) &amp;&amp; variables.mine.all(a, a in variables.before))
+      message: "oif: only KAI's binder sets the oif.ai/amd-gpu annotations (they give a pod a shared AMD GPU; ADR-032)"
+      reason: Forbidden
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  name: oif-amd-share-annotations
+spec:
+  policyName: oif-amd-share-annotations
+  validationActions: [Deny]
+</pre></div></div></details>
+<h2 id="troubleshooting"><span class="n">14</span>When something goes wrong</h2>
+<div class="table"><table><thead><tr><th>Symptom</th><th>Fix</th></tr></thead><tbody><tr><td><code>cluster key is not on every node</code> during the install</td><td>your SSH agent did not reach sudo: log in with <code>ssh -A</code> and use <code>sudo --preserve-env=SSH_AUTH_SOCK ./oif install</code></td></tr><tr><td>A GPU VM does not see its GPU (lab)</td><td><code>./lab check</code> on the host: each GPU must be in its own IOMMU group and not drive the host's screen</td></tr><tr><td>The Run:ai page stays on "Getting everything ready"</td><td>a slow link to the lab: wait, do not force-reload. Fresh browser on 115 KB/s: about 80 s</td></tr><tr><td>A workload stays Pending with <code>NonPreemptibleOverQuota</code></td><td>the project's quota in that pool is used: that is the quota working</td></tr><tr><td>A workload without a pool waits in <code>default</code></td><td>the project has its own pool order: put <code>nvidia</code>/<code>amd</code> first in the form's <b>Nodes</b> section</td></tr><tr><td>An AMD slice runs on the NVIDIA GPU</td><td>the form listed <code>nvidia</code> first: keep only <code>amd</code> in <b>Nodes</b>, or use a <code>rocm-half-gpu</code> template</td></tr><tr><td>An AMD slice is stuck in ContainerCreating: <code>no runtime for "nvidia" is configured</code></td><td>run <code>sudo ./oif install</code> again (node stage <code>amd-runtime</code>)</td></tr><tr><td>An AMD slice runs but sees no GPU</td><td>the oif-amd-share plugin was not running when it started: <code>kubectl -n oif-system get pods</code>, then delete the workload's pod so it starts again</td></tr><tr><td><code>forbidden: ValidatingAdmissionPolicy 'oif-amd-share-annotations'</code></td><td>only Run:ai's scheduler may set <code>oif.ai/amd-gpu</code>: ask for a slice (<code>gpu-fraction</code>) instead</td></tr><tr><td>A Jupyter link stays blank</td><td>open it in a new private window; if its proxy logs <code>session does not exist</code>, run <code>sudo ./oif install</code> (one <code>cluster-redis</code> copy)</td></tr><tr><td>vLLM fails to start on half an AMD GPU</td><td>it asks for 90 % of the memory by default: set <code>--gpu-memory-utilization 0.45</code></td></tr><tr><td>A pod is refused: asks for NVIDIA and AMD GPUs</td><td>split it into one workload per vendor</td></tr></tbody></table></div>
+<h2 id="limits"><span class="n">15</span>Limits</h2>
+<ul><li><b>AMD slice memory is soft</b>: PyTorch keeps to its share automatically; other programs must respect</li></ul>
+<p>  <code>OIF_GPU_MEMORY_FRACTION</code>. <code>amd-smi</code> always shows the whole card.</p>
+<ul><li><b>Tested</b> with one GPU per server (W7900, A6000). AMD slices by memory in GiB (instead of % of the device), and more</li></ul>
+<p>  than one AMD GPU per node, are not tested yet.</p>
+<ul><li>A node with GPUs of <b>both vendors</b> works for whole GPUs, but AMD slices need nodes with AMD GPUs only.</li><li>oif's patches are built for Run:ai 3.0.20 and KAI v0.18.3; a new Run:ai release needs the patches checked again.</li><li>A control-plane node off for longer than about 20 hours needs its database copy rebuilt (<a href="#ha">High availability</a>).</li><li>The Radeon PRO W7900 runs hot at full load (it reaches its power cap); watch it in long benchmarks.</li></ul>
+<h2 id="cleanup"><span class="n">16</span>Remove everything</h2>
+<p>On the first node (type <code>wipe</code> to confirm):</p>
+<div class="cmd"><button class="copy" type="button">Copy</button><pre>sudo ./oif uninstall</pre></div>
+<p>It returns every node to its state before oif: Kubernetes, Run:ai, drivers and every file it wrote, each node from its own record. For the lab, deleting the VMs also removes everything inside them:</p>
+<div class="cmd"><button class="copy" type="button">Copy</button><pre>sudo ./lab destroy<span class="c">                 # on the lab host: VMs, disks and network gone</span>
+sudo ./lab host-clean<span class="c">              # also undo the host setup (KVM packages, GPUs on vfio-pci)</span></pre></div>
+</main>
+</div>
+<script>
+document.querySelectorAll('.copy').forEach(function (b) {
+  b.addEventListener('click', function () {
+    var pre = b.parentElement.querySelector('pre'), text = pre.innerText;
+    function done(msg) { b.textContent = msg; setTimeout(function () { b.textContent = 'Copy'; }, 1500); }
+    try {
+      navigator.clipboard.writeText(text).then(function () { done('Copied'); }, function () { select(pre); done('Select + Ctrl+C'); });
+    } catch (e) { select(pre); done('Select + Ctrl+C'); }
+  });
+});
+function select(el) { var r = document.createRange(); r.selectNodeContents(el); var s = window.getSelection(); s.removeAllRanges(); s.addRange(r); }
+</script>
+</body></html>
